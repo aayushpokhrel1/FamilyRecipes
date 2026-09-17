@@ -19,14 +19,11 @@ export async function ensureTag(familyId: string, name: string): Promise<Tag> {
   return data as Tag;
 }
 
+// Atomic delete + insert in one tx via RPC, so a failed insert can no longer
+// leave a recipe with all its tags stripped and none re-applied.
 export async function setRecipeTags(recipeId: string, tagIds: string[]): Promise<void> {
-  const { error } = await supabase.from("recipe_tags").delete().eq("recipe_id", recipeId);
+  const { error } = await supabase.rpc("set_recipe_tags", { p_recipe_id: recipeId, p_tag_ids: tagIds });
   if (error) throw new Error(error.message);
-  if (tagIds.length) {
-    const rows = tagIds.map((tag_id) => ({ recipe_id: recipeId, tag_id }));
-    const { error: iErr } = await supabase.from("recipe_tags").insert(rows);
-    if (iErr) throw new Error(iErr.message);
-  }
 }
 
 export async function recipeIdsForTag(tagId: string): Promise<string[]> {
