@@ -43,25 +43,17 @@ export async function updateRecipe(id: string, patch: Partial<RecipeDraft> & { v
     if (error) throw new Error(error.message);
   }
 
-  if (patch.ingredients) {
-    const { error: dErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", id);
-    if (dErr) throw new Error(dErr.message);
-    if (patch.ingredients.length) {
-      const rows = patch.ingredients.map((g, i) => ({
-        recipe_id: id, position: i, quantity: g.quantity, unit: g.unit, item: g.item }));
-      const { error: iErr } = await supabase.from("recipe_ingredients").insert(rows);
-      if (iErr) throw new Error(iErr.message);
-    }
-  }
-
-  if (patch.steps) {
-    const { error: dErr } = await supabase.from("recipe_steps").delete().eq("recipe_id", id);
-    if (dErr) throw new Error(dErr.message);
-    if (patch.steps.length) {
-      const rows = patch.steps.map((s, i) => ({ recipe_id: id, position: i, text: s.text }));
-      const { error: sErr } = await supabase.from("recipe_steps").insert(rows);
-      if (sErr) throw new Error(sErr.message);
-    }
+  // Replace ingredients and/or steps atomically (delete + insert in one tx) via
+  // an RPC, so a mid-update failure can no longer leave a recipe with its old
+  // rows deleted and no new ones inserted. Position is assigned server-side by
+  // array order. null = leave as is; [] = clear.
+  if (patch.ingredients !== undefined || patch.steps !== undefined) {
+    const { error } = await supabase.rpc("replace_recipe_children", {
+      p_recipe_id: id,
+      p_ingredients: patch.ingredients ?? null,
+      p_steps: patch.steps ?? null,
+    });
+    if (error) throw new Error(error.message);
   }
 }
 
