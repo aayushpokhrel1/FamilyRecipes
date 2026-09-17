@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteRecipe, getRecipe } from "../lib/api/recipes";
 import type { Ingredient, Recipe, Step } from "../lib/api/types";
+import CommentThread from "../components/CommentThread";
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -76,6 +77,7 @@ export default function RecipeDetail() {
           <p>{recipe.provenance}</p>
         </>
       )}
+      {id && <CommentThread recipeId={id} />}
     </div>
   );
 }
