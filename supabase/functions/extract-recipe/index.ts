@@ -83,15 +83,21 @@ Deno.serve(async (req) => {
   }
 
   const key = Deno.env.get("MODEL_API_KEY");
-  if (!key) return json({ error: "model not configured" }, 501);
+  const baseUrl = Deno.env.get("MODEL_BASE_URL");
+  // Keyless local gateways (e.g. OmniRoute) set a base URL but no key. Treat the
+  // model as configured if either is present; only a bare default with no config
+  // at all is "not configured".
+  if (!key && !baseUrl) return json({ error: "model not configured" }, 501);
 
-  const baseUrl = Deno.env.get("MODEL_BASE_URL") ?? "https://api.deepseek.com/v1";
+  const base = (baseUrl ?? "https://api.deepseek.com/v1").replace(/\/$/, "");
   const model = Deno.env.get("MODEL_NAME") ?? "deepseek-chat";
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (key) headers.authorization = `Bearer ${key}`; // omit for keyless gateways
 
   try {
-    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const res = await fetch(`${base}/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      headers,
       body: JSON.stringify({
         model,
         messages: [
