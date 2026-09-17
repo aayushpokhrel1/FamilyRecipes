@@ -59,13 +59,23 @@ Deno.serve(async (req) => {
   const mode = body.mode ?? "text";
   const payload = body.payload ?? "";
 
+  // Image and audio need a vision / transcription model, which is not wired yet.
+  // Reject them clearly instead of sending a base64 data URL to a text model,
+  // which silently returns garbage. Re-enable when such a model is configured.
+  if (mode === "image" || mode === "audio") {
+    return json({ error: "image and audio extraction are not available yet" }, 501);
+  }
+
   // URL fast path: embedded JSON-LD Recipe costs nothing and is exact.
   let inputText = payload;
   if (mode === "url") {
     try {
       const html = await (await fetch(payload)).text();
       const draft = parseRecipeJsonLd(html);
-      if (draft) return json(draft, 200);
+      if (draft) {
+        draft.source_url = payload; // keep the source link for provenance
+        return json(draft, 200);
+      }
       inputText = html;
     } catch (err) {
       return json({ error: `could not fetch url: ${String(err)}` }, 502);
@@ -96,7 +106,9 @@ Deno.serve(async (req) => {
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (typeof content !== "string") return json({ error: "model returned no content" }, 502);
-    return json(parseModelJson(content), 200);
+    const parsed = parseModelJson(content) as Record<string, unknown>;
+    if (mode === "url") parsed.source_url = payload; // keep the source link for provenance
+    return json(parsed, 200);
   } catch (err) {
     return json({ error: `model call failed: ${String(err)}` }, 502);
   }
