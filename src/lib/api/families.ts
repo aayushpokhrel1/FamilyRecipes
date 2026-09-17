@@ -19,14 +19,11 @@ export async function createFamily(name: string): Promise<Family> {
 }
 
 export async function joinByCode(code: string): Promise<Family> {
-  const uid = await myId();
-  const { data: fam, error } = await supabase.from("families")
-    .select("*").eq("invite_code", code).single();
-  if (error || !fam) throw new Error("Invalid invite code");
-  const { error: mErr } = await supabase.from("family_members")
-    .insert({ family_id: fam.id, user_id: uid, role: "member" });
-  if (mErr && !mErr.message.includes("duplicate")) throw new Error(mErr.message);
-  return fam as Family;
+  // A non-member cannot select a family by code under RLS, so joining goes
+  // through a SECURITY DEFINER RPC that looks up the family and adds the caller.
+  const { data, error } = await supabase.rpc("join_family_by_code", { p_code: code });
+  if (error) throw new Error(error.message);
+  return data as Family;
 }
 
 export async function listMyFamilies(): Promise<Family[]> {
