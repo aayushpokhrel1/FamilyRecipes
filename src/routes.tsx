@@ -6,6 +6,8 @@ import Families from "./pages/Families";
 import JoinByCode from "./pages/JoinByCode";
 import RecipeList from "./pages/RecipeList";
 import RecipeCreate from "./pages/RecipeCreate";
+import RecipeDetail from "./pages/RecipeDetail";
+import RecipeEdit from "./pages/RecipeEdit";
 
 export default function AppRoutes() {
   return (
@@ -25,6 +27,22 @@ export default function AppRoutes() {
         element={
           <RequireAuth>
             <RecipeCreate />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/recipes/:id"
+        element={
+          <RequireAuth>
+            <RecipeDetail />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/recipes/:id/edit"
+        element={
+          <RequireAuth>
+            <RecipeEdit />
           </RequireAuth>
         }
       />
