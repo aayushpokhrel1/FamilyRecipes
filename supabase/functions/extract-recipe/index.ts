@@ -59,11 +59,10 @@ Deno.serve(async (req) => {
   const mode = body.mode ?? "text";
   const payload = body.payload ?? "";
 
-  // Image and audio need a vision / transcription model, which is not wired yet.
-  // Reject them clearly instead of sending a base64 data URL to a text model,
-  // which silently returns garbage. Re-enable when such a model is configured.
-  if (mode === "image" || mode === "audio") {
-    return json({ error: "image and audio extraction are not available yet" }, 501);
+  // Audio needs a transcription endpoint, which is not wired. Image is handled
+  // below as a multimodal message and requires a vision-capable MODEL_NAME.
+  if (mode === "audio") {
+    return json({ error: "audio extraction is not available yet" }, 501);
   }
 
   // URL fast path: embedded JSON-LD Recipe costs nothing and is exact.
@@ -102,7 +101,14 @@ Deno.serve(async (req) => {
         model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT + "\nSchema: " + JSON.stringify(DRAFT_SCHEMA) },
-          { role: "user", content: inputText },
+          // Image mode sends the photo as a multimodal message (needs a vision
+          // model); text/url send the plain text extracted above.
+          mode === "image"
+            ? { role: "user", content: [
+                { type: "text", text: "Extract the recipe shown in this image." },
+                { type: "image_url", image_url: { url: payload } },
+              ] }
+            : { role: "user", content: inputText },
         ],
       }),
     });
