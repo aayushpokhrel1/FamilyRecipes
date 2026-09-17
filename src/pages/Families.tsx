@@ -35,13 +35,20 @@ export default function Families() {
   return (
     <div>
       <h1>Families</h1>
-      <ul>
-        {families.map((f) => (
-          <li key={f.id}>
-            {f.name} — {f.invite_code}
-          </li>
-        ))}
-      </ul>
+      {families.length === 0 ? (
+        <p>
+          You don't have any families yet. Create one below, or join an existing
+          family with an invite code.
+        </p>
+      ) : (
+        <ul>
+          {families.map((f) => (
+            <li key={f.id}>
+              {f.name} — {f.invite_code}
+            </li>
+          ))}
+        </ul>
+      )}
       {error && <p role="alert">{error}</p>}
       <form onSubmit={handleCreate}>
         <h2>Create family</h2>

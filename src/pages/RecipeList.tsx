@@ -9,6 +9,7 @@ import RecipeCard from "../components/RecipeCard";
 export default function RecipeList() {
   const { activeFamily } = useFamily();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [tagId, setTagId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -19,16 +20,20 @@ export default function RecipeList() {
     listTags(activeFamily.id).then(setTags).catch(() => setTags([]));
   }, [activeFamily]);
 
+  // Debounce only the search text; the initial load and tag/family changes
+  // fetch immediately (a debounced initial load made the list test flaky).
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     if (!activeFamily) return;
     setLoading(true);
-    const timer = setTimeout(() => {
-      listRecipes(activeFamily.id, { search, tagId: tagId || undefined })
-        .then(setRecipes)
-        .finally(() => setLoading(false));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [activeFamily, search, tagId]);
+    listRecipes(activeFamily.id, { search: debouncedSearch, tagId: tagId || undefined })
+      .then(setRecipes)
+      .finally(() => setLoading(false));
+  }, [activeFamily, debouncedSearch, tagId]);
 
   return (
     <div>

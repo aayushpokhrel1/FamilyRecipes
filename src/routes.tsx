@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import RequireAuth from "./components/RequireAuth";
+import AppLayout from "./components/AppLayout";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Families from "./pages/Families";
@@ -16,61 +17,20 @@ export default function AppRoutes() {
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
       <Route
-        path="/"
         element={
           <RequireAuth>
-            <RecipeList />
+            <AppLayout />
           </RequireAuth>
         }
-      />
-      <Route
-        path="/recipes/new"
-        element={
-          <RequireAuth>
-            <RecipeCreate />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/recipes/:id"
-        element={
-          <RequireAuth>
-            <RecipeDetail />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/recipes/:id/edit"
-        element={
-          <RequireAuth>
-            <RecipeEdit />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/recipes/:id/cook"
-        element={
-          <RequireAuth>
-            <CookMode />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/families"
-        element={
-          <RequireAuth>
-            <Families />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/join/:code"
-        element={
-          <RequireAuth>
-            <JoinByCode />
-          </RequireAuth>
-        }
-      />
+      >
+        <Route index element={<RecipeList />} />
+        <Route path="families" element={<Families />} />
+        <Route path="recipes/new" element={<RecipeCreate />} />
+        <Route path="recipes/:id" element={<RecipeDetail />} />
+        <Route path="recipes/:id/edit" element={<RecipeEdit />} />
+        <Route path="recipes/:id/cook" element={<CookMode />} />
+        <Route path="join/:code" element={<JoinByCode />} />
+      </Route>
     </Routes>
   );
 }
