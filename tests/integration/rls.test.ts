@@ -77,3 +77,15 @@ test("a user can join a family by invite code and then read its recipes", async 
   asBob = await bob.client.from("recipes").select("id").eq("id", rec!.id);
   expect(asBob.data).toHaveLength(1);
 });
+
+test("a user can create a family through RLS (insert + select returns the row)", async () => {
+  // Regression: createFamily does insert(...).select(), whose RETURNING makes
+  // Postgres apply the SELECT policy to the new row. Before 0007 the creator was
+  // not yet a member, so the membership-only read policy rejected their own
+  // family and the insert failed. This mirrors the real client call.
+  const dan = await makeUser(`dan${Date.now()}@t.dev`);
+  const { data, error } = await dan.client.from("families")
+    .insert({ name: "Dan Fam", created_by: dan.id }).select().single();
+  expect(error).toBeNull();
+  expect(data?.name).toBe("Dan Fam");
+});
