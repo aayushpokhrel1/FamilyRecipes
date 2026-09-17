@@ -33,6 +33,29 @@ function parseModelJson(content: string): unknown {
   }
 }
 
+// Send a base64 data-URL audio clip to an OpenAI-compatible transcription
+// endpoint (Groq Whisper by default) and return the plain-text transcript.
+async function transcribe(dataUrl: string, base: string, model: string, key: string): Promise<string> {
+  const comma = dataUrl.indexOf(",");
+  const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+  const mime = comma >= 0 ? (dataUrl.slice(5, comma).split(";")[0] || "audio/webm") : "audio/webm";
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const ext = mime.includes("webm") ? "webm" : mime.includes("ogg") ? "ogg"
+    : mime.includes("wav") ? "wav" : mime.includes("mp4") || mime.includes("m4a") ? "m4a"
+    : mime.includes("mpeg") || mime.includes("mp3") ? "mp3" : "webm";
+  const form = new FormData();
+  form.append("file", new Blob([bytes], { type: mime }), `audio.${ext}`);
+  form.append("model", model);
+  form.append("response_format", "text");
+  const res = await fetch(`${base}/audio/transcriptions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${key}` }, // FormData sets its own content-type boundary
+    body: form,
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  return (await res.text()).trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: cors });
@@ -59,14 +82,24 @@ Deno.serve(async (req) => {
   const mode = body.mode ?? "text";
   const payload = body.payload ?? "";
 
-  // Audio needs a transcription endpoint, which is not wired. Image is handled
-  // below as a multimodal message and requires a vision-capable MODEL_NAME.
+  let inputText = payload;
+
+  // Audio: transcribe to text via a Whisper-style endpoint (Groq by default),
+  // then extract exactly like pasted text. Image is handled below as a
+  // multimodal message and needs a vision-capable MODEL_NAME.
   if (mode === "audio") {
-    return json({ error: "audio extraction is not available yet" }, 501);
+    const tKey = Deno.env.get("TRANSCRIBE_API_KEY");
+    if (!tKey) return json({ error: "audio transcription not configured" }, 501);
+    const tBase = (Deno.env.get("TRANSCRIBE_BASE_URL") ?? "https://api.groq.com/openai/v1").replace(/\/$/, "");
+    const tModel = Deno.env.get("TRANSCRIBE_MODEL") ?? "whisper-large-v3-turbo";
+    try {
+      inputText = await transcribe(payload, tBase, tModel, tKey);
+    } catch (err) {
+      return json({ error: `transcription failed: ${String(err)}` }, 502);
+    }
   }
 
   // URL fast path: embedded JSON-LD Recipe costs nothing and is exact.
-  let inputText = payload;
   if (mode === "url") {
     try {
       const html = await (await fetch(payload)).text();

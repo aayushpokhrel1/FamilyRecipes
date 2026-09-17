@@ -1,16 +1,16 @@
-import { useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { extractRecipe } from "../lib/api/extract";
 import type { RecipeDraft } from "../lib/api/types";
 
-// Audio is intentionally omitted: it needs a transcription endpoint, which is
-// not wired. Image works only when the edge function's MODEL_NAME is a vision
-// model (the function sends the photo as a multimodal message).
-type Mode = "text" | "url" | "image";
+// Image needs a vision MODEL_NAME; audio needs the edge function's TRANSCRIBE_*
+// (Groq Whisper) configured. Both fail with a clear message otherwise.
+type Mode = "text" | "url" | "image" | "audio";
 
 const modes: { mode: Mode; label: string }[] = [
   { mode: "text", label: "Paste / write text" },
   { mode: "url", label: "URL" },
   { mode: "image", label: "Photo" },
+  { mode: "audio", label: "Voice" },
 ];
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -27,7 +27,15 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+
+  const voiceSupported =
+    typeof navigator !== "undefined" &&
+    !!navigator.mediaDevices &&
+    typeof window !== "undefined" &&
+    !!window.MediaRecorder;
 
   async function run(m: Mode, payload: string) {
     setError(null);
@@ -56,6 +64,37 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  async function handleRecord() {
+    if (!voiceSupported) return;
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        try {
+          const base64 = await blobToBase64(new Blob(chunks, { type: recorder.mimeType }));
+          await run("audio", base64);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      };
+      recorder.start();
+      setRecording(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function stopRecording() {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
   }
 
   return (
@@ -91,11 +130,28 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
           <input type="file" accept="image/*" onChange={handleFile} disabled={loading} />
         </label>
       )}
+      {mode === "audio" && (
+        <div>
+          {voiceSupported ? (
+            <>
+              <button type="button" onClick={handleRecord} disabled={loading || recording}>
+                Record
+              </button>
+              <button type="button" onClick={stopRecording} disabled={!recording}>
+                Stop
+              </button>
+            </>
+          ) : (
+            <p>Voice capture not supported in this browser</p>
+          )}
+        </div>
+      )}
       {(mode === "text" || mode === "url") && (
         <button type="button" onClick={handleSubmit} disabled={loading}>
           Extract
         </button>
       )}
+      {recording && <p>Recording… tap Stop when done.</p>}
       {loading && <p>Extracting…</p>}
       {error && <p role="alert">{error}</p>}
     </div>
