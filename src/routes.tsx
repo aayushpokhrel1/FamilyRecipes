@@ -8,6 +8,7 @@ import RecipeList from "./pages/RecipeList";
 import RecipeCreate from "./pages/RecipeCreate";
 import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
+import CookMode from "./pages/CookMode";
 
 export default function AppRoutes() {
   return (
@@ -43,6 +44,14 @@ export default function AppRoutes() {
         element={
           <RequireAuth>
             <RecipeEdit />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/recipes/:id/cook"
+        element={
+          <RequireAuth>
+            <CookMode />
           </RequireAuth>
         }
       />
