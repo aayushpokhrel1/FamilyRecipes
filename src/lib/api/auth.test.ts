@@ -1,11 +1,11 @@
-import { vi, test, expect, beforeEach } from "vitest";
+import { vi, test, expect } from "vitest";
 vi.mock("../supabaseClient", () => ({
   supabase: { auth: {
     signInWithPassword: vi.fn().mockResolvedValue({ data: { user: { id: "u1" } }, error: null }),
     signOut: vi.fn().mockResolvedValue({ error: null }),
   }},
 }));
-import { signIn, signOut } from "./auth";
+import { signIn } from "./auth";
 
 test("signIn returns the user on success", async () => {
   const u = await signIn("a@b.dev", "pw");
