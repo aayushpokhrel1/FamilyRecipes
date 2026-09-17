@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { createRecipe } from "../lib/api/recipes";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
+import AiPrefillPanel from "../components/AiPrefillPanel";
 import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
 import VisibilitySelect from "../components/VisibilitySelect";
@@ -30,6 +31,10 @@ export default function RecipeCreate() {
   const [visibility, setVisibility] = useState<Visibility>("family");
   const [error, setError] = useState<string | null>(null);
 
+  function handleDraft(d: RecipeDraft) {
+    setDraft(d);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!activeFamily) return;
@@ -51,6 +56,7 @@ export default function RecipeCreate() {
         </p>
       )}
       {error && <p role="alert">{error}</p>}
+      <AiPrefillPanel onDraft={handleDraft} />
       <form onSubmit={handleSubmit}>
         <IngredientEditor
           items={draft.ingredients}
