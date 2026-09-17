@@ -86,7 +86,18 @@ export async function listRecipes(familyId: string, opts: { search?: string; tag
     if (ids.length === 0) return [];
     q = q.in("id", ids);
   }
-  if (opts.search) q = q.ilike("title", `%${opts.search}%`);
+  if (opts.search) {
+    const s = opts.search.replace(/[,()\\]/g, " ").trim();
+    if (s) {
+      const { data: ingRows, error: ingErr } = await supabase
+        .from("recipe_ingredients").select("recipe_id").ilike("item", `%${s}%`);
+      if (ingErr) throw new Error(ingErr.message);
+      const ingIds = Array.from(new Set((ingRows ?? []).map((r: any) => r.recipe_id)));
+      q = ingIds.length
+        ? q.or(`title.ilike.%${s}%,id.in.(${ingIds.join(",")})`)
+        : q.or(`title.ilike.%${s}%`);
+    }
+  }
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as Recipe[];
