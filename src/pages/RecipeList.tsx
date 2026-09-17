@@ -2,25 +2,33 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { listRecipes } from "../lib/api/recipes";
-import type { Recipe } from "../lib/api/types";
+import { listTags } from "../lib/api/tags";
+import type { Recipe, Tag } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
 
 export default function RecipeList() {
   const { activeFamily } = useFamily();
   const [search, setSearch] = useState("");
+  const [tagId, setTagId] = useState("");
+  const [tags, setTags] = useState<Tag[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!activeFamily) return;
+    listTags(activeFamily.id).then(setTags).catch(() => setTags([]));
+  }, [activeFamily]);
+
+  useEffect(() => {
+    if (!activeFamily) return;
     setLoading(true);
     const timer = setTimeout(() => {
-      listRecipes(activeFamily.id, { search })
+      listRecipes(activeFamily.id, { search, tagId: tagId || undefined })
         .then(setRecipes)
         .finally(() => setLoading(false));
     }, 300);
     return () => clearTimeout(timer);
-  }, [activeFamily, search]);
+  }, [activeFamily, search, tagId]);
 
   return (
     <div>
@@ -30,6 +38,14 @@ export default function RecipeList() {
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search recipes"
       />
+      <select value={tagId} onChange={(e) => setTagId(e.target.value)}>
+        <option value="">All tags</option>
+        {tags.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
       <Link to="/recipes/new">New recipe</Link>
       {!activeFamily && (
         <p>

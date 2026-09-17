@@ -1,10 +1,12 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecipe, updateRecipe } from "../lib/api/recipes";
+import { getRecipeTagIds, setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
+import TagPicker from "../components/TagPicker";
 import VisibilitySelect from "../components/VisibilitySelect";
 
 function toNumber(value: string): number | null {
@@ -17,6 +19,8 @@ export default function RecipeEdit() {
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("family");
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [familyId, setFamilyId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +41,8 @@ export default function RecipeEdit() {
           source_url: recipe.source_url,
         });
         setVisibility(recipe.visibility);
+        setFamilyId(recipe.family_id);
+        return getRecipeTagIds(id).then(setTagIds);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
@@ -48,6 +54,7 @@ export default function RecipeEdit() {
     setError(null);
     try {
       await updateRecipe(id, { ...draft, visibility });
+      await setRecipeTags(id, tagIds);
       if (coverFile) await uploadRecipePhoto(id, coverFile, true);
       navigate("/recipes/" + id);
     } catch (err) {
@@ -119,6 +126,7 @@ export default function RecipeEdit() {
           />
         </label>
         <VisibilitySelect value={visibility} onChange={setVisibility} />
+        <TagPicker familyId={familyId} value={tagIds} onChange={setTagIds} />
         <label>
           Cover photo
           <input type="file" accept="image/*" onChange={handleCover} />

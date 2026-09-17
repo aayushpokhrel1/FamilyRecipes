@@ -77,6 +77,14 @@ export async function getRecipe(id: string) {
 
 export async function listRecipes(familyId: string, opts: { search?: string; tagId?: string } = {}) {
   let q = supabase.from("recipes").select("*").eq("family_id", familyId).order("created_at", { ascending: false });
+  if (opts.tagId) {
+    const { data: links, error: tErr } = await supabase.from("recipe_tags")
+      .select("recipe_id").eq("tag_id", opts.tagId);
+    if (tErr) throw new Error(tErr.message);
+    const ids = (links ?? []).map((r: any) => r.recipe_id);
+    if (ids.length === 0) return [];
+    q = q.in("id", ids);
+  }
   if (opts.search) q = q.ilike("title", `%${opts.search}%`);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
