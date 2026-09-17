@@ -14,14 +14,25 @@ export default function CookMode() {
 
   useEffect(() => {
     if (!id) return;
+    let ignore = false;
     setLoading(true);
     getRecipe(id)
       .then((data) => {
+        if (ignore) return;
         setIngredients(data.ingredients);
         setSteps(data.steps);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (ignore) return;
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (ignore) return;
+        setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -37,19 +48,23 @@ export default function CookMode() {
   }, [steps.length]);
 
   useEffect(() => {
+    let cancelled = false;
     let lock: WakeLockSentinel | null = null;
     const nav = navigator as Navigator & { wakeLock?: { request(type: "screen"): Promise<WakeLockSentinel> } };
     const wakeLock = nav.wakeLock;
     if ("wakeLock" in nav && wakeLock) {
       (async () => {
         try {
-          lock = await wakeLock.request("screen");
+          const l = await wakeLock.request("screen");
+          if (cancelled) l.release().catch(() => {});
+          else lock = l;
         } catch {
           // wake lock unavailable or denied; cooking still works
         }
       })();
     }
     return () => {
+      cancelled = true;
       if (lock) lock.release().catch(() => {});
     };
   }, []);

@@ -26,9 +26,11 @@ export default function RecipeEdit() {
 
   useEffect(() => {
     if (!id) return;
+    let ignore = false;
     setLoading(true);
     getRecipe(id)
       .then(({ recipe, ingredients, steps }) => {
+        if (ignore) return;
         setDraft({
           title: recipe.title,
           story: recipe.story ?? "",
@@ -42,10 +44,21 @@ export default function RecipeEdit() {
         });
         setVisibility(recipe.visibility);
         setFamilyId(recipe.family_id);
-        return getRecipeTagIds(id).then(setTagIds);
+        return getRecipeTagIds(id).then((ids) => {
+          if (!ignore) setTagIds(ids);
+        });
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (ignore) return;
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (ignore) return;
+        setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [id]);
 
   async function handleSubmit(e: FormEvent) {

@@ -15,15 +15,26 @@ export default function RecipeDetail() {
 
   useEffect(() => {
     if (!id) return;
+    let ignore = false;
     setLoading(true);
     getRecipe(id)
       .then((data) => {
+        if (ignore) return;
         setRecipe(data.recipe);
         setIngredients(data.ingredients);
         setSteps(data.steps);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (ignore) return;
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (ignore) return;
+        setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [id]);
 
   async function handleDelete() {

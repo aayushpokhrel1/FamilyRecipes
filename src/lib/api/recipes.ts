@@ -3,8 +3,9 @@ import type { Recipe, RecipeDraft, Visibility } from "./types";
 
 export async function createRecipe(familyId: string, draft: RecipeDraft, visibility: Visibility): Promise<Recipe> {
   const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("Not signed in");
   const { data: rec, error } = await supabase.from("recipes").insert({
-    family_id: familyId, author_id: user.user!.id, title: draft.title,
+    family_id: familyId, author_id: user.user.id, title: draft.title,
     story: draft.story || null, provenance: draft.provenance || null,
     servings: draft.servings, prep_minutes: draft.prep_minutes, cook_minutes: draft.cook_minutes,
     visibility, source_url: draft.source_url,
