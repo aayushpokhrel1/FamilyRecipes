@@ -3,6 +3,8 @@ import App from "./App";
 import RequireAuth from "./components/RequireAuth";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import Families from "./pages/Families";
+import JoinByCode from "./pages/JoinByCode";
 
 export default function AppRoutes() {
   return (
@@ -14,6 +16,22 @@ export default function AppRoutes() {
         element={
           <RequireAuth>
             <App />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/families"
+        element={
+          <RequireAuth>
+            <Families />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/join/:code"
+        element={
+          <RequireAuth>
+            <JoinByCode />
           </RequireAuth>
         }
       />
