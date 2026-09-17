@@ -41,7 +41,7 @@ export default function RecipeList() {
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search recipes"
+        placeholder="Search title or ingredient"
       />
       <select value={tagId} onChange={(e) => setTagId(e.target.value)}>
         <option value="">All tags</option>
