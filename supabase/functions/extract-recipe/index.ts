@@ -33,6 +33,29 @@ function parseModelJson(content: string): unknown {
   }
 }
 
+// Send a base64 data-URL audio clip to an OpenAI-compatible transcription
+// endpoint (Groq Whisper by default) and return the plain-text transcript.
+async function transcribe(dataUrl: string, base: string, model: string, key: string): Promise<string> {
+  const comma = dataUrl.indexOf(",");
+  const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+  const mime = comma >= 0 ? (dataUrl.slice(5, comma).split(";")[0] || "audio/webm") : "audio/webm";
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const ext = mime.includes("webm") ? "webm" : mime.includes("ogg") ? "ogg"
+    : mime.includes("wav") ? "wav" : mime.includes("mp4") || mime.includes("m4a") ? "m4a"
+    : mime.includes("mpeg") || mime.includes("mp3") ? "mp3" : "webm";
+  const form = new FormData();
+  form.append("file", new Blob([bytes], { type: mime }), `audio.${ext}`);
+  form.append("model", model);
+  form.append("response_format", "text");
+  const res = await fetch(`${base}/audio/transcriptions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${key}` }, // FormData sets its own content-type boundary
+    body: form,
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  return (await res.text()).trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: cors });
@@ -59,13 +82,32 @@ Deno.serve(async (req) => {
   const mode = body.mode ?? "text";
   const payload = body.payload ?? "";
 
-  // URL fast path: embedded JSON-LD Recipe costs nothing and is exact.
   let inputText = payload;
+
+  // Audio: transcribe to text via a Whisper-style endpoint (Groq by default),
+  // then extract exactly like pasted text. Image is handled below as a
+  // multimodal message and needs a vision-capable MODEL_NAME.
+  if (mode === "audio") {
+    const tKey = Deno.env.get("TRANSCRIBE_API_KEY");
+    if (!tKey) return json({ error: "audio transcription not configured" }, 501);
+    const tBase = (Deno.env.get("TRANSCRIBE_BASE_URL") ?? "https://api.groq.com/openai/v1").replace(/\/$/, "");
+    const tModel = Deno.env.get("TRANSCRIBE_MODEL") ?? "whisper-large-v3-turbo";
+    try {
+      inputText = await transcribe(payload, tBase, tModel, tKey);
+    } catch (err) {
+      return json({ error: `transcription failed: ${String(err)}` }, 502);
+    }
+  }
+
+  // URL fast path: embedded JSON-LD Recipe costs nothing and is exact.
   if (mode === "url") {
     try {
       const html = await (await fetch(payload)).text();
       const draft = parseRecipeJsonLd(html);
-      if (draft) return json(draft, 200);
+      if (draft) {
+        draft.source_url = payload; // keep the source link for provenance
+        return json(draft, 200);
+      }
       inputText = html;
     } catch (err) {
       return json({ error: `could not fetch url: ${String(err)}` }, 502);
@@ -73,20 +115,33 @@ Deno.serve(async (req) => {
   }
 
   const key = Deno.env.get("MODEL_API_KEY");
-  if (!key) return json({ error: "model not configured" }, 501);
+  const baseUrl = Deno.env.get("MODEL_BASE_URL");
+  // Keyless local gateways (e.g. OmniRoute) set a base URL but no key. Treat the
+  // model as configured if either is present; only a bare default with no config
+  // at all is "not configured".
+  if (!key && !baseUrl) return json({ error: "model not configured" }, 501);
 
-  const baseUrl = Deno.env.get("MODEL_BASE_URL") ?? "https://api.deepseek.com/v1";
+  const base = (baseUrl ?? "https://api.deepseek.com/v1").replace(/\/$/, "");
   const model = Deno.env.get("MODEL_NAME") ?? "deepseek-chat";
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (key) headers.authorization = `Bearer ${key}`; // omit for keyless gateways
 
   try {
-    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const res = await fetch(`${base}/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      headers,
       body: JSON.stringify({
         model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT + "\nSchema: " + JSON.stringify(DRAFT_SCHEMA) },
-          { role: "user", content: inputText },
+          // Image mode sends the photo as a multimodal message (needs a vision
+          // model); text/url send the plain text extracted above.
+          mode === "image"
+            ? { role: "user", content: [
+                { type: "text", text: "Extract the recipe shown in this image." },
+                { type: "image_url", image_url: { url: payload } },
+              ] }
+            : { role: "user", content: inputText },
         ],
       }),
     });
@@ -96,7 +151,9 @@ Deno.serve(async (req) => {
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (typeof content !== "string") return json({ error: "model returned no content" }, 502);
-    return json(parseModelJson(content), 200);
+    const parsed = parseModelJson(content) as Record<string, unknown>;
+    if (mode === "url") parsed.source_url = payload; // keep the source link for provenance
+    return json(parsed, 200);
   } catch (err) {
     return json({ error: `model call failed: ${String(err)}` }, 502);
   }

@@ -2,6 +2,8 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { extractRecipe } from "../lib/api/extract";
 import type { RecipeDraft } from "../lib/api/types";
 
+// Image needs a vision MODEL_NAME; audio needs the edge function's TRANSCRIBE_*
+// (Groq Whisper) configured. Both fail with a clear message otherwise.
 type Mode = "text" | "url" | "image" | "audio";
 
 const modes: { mode: Mode; label: string }[] = [
@@ -25,6 +27,7 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
@@ -74,6 +77,7 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
         try {
           const base64 = await blobToBase64(new Blob(chunks, { type: recorder.mimeType }));
           await run("audio", base64);
@@ -82,6 +86,7 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
         }
       };
       recorder.start();
+      setRecording(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -122,17 +127,17 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
       {mode === "image" && (
         <label>
           Photo
-          <input type="file" accept="image/*" onChange={handleFile} />
+          <input type="file" accept="image/*" onChange={handleFile} disabled={loading} />
         </label>
       )}
       {mode === "audio" && (
         <div>
           {voiceSupported ? (
             <>
-              <button type="button" onClick={handleRecord} disabled={loading}>
+              <button type="button" onClick={handleRecord} disabled={loading || recording}>
                 Record
               </button>
-              <button type="button" onClick={stopRecording}>
+              <button type="button" onClick={stopRecording} disabled={!recording}>
                 Stop
               </button>
             </>
@@ -146,6 +151,7 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
           Extract
         </button>
       )}
+      {recording && <p>Recording… tap Stop when done.</p>}
       {loading && <p>Extracting…</p>}
       {error && <p role="alert">{error}</p>}
     </div>
