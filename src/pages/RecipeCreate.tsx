@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { createRecipe } from "../lib/api/recipes";
+import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import AiPrefillPanel from "../components/AiPrefillPanel";
 import IngredientEditor from "../components/IngredientEditor";
@@ -29,10 +30,15 @@ export default function RecipeCreate() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState<RecipeDraft>(emptyDraft);
   const [visibility, setVisibility] = useState<Visibility>("family");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleDraft(d: RecipeDraft) {
     setDraft(d);
+  }
+
+  function handleCover(e: ChangeEvent<HTMLInputElement>) {
+    setCoverFile(e.target.files?.[0] ?? null);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -41,6 +47,7 @@ export default function RecipeCreate() {
     setError(null);
     try {
       const created = await createRecipe(activeFamily.id, draft, visibility);
+      if (coverFile) await uploadRecipePhoto(created.id, coverFile, true);
       navigate("/recipes/" + created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -110,6 +117,10 @@ export default function RecipeCreate() {
           />
         </label>
         <VisibilitySelect value={visibility} onChange={setVisibility} />
+        <label>
+          Cover photo
+          <input type="file" accept="image/*" onChange={handleCover} />
+        </label>
         <button type="submit">Save</button>
       </form>
     </div>

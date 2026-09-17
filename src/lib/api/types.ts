@@ -10,6 +10,7 @@ export interface Recipe {
   prep_minutes: number | null; cook_minutes: number | null;
   visibility: Visibility; source_url: string | null; created_at: string; updated_at: string;
 }
+export interface RecipePhoto { id: string; recipe_id: string; storage_path: string; is_cover: boolean; }
 export interface Comment { id: string; recipe_id: string; author_id: string; body: string; created_at: string; }
 export interface Tag { id: string; family_id: string; name: string; }
 // what the AI returns and the create form binds to (no ids, no server fields)

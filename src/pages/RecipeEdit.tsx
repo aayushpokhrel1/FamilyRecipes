@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecipe, updateRecipe } from "../lib/api/recipes";
+import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
@@ -15,6 +16,7 @@ export default function RecipeEdit() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("family");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,10 +48,15 @@ export default function RecipeEdit() {
     setError(null);
     try {
       await updateRecipe(id, { ...draft, visibility });
+      if (coverFile) await uploadRecipePhoto(id, coverFile, true);
       navigate("/recipes/" + id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  function handleCover(e: ChangeEvent<HTMLInputElement>) {
+    setCoverFile(e.target.files?.[0] ?? null);
   }
 
   if (loading) return <p>Loading...</p>;
@@ -112,6 +119,10 @@ export default function RecipeEdit() {
           />
         </label>
         <VisibilitySelect value={visibility} onChange={setVisibility} />
+        <label>
+          Cover photo
+          <input type="file" accept="image/*" onChange={handleCover} />
+        </label>
         <button type="submit">Save</button>
       </form>
     </div>
