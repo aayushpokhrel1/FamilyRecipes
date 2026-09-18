@@ -1,3 +1,8 @@
+-- pgcrypto provides gen_random_bytes (invite codes). Supabase keeps extensions in
+-- the `extensions` schema, which is not on the migration role's search_path on the
+-- cloud, so enable it there and call it schema-qualified below.
+create extension if not exists pgcrypto with schema extensions;
+
 -- profiles: one per auth user
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -21,7 +26,7 @@ create table families (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   created_by uuid not null references profiles(id),
-  invite_code text not null unique default encode(gen_random_bytes(6), 'hex'),
+  invite_code text not null unique default encode(extensions.gen_random_bytes(6), 'hex'),
   created_at timestamptz not null default now()
 );
 
