@@ -33,7 +33,12 @@ to a self-owned Node/Express + Postgres backend later is a bounded swap.
 
 ## Roadmap
 
-- **v1** — private multi-family vault (this design).
+- **v1** — private multi-family vault (this design). Built and live.
+- **My Kitchen** — personal meal planning + auto grocery list from picked
+  recipes; plans shareable read-only with the family.
+  [Design](docs/superpowers/specs/2026-09-18-my-kitchen-meal-planning-design.md).
 - **Phase 2** — public recipe-only community feed: follow, save, fork with
   link-back. The `public` flag already ships in v1.
-- **Later** — meal planning, auto shopping lists, native app.
+- **Later** — smart ingredient normalization for grocery lists (synonym /
+  LLM canonicalization so "all-purpose flour" == "flour", plus unit-aware
+  quantity merging), native app.
