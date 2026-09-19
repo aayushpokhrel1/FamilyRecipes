@@ -17,6 +17,7 @@ export default function AppLayout() {
         <FamilySwitcher />
         <nav>
           <Link to="/">Recipes</Link>
+          <Link to="/kitchen">My Kitchen</Link>
           <Link to="/families">Families</Link>
         </nav>
         <button type="button" onClick={handleSignOut}>
