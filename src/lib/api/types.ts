@@ -19,3 +19,20 @@ export interface RecipeDraft {
   servings: number | null; prep_minutes: number | null; cook_minutes: number | null;
   ingredients: Ingredient[]; steps: Step[]; source_url: string | null;
 }
+export type MealPlanViewMode = "list" | "calendar";
+export type MealSlot = "breakfast" | "lunch" | "dinner";
+export interface MealPlan {
+  id: string; owner_id: string; family_id: string; name: string;
+  view_mode: MealPlanViewMode; is_shared: boolean; checked_items: string[];
+  created_at: string; updated_at: string;
+}
+export interface MealPlanItem {
+  id: string; plan_id: string; recipe_id: string;
+  day: string | null; meal_slot: MealSlot | null; position: number;
+}
+export interface ManualItem { id: string; label: string; position: number; }
+export interface GroceryContribution { quantity: string | null; unit: string | null; recipeTitle: string; }
+export interface GroceryLine {
+  key: string; name: string; contributions: GroceryContribution[];
+  checked: boolean; manual: boolean;
+}
