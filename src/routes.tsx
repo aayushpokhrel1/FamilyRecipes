@@ -10,6 +10,8 @@ import RecipeCreate from "./pages/RecipeCreate";
 import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
 import CookMode from "./pages/CookMode";
+import MyKitchen from "./pages/MyKitchen";
+import MealPlanDetail from "./pages/MealPlanDetail";
 
 export default function AppRoutes() {
   return (
@@ -29,6 +31,8 @@ export default function AppRoutes() {
         <Route path="recipes/:id" element={<RecipeDetail />} />
         <Route path="recipes/:id/edit" element={<RecipeEdit />} />
         <Route path="recipes/:id/cook" element={<CookMode />} />
+        <Route path="kitchen" element={<MyKitchen />} />
+        <Route path="kitchen/:id" element={<MealPlanDetail />} />
         <Route path="join/:code" element={<JoinByCode />} />
       </Route>
     </Routes>
