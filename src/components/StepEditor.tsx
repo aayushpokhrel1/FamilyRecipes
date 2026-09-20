@@ -19,7 +19,7 @@ export default function StepEditor({
     <div>
       <h2>Steps</h2>
       {items.map((s, i) => (
-        <div key={i}>
+        <div key={i} className="editor-row">
           <input
             value={s.text}
             onChange={(e) => update(i, e.target.value)}

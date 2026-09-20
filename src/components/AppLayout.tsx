@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import FamilySwitcher from "./FamilySwitcher";
 import { signOut } from "../lib/api/auth";
 
@@ -11,20 +11,24 @@ export default function AppLayout() {
   }
 
   return (
-    <div>
-      <header>
+    <div className="app">
+      <header className="app-header">
         <Link to="/">Family Recipes</Link>
-        <FamilySwitcher />
         <nav>
-          <Link to="/">Recipes</Link>
-          <Link to="/kitchen">My Kitchen</Link>
-          <Link to="/families">Families</Link>
+          <NavLink to="/" end>
+            Recipes
+          </NavLink>
+          <NavLink to="/kitchen">My Kitchen</NavLink>
+          <NavLink to="/families">Families</NavLink>
         </nav>
+        <FamilySwitcher />
         <button type="button" onClick={handleSignOut}>
           Sign out
         </button>
       </header>
-      <Outlet />
+      <main className="app-main">
+        <Outlet />
+      </main>
     </div>
   );
 }

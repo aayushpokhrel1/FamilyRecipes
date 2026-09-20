@@ -69,19 +69,21 @@ export default function CookMode() {
     };
   }, []);
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p role="alert">{error}</p>;
+  if (loading) return <p className="vault-note">Loading...</p>;
+  if (error) return <p className="vault-note" role="alert">{error}</p>;
 
   const step = steps[index];
 
   return (
-    <div>
-      <Link to={"/recipes/" + id}>Back to recipe</Link>
-      <button type="button" onClick={() => setShowIngredients((v) => !v)}>
-        {showIngredients ? "Hide ingredients" : "Show ingredients"}
-      </button>
+    <div className="cook">
+      <div className="cook-bar">
+        <Link to={"/recipes/" + id} className="btn">Back to recipe</Link>
+        <button type="button" onClick={() => setShowIngredients((v) => !v)}>
+          {showIngredients ? "Hide ingredients" : "Show ingredients"}
+        </button>
+      </div>
       {showIngredients && (
-        <ul>
+        <ul className="cook-ings">
           {ingredients.map((g, i) => (
             <li key={i}>
               {[g.quantity, g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
@@ -91,23 +93,26 @@ export default function CookMode() {
       )}
       {step ? (
         <>
-          <p style={{ fontSize: "2rem" }}>{step.text}</p>
-          <p>
+          <p className="cook-step">{step.text}</p>
+          <p className="cook-count">
             Step {index + 1} of {steps.length}
           </p>
-          <button type="button" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
-            Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => setIndex((i) => i + 1)}
-            disabled={index >= steps.length - 1}
-          >
-            Next
-          </button>
+          <div className="cook-nav">
+            <button type="button" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
+              Previous
+            </button>
+            <button
+              type="button"
+              className="action"
+              onClick={() => setIndex((i) => i + 1)}
+              disabled={index >= steps.length - 1}
+            >
+              Next
+            </button>
+          </div>
         </>
       ) : (
-        <p>No steps yet.</p>
+        <p className="vault-note">No steps yet.</p>
       )}
     </div>
   );

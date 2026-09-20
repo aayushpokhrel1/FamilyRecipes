@@ -49,45 +49,86 @@ export default function RecipeDetail() {
     }
   }
 
-  if (loading) return <p>Loading...</p>;
-  if (!recipe) return <p>Recipe not found.</p>;
+  if (loading) return <p className="vault-note">Loading...</p>;
+  if (!recipe) return <p className="vault-note">Recipe not found.</p>;
+
+  const meta: Array<[string, number]> = [];
+  if (recipe.servings) meta.push(["Serves", recipe.servings]);
+  if (recipe.prep_minutes) meta.push(["Prep min", recipe.prep_minutes]);
+  if (recipe.cook_minutes) meta.push(["Cook min", recipe.cook_minutes]);
 
   return (
     <div>
-      <h1>{recipe.title}</h1>
-      <p>{recipe.visibility}</p>
-      {error && <p role="alert">{error}</p>}
-      <Link to={"/recipes/" + id + "/cook"}>Cook Mode</Link>
-      <Link to={"/recipes/" + id + "/edit"}>Edit</Link>
-      <button type="button" onClick={handleDelete}>
-        Delete
-      </button>
-      <h2>Ingredients</h2>
-      <ul>
-        {ingredients.map((g, i) => (
-          <li key={i}>
-            {[g.quantity, g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-          </li>
-        ))}
-      </ul>
-      <h2>Steps</h2>
-      <ol>
-        {steps.map((s, i) => (
-          <li key={i}>{s.text}</li>
-        ))}
-      </ol>
+      <div className="recipe-head">
+        <h1>{recipe.title}</h1>
+        <span className="chip">{recipe.visibility}</span>
+      </div>
+
+      {meta.length > 0 && (
+        <div className="recipe-meta">
+          {meta.map(([label, value]) => (
+            <span key={label}>
+              {label} <b>{value}</b>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="recipe-actions">
+        <Link to={"/recipes/" + id + "/cook"} className="action">
+          Cook Mode
+        </Link>
+        <Link to={"/recipes/" + id + "/edit"} className="btn">
+          Edit
+        </Link>
+        <span className="spacer" />
+        <button type="button" onClick={handleDelete}>
+          Delete
+        </button>
+      </div>
+      {error && (
+        <p className="vault-note" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="recipe-body">
+        <section className="plate panel">
+          <h2>Ingredients</h2>
+          <ul className="ing-list">
+            {ingredients.map((g, i) => (
+              <li key={i}>
+                <span className="qty">{[g.quantity, g.unit].filter(Boolean).join(" ")}</span>
+                <span>{g.item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="plate panel">
+          <h2>Steps</h2>
+          <ol className="step-list">
+            {steps.map((s, i) => (
+              <li key={i}>{s.text}</li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
       {recipe.story && (
-        <>
+        <section className="plate note-plate">
           <h2>Story</h2>
           <p>{recipe.story}</p>
-        </>
+        </section>
       )}
+
       {recipe.provenance && (
-        <>
-          <h2>Provenance</h2>
+        <section className="plate note-plate">
+          <span className="stamp">Provenance</span>
           <p>{recipe.provenance}</p>
-        </>
+        </section>
       )}
+
       {id && <CommentThread recipeId={id} />}
     </div>
   );
