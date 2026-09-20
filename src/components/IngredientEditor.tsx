@@ -19,7 +19,7 @@ export default function IngredientEditor({
     <div>
       <h2>Ingredients</h2>
       {items.map((g, i) => (
-        <div key={i}>
+        <div key={i} className="editor-row">
           <input
             value={g.quantity ?? ""}
             onChange={(e) => update(i, { quantity: e.target.value })}

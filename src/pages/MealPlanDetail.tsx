@@ -51,13 +51,15 @@ export default function MealPlanDetail() {
 
   function itemRow(it: MealPlanItem) {
     return (
-      <li key={it.id}>
-        {titleById.get(it.recipe_id) ?? it.recipe_id}
-        <input type="date" aria-label="day" value={it.day ?? ""} onChange={(e) => handleDay(it, e.target.value)} />
-        <select aria-label="meal slot" value={it.meal_slot ?? ""} onChange={(e) => handleSlot(it, e.target.value)}>
-          <option value="">Unscheduled</option>
-          {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+      <li key={it.id} className="plate plate-row meal-item">
+        <span className="row-title">{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
+        <span className="day-slot">
+          <input type="date" aria-label="day" value={it.day ?? ""} onChange={(e) => handleDay(it, e.target.value)} />
+          <select aria-label="meal slot" value={it.meal_slot ?? ""} onChange={(e) => handleSlot(it, e.target.value)}>
+            <option value="">Unscheduled</option>
+            {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </span>
         <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
       </li>
     );
@@ -72,19 +74,21 @@ export default function MealPlanDetail() {
   return (
     <div>
       <h1>{plan.name}</h1>
-      <button type="button" onClick={handleToggleView}>
-        {plan.view_mode === "list" ? "Calendar view" : "List view"}
-      </button>
+      <div className="recipe-actions">
+        <button type="button" onClick={handleToggleView}>
+          {plan.view_mode === "list" ? "Calendar view" : "List view"}
+        </button>
+      </div>
 
       {plan.view_mode === "list" ? (
-        <ul>
+        <ul className="stack">
           {items.map((it) => itemRow(it))}
-          {items.length === 0 && <li>No recipes picked yet.</li>}
+          {items.length === 0 && <li className="vault-note">No recipes picked yet.</li>}
         </ul>
       ) : (
         <div>
           {days.map((day) => (
-            <section key={day ?? "undated"}>
+            <section key={day ?? "undated"} className="plate cal-day">
               <h3>{day ?? "No date"}</h3>
               {SLOTS.map((slot) => {
                 const slotItems = items.filter((it) => it.day === day && it.meal_slot === slot);
@@ -92,28 +96,28 @@ export default function MealPlanDetail() {
                 return (
                   <div key={slot}>
                     <h4>{slot}</h4>
-                    <ul>{slotItems.map((it) => itemRow(it))}</ul>
+                    <ul className="stack">{slotItems.map((it) => itemRow(it))}</ul>
                   </div>
                 );
               })}
               {items.filter((it) => it.day === day && !it.meal_slot).length > 0 && (
                 <div>
                   <h4>Any time</h4>
-                  <ul>{items.filter((it) => it.day === day && !it.meal_slot).map((it) => itemRow(it))}</ul>
+                  <ul className="stack">{items.filter((it) => it.day === day && !it.meal_slot).map((it) => itemRow(it))}</ul>
                 </div>
               )}
             </section>
           ))}
-          {items.length === 0 && <p>No recipes picked yet.</p>}
+          {items.length === 0 && <p className="vault-note">No recipes picked yet.</p>}
         </div>
       )}
 
-      <div>
+      <div className="vault-tools">
         <select value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">Add a recipe from the vault...</option>
           {recipes.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
         </select>
-        <button type="button" onClick={handleAdd} disabled={!pick}>Add recipe</button>
+        <button type="button" className="action" onClick={handleAdd} disabled={!pick}>Add recipe</button>
       </div>
 
       <GroceryPanel planId={plan.id} />

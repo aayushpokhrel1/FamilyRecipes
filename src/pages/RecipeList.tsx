@@ -38,28 +38,34 @@ export default function RecipeList() {
   return (
     <div>
       <h1>Recipes</h1>
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search title or ingredient"
-      />
-      <select value={tagId} onChange={(e) => setTagId(e.target.value)}>
-        <option value="">All tags</option>
-        {tags.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
-      <Link to="/recipes/new">New recipe</Link>
+      <div className="vault-tools">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search title or ingredient"
+        />
+        <select value={tagId} onChange={(e) => setTagId(e.target.value)}>
+          <option value="">All tags</option>
+          {tags.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+        <Link to="/recipes/new" className="action">
+          New recipe
+        </Link>
+      </div>
       {!activeFamily && (
-        <p>
+        <p className="vault-note">
           Create or join a family to see recipes. <Link to="/families">Families</Link>
         </p>
       )}
-      {activeFamily && loading && <p>Loading...</p>}
-      {activeFamily && !loading && recipes.length === 0 && <p>No recipes yet.</p>}
-      <ul>
+      {activeFamily && loading && <p className="vault-note">Loading...</p>}
+      {activeFamily && !loading && recipes.length === 0 && (
+        <p className="vault-note">No recipes yet.</p>
+      )}
+      <ul className="plate-grid">
         {recipes.map((r) => (
           <RecipeCard key={r.id} recipe={r} />
         ))}

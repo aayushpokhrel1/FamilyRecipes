@@ -36,15 +36,16 @@ export default function Families() {
     <div>
       <h1>Families</h1>
       {families.length === 0 ? (
-        <p>
+        <p className="vault-note">
           You don't have any families yet. Create one below, or join an existing
           family with an invite code.
         </p>
       ) : (
-        <ul>
+        <ul className="stack">
           {families.map((f) => (
-            <li key={f.id}>
-              {f.name} — {f.invite_code}
+            <li key={f.id} className="plate plate-row">
+              <span className="row-title">{f.name}</span>
+              <code>{f.invite_code}</code>
             </li>
           ))}
         </ul>

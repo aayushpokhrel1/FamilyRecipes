@@ -20,7 +20,7 @@ export default function SignIn() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="plate auth-card">
       <h1>Sign in</h1>
       <label>
         Email

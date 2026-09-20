@@ -98,9 +98,9 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
   }
 
   return (
-    <div>
+    <div className="plate ai-panel">
       <h2>Prefill with AI</h2>
-      <div>
+      <div className="tag-row">
         {modes.map((m) => (
           <button
             key={m.mode}

@@ -43,12 +43,12 @@ export default function CommentThread({ recipeId }: { recipeId: string }) {
     <div>
       <h2>Comments</h2>
       {error && <p role="alert">{error}</p>}
-      <ul>
+      <ul className="stack">
         {comments.map((c) => (
-          <li key={c.id}>
-            <p>{c.profiles?.display_name ?? "Someone"}</p>
+          <li key={c.id} className="plate comment">
+            <p className="who">{c.profiles?.display_name ?? "Someone"}</p>
             <p>{c.body}</p>
-            <p>{c.created_at}</p>
+            <p className="when">{c.created_at}</p>
             <button type="button" onClick={() => handleDelete(c.id)}>
               Delete
             </button>

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-19T00:00:00Z",
+  "title": "Design System: Family Recipes",
+  "extensions": {
+    "colorMeta": {
+      "wall": { "role": "primary", "displayName": "Spruce Enamel", "canonical": "#1f3b34", "tonalRamp": ["#0b1613", "#102420", "#16302a", "#1f3b34", "#2c5348", "#3d6f60", "#6b9689", "#b7ccc4"] },
+      "action": { "role": "secondary", "displayName": "Vermilion Signal", "canonical": "#d6431f", "tonalRamp": ["#3e130a", "#5e1c0e", "#8a2c14", "#b53514", "#d6431f", "#e4633f", "#ee9276", "#f6c6b6"] },
+      "spark": { "role": "tertiary", "displayName": "Enamel Yellow", "canonical": "#e7c24a", "tonalRamp": ["#3a2f0d", "#5a4914", "#87701f", "#b3962c", "#d4b23e", "#e7c24a", "#efd57e", "#f7ebbf"] },
+      "plate": { "role": "neutral", "displayName": "Bone Enamel", "canonical": "#f3ede1", "tonalRamp": ["#2a2820", "#454135", "#63604f", "#8b8674", "#b3ad99", "#d7d0bd", "#e9e1d0", "#f3ede1"] },
+      "ink": { "role": "neutral", "displayName": "Enamel Ink", "canonical": "#182b25", "tonalRamp": ["#0c1512", "#182b25", "#2a413a", "#3d574e", "#556d64", "#7a8f86", "#a9b8b0", "#d6ded9"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display / Sign", "purpose": "Page and recipe titles, set as full-width enamel signs in caps." },
+      "title": { "displayName": "Panel Title", "purpose": "Panel headings (Ingredients, Steps), uppercase and tracked." },
+      "label": { "displayName": "Label / Control", "purpose": "Buttons, nav tabs, chips, meta tags, grid plate titles." },
+      "body": { "displayName": "Body", "purpose": "Recipe text, stories, comments; the system sans." }
+    },
+    "shadows": [
+      { "name": "rim", "value": "inset 0 1.5px 0 rgba(255,255,255,0.6)", "purpose": "The rolled enamel edge: inner top highlight on every plate and control." },
+      { "name": "lift", "value": "0 14px 26px -14px rgba(6,18,15,0.55)", "purpose": "Plates and cards floated off the wall at rest." },
+      { "name": "lift-sm", "value": "0 4px 10px -4px rgba(6,18,15,0.4)", "purpose": "Buttons and controls at rest." }
+    ],
+    "motion": [
+      { "name": "press", "value": "transform 0.08s ease, box-shadow 0.12s ease", "purpose": "Tactile enamel-button press: lift on hover, sink on :active." },
+      { "name": "field", "value": "border-color 0.15s, box-shadow 0.15s", "purpose": "Input focus transition to the vermilion ring." }
+    ],
+    "breakpoints": [
+      { "name": "stack", "value": "720px" },
+      { "name": "compact", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Recipe Plate",
+      "kind": "card",
+      "refersTo": "plate",
+      "description": "A label-first vault tile: vermilion monogram, slab-caps title, visibility chip.",
+      "html": "<li class=\"ds-plate\"><a href=\"#\"><span class=\"ds-plate-mono\">G</span><span class=\"ds-plate-title\">Grandma's Cornbread</span><span class=\"ds-chip\">private</span></a></li>",
+      "css": ".ds-plate { list-style:none; background:#f3ede1; border:1.5px solid #16302a; border-radius:14px; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), 0 14px 26px -14px rgba(6,18,15,0.55); } .ds-plate a { display:flex; flex-direction:column; align-items:flex-start; gap:10px; min-height:148px; padding:18px 18px 16px; text-decoration:none; color:#182b25; border-radius:14px; transition: transform 0.1s ease, box-shadow 0.14s ease; } .ds-plate a:hover { transform:translateY(-3px); } .ds-plate-mono { font-family:'Zilla Slab',Rockwell,serif; font-weight:700; font-size:2.6rem; line-height:1; color:#d6431f; } .ds-plate-title { font-family:'Zilla Slab',Rockwell,serif; font-weight:700; font-size:1.2rem; line-height:1.12; text-transform:uppercase; letter-spacing:0.01em; margin-top:auto; } .ds-chip { font-family:'Zilla Slab',Rockwell,serif; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:#333024; background:#ddd2bb; border:1px solid #16302a; border-radius:999px; padding:2px 10px; }"
+    },
+    {
+      "name": "Action Button",
+      "kind": "button",
+      "refersTo": "button-action",
+      "description": "The one committing control per view (New recipe, Cook Mode).",
+      "html": "<button class=\"ds-btn-action\">New recipe</button>",
+      "css": ".ds-btn-action { font-family:'Zilla Slab',Rockwell,serif; font-weight:600; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; cursor:pointer; padding:10px 18px; border-radius:10px; background:#d6431f; color:#fdf3ec; border:1.5px solid #b53514; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.28), 0 5px 14px -5px rgba(214,67,31,0.7); transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease; } .ds-btn-action:hover { background:#b53514; transform:translateY(-1px); } .ds-btn-action:active { transform:translateY(1px); box-shadow: inset 0 2px 5px rgba(0,0,0,0.28); }"
+    },
+    {
+      "name": "Neutral Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Secondary actions (Edit, Sign out, Delete): a bone enamel key.",
+      "html": "<button class=\"ds-btn\">Edit</button>",
+      "css": ".ds-btn { font-family:'Zilla Slab',Rockwell,serif; font-weight:600; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; cursor:pointer; padding:10px 18px; border-radius:10px; background:#f3ede1; color:#182b25; border:1.5px solid #16302a; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), 0 4px 10px -4px rgba(6,18,15,0.4); transition: transform 0.08s ease, box-shadow 0.12s ease; } .ds-btn:hover { transform:translateY(-1px); } .ds-btn:active { transform:translateY(1px); box-shadow: inset 0 2px 5px rgba(0,0,0,0.28); }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Bone enamel field with a vermilion focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search title or ingredient\" />",
+      "css": ".ds-input { font:inherit; color:#182b25; background:#f3ede1; border:1.5px solid #16302a; border-radius:10px; padding:9px 12px; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6); transition: border-color 0.15s, box-shadow 0.15s; } .ds-input::placeholder { color:#4f605a; } .ds-input:focus-visible { outline:none; border-color:#d6431f; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), 0 0 0 3px rgba(214,67,31,0.3); }"
+    },
+    {
+      "name": "Nav Tab",
+      "kind": "nav",
+      "refersTo": "nav-tab",
+      "description": "Header sign-rail tab; active state carries an enamel-yellow underglow.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-tab ds-tab-active\" href=\"#\">Recipes</a><a class=\"ds-tab\" href=\"#\">My Kitchen</a></nav>",
+      "css": ".ds-nav { display:flex; gap:4px; background:#16302a; padding:10px; border-radius:12px; } .ds-tab { font-family:'Zilla Slab',Rockwell,serif; font-weight:600; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:rgba(243,237,225,0.72); text-decoration:none; padding:7px 13px; border-radius:8px; border:1.5px solid transparent; transition: color 0.12s, border-color 0.12s, background 0.12s; } .ds-tab:hover { color:#f3ede1; background:rgba(255,255,255,0.05); } .ds-tab-active { color:#f3ede1; border-color:#102420; background:rgba(0,0,0,0.22); box-shadow: inset 0 -3px 0 #e7c24a; }"
+    },
+    {
+      "name": "Provenance Stamp",
+      "kind": "custom",
+      "refersTo": "stamp",
+      "description": "The signature maker's mark heading the provenance panel.",
+      "html": "<span class=\"ds-stamp\">Provenance</span>",
+      "css": ".ds-stamp { display:inline-block; font-family:'Zilla Slab',Rockwell,serif; font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.09em; color:#d6431f; border:2px solid #d6431f; border-radius:9px; padding:6px 12px; transform:rotate(-2.5deg); box-shadow: inset 0 0 0 1px rgba(214,67,31,0.25); }"
+    },
+    {
+      "name": "Step Marker",
+      "kind": "custom",
+      "refersTo": "button-action",
+      "description": "Numbered vermilion enamel plaque for recipe steps.",
+      "html": "<span class=\"ds-step\">1</span>",
+      "css": ".ds-step { display:grid; place-items:center; width:34px; height:34px; font-family:'Zilla Slab',Rockwell,serif; font-weight:700; color:#fdf3ec; background:#d6431f; border:1.5px solid #b53514; border-radius:8px; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.28); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Enamel Vault",
+    "overview": "A family's recipes are the everyday enamelware of a shared kitchen: sturdy bone plates racked on a deep spruce-green pantry wall, made to be used and handed down, never precious. The whole product lives on one saturated green ground; content rides on rimmed bone enamel surfaces; and a single vermilion signal marks the one action that commits. It is warm and domestic without softening into the cream-paper recipe magazine, and structured and confident without cooling into a gray dashboard. The world was chosen against a hard brief: neither corporate, nor trendy, nor clinical, nor twee. The saturated green and industrial signage lettering keep it from SaaS grays and of-the-moment editorial serifs; the bone plates and the human provenance stamp keep it from feeling like a lab; and the sturdy slab type keeps warmth from curdling into country-kitchen kitsch.",
+    "keyCharacteristics": [
+      "A deep enamel-green ground owns the whole surface; bone plates carry all content.",
+      "Sturdy slab signage (Zilla Slab) in caps for every title, label, and control.",
+      "Exactly one vermilion signal, reserved for the committing action.",
+      "Physical depth: a dark rim plus an inner highlight, lifted by one soft shadow.",
+      "Provenance shown as a stamped maker's mark, not a footnote."
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Vermilion is only ever the committing action, at most one per viewport. It is never decoration; when it appears, it is the thing to press.", "section": "colors" },
+      { "name": "The Wall Rule", "body": "The enamel green owns the ground and chrome. Content does not float on it inside a container without becoming a bone plate; only plain running text sits directly on the wall, in bone.", "section": "colors" },
+      { "name": "The Tinted-Secondary Rule", "body": "Secondary text is tinted from the green, never neutral gray. Gray on this world reads as an accident.", "section": "colors" },
+      { "name": "The Sign Rule", "body": "Every title, label, and control is Zilla Slab in caps. A title shrunk to a timid mixed-case label has left the world; the type carries the composition.", "section": "typography" },
+      { "name": "The Enamel Edge Rule", "body": "Depth is a rim (dark keyline + inner highlight) plus one soft shadow. Never a zero-blur block shadow; this world is enamel, not neobrutalism.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reserve vermilion (#d6431f) for the one committing action in a view; everything else is bone, green, or tin.",
+      "Do set every title, label, and control in Zilla Slab caps; keep titles at sign scale.",
+      "Do give every surface the enamel rim (dark keyline + inner highlight) and lift it with one soft shadow.",
+      "Do tint secondary text from the green.",
+      "Do theme the browser surfaces (selection, caret, scrollbar, focus ring, accent-color) from the palette."
+    ],
+    "donts": [
+      "Don't put more than one vermilion action in a viewport, or use it as decoration.",
+      "Don't reach for cream/parchment grounds or delicate display serifs; that is the category default this world refuses.",
+      "Don't use folksy script or heavy speckle; warmth here is sturdy, not saccharine.",
+      "Don't use glass, blur, gradient text, or zero-blur block shadows.",
+      "Don't float content directly on the green inside a container; make it a bone plate."
+    ]
+  }
+}

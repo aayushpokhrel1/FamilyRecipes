@@ -30,10 +30,10 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   }
 
   return (
-    <section>
+    <section className="plate panel note-plate">
       <h2>Grocery list</h2>
       {lines.length === 0 && <p>Pick recipes to build a grocery list.</p>}
-      <ul>
+      <ul className="grocery-list stack">
         {lines.map((line) => (
           <li key={line.key}>
             <label>
@@ -49,7 +49,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
           </li>
         ))}
       </ul>
-      <div>
+      <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Add your own item" />
         <button type="button" onClick={handleAddManual}>Add item</button>
       </div>

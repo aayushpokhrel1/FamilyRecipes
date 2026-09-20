@@ -35,7 +35,7 @@ export default function TagPicker({
 
   return (
     <div>
-      <div>
+      <div className="tag-row">
         {tags.map((t) => (
           <button
             key={t.id}

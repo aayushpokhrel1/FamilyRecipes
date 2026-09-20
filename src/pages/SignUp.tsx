@@ -21,7 +21,7 @@ export default function SignUp() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="plate auth-card">
       <h1>Sign up</h1>
       <label>
         Display name
