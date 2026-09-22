@@ -30,27 +30,26 @@ test("createRecipe inserts the recipe then ingredients with positions 0,1", asyn
   expect(inserted[1].table).toBe("recipe_ingredients");
   expect(inserted[1].payload.map((r: any) => r.position)).toEqual([0, 1]);
 });
-test("listRecipes with a search term also matches recipes by ingredient", async () => {
-  let orArg: string | undefined;
-  from.mockImplementation((table: string) => {
-    if (table === "recipe_ingredients") {
-      return {
-        select: () => ({ ilike: () => ({ data: [{ recipe_id: "r2" }], error: null }) }),
-      };
-    }
-    const builder: any = {
-      select: () => builder,
-      eq: () => builder,
-      order: () => builder,
-      or: (arg: string) => { orArg = arg; return builder; },
-      then: (resolve: any) => resolve({ data: [{ id: "r2", title: "Soup" }], error: null }),
-    };
-    return builder;
-  });
+test("listRecipes searches via the search_recipes RPC", async () => {
+  rpc.mockClear();
+  rpc.mockResolvedValueOnce({ data: [{ id: "r2", title: "Soup" }], error: null });
   const rows = await listRecipes("f1", { search: "chicken" });
-  expect(orArg).toContain("title.ilike.%chicken%");
-  expect(orArg).toContain("id.in.(r2)");
+  expect(rpc).toHaveBeenCalledWith("search_recipes", {
+    p_family_id: "f1",
+    p_search: "chicken",
+    p_tag_id: null,
+  });
   expect(rows.map((r: any) => r.id)).toContain("r2");
+});
+test("listRecipes passes a null search when none is given", async () => {
+  rpc.mockClear();
+  rpc.mockResolvedValueOnce({ data: [], error: null });
+  await listRecipes("f1");
+  expect(rpc).toHaveBeenCalledWith("search_recipes", {
+    p_family_id: "f1",
+    p_search: null,
+    p_tag_id: null,
+  });
 });
 test("updateRecipe sends only the provided child list to replace_recipe_children", async () => {
   rpc.mockClear();
