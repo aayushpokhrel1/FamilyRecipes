@@ -1,138 +1,188 @@
-# Brief: Slice 2 — portions scaling UI
+# Brief: Slice 3 — ingredient sections
 
-Add a display-only portions stepper that scales displayed ingredient quantities. Uses the
-`scaleIngredientQty` function already in `src/lib/api/quantity.ts`. Never mutates the recipe.
+Let each ingredient carry an optional free-text section label ("Spices", "For dredging",
+"Sauce"). Group by it in the recipe and cook views. Persist it through create AND edit (the
+edit path goes through an RPC that currently drops unknown columns, so the RPC must be updated).
 
-## Create `src/components/PortionsStepper.tsx` EXACTLY
+## 1. Create `supabase/migrations/0009_ingredient_sections.sql` EXACTLY
 
-```tsx
-import { useEffect, useState } from "react";
+```sql
+-- Ingredient sections: group a recipe's ingredients under named components.
+alter table recipe_ingredients add column section text;
 
-// Display-only servings control. Reports a scale factor to the parent.
-// When base servings is known, the value is a servings count and factor = value/base.
-// When base is null/0, the value is a plain multiplier and factor = value.
-export default function PortionsStepper(
-  { base, onFactorChange }: { base: number | null; onFactorChange: (factor: number) => void },
-) {
-  const usesServings = base !== null && base > 0;
-  const start = usesServings ? (base as number) : 1;
-  const stepSize = usesServings ? 1 : 0.5;
-  const minValue = stepSize;
-  const [value, setValue] = useState(start);
+-- replace_recipe_children (0006) inserted a fixed column list without `section`,
+-- so edits would drop it. Redefine it to carry section through.
+create or replace function replace_recipe_children(
+  p_recipe_id uuid, p_ingredients jsonb, p_steps jsonb
+) returns void language plpgsql security invoker set search_path = public as $$
+begin
+  if p_ingredients is not null then
+    delete from recipe_ingredients where recipe_id = p_recipe_id;
+    insert into recipe_ingredients (recipe_id, position, quantity, unit, item, section)
+    select p_recipe_id, (ord - 1)::int, e->>'quantity', e->>'unit', e->>'item', e->>'section'
+    from jsonb_array_elements(p_ingredients) with ordinality as t(e, ord);
+  end if;
+  if p_steps is not null then
+    delete from recipe_steps where recipe_id = p_recipe_id;
+    insert into recipe_steps (recipe_id, position, text)
+    select p_recipe_id, (ord - 1)::int, e->>'text'
+    from jsonb_array_elements(p_steps) with ordinality as t(e, ord);
+  end if;
+end; $$;
+```
 
-  useEffect(() => { setValue(start); }, [start]);
-  useEffect(() => {
-    onFactorChange(usesServings ? value / (base as number) : value);
-  }, [value, usesServings, base, onFactorChange]);
+## 2. Edit `src/lib/api/types.ts`
 
-  const round2 = (n: number) => Math.round(n * 100) / 100;
+Change the `Ingredient` interface to add an optional `section` (keep it optional so existing
+constructions do not break):
 
-  return (
-    <div className="portions">
-      <span>{usesServings ? "Serves" : "Scale"}</span>
-      <button type="button" aria-label="decrease" disabled={value <= minValue}
-        onClick={() => setValue((v) => Math.max(minValue, round2(v - stepSize)))}>-</button>
-      <span aria-label="portions value">{usesServings ? value : `x${value}`}</span>
-      <button type="button" aria-label="increase"
-        onClick={() => setValue((v) => round2(v + stepSize))}>+</button>
-      {value !== start && (
-        <button type="button" onClick={() => setValue(start)}>Reset</button>
-      )}
-    </div>
-  );
+FROM:
+```ts
+export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; }
+```
+TO:
+```ts
+export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; }
+```
+
+## 3. Edit `src/lib/api/recipes.ts` — persist section on create
+
+In `createRecipe`, the ingredient insert maps rows. Change:
+```ts
+    const rows = draft.ingredients.map((g, i) => ({
+      recipe_id: rec.id, position: i, quantity: g.quantity, unit: g.unit, item: g.item }));
+```
+to:
+```ts
+    const rows = draft.ingredients.map((g, i) => ({
+      recipe_id: rec.id, position: i, quantity: g.quantity, unit: g.unit, item: g.item, section: g.section ?? null }));
+```
+(The edit path uses the `replace_recipe_children` RPC, already handled by the migration above.)
+
+## 4. Create `src/lib/groupIngredients.ts` EXACTLY
+
+```ts
+import type { Ingredient } from "./api/types";
+
+export interface IngredientGroup { section: string | null; items: Ingredient[] }
+
+// Group ingredients by section label, preserving first-seen order. A blank or
+// whitespace-only section is treated as ungrouped (null).
+export function groupIngredientsBySection(items: Ingredient[]): IngredientGroup[] {
+  const groups: IngredientGroup[] = [];
+  for (const g of items) {
+    const key = g.section && g.section.trim() ? g.section : null;
+    let grp = groups.find((x) => x.section === key);
+    if (!grp) { grp = { section: key, items: [] }; groups.push(grp); }
+    grp.items.push(g);
+  }
+  return groups;
 }
 ```
 
-## Create `src/components/PortionsStepper.test.tsx` EXACTLY
+## 5. Create `src/lib/groupIngredients.test.ts` EXACTLY
 
-```tsx
-import { render, screen, fireEvent } from "@testing-library/react";
-import { vi } from "vitest";
-import PortionsStepper from "./PortionsStepper";
+```ts
+import { test, expect } from "vitest";
+import { groupIngredientsBySection } from "./groupIngredients";
 
-test("increments servings and reports the scaled factor", () => {
-  const onFactor = vi.fn();
-  render(<PortionsStepper base={2} onFactorChange={onFactor} />);
-  expect(onFactor).toHaveBeenLastCalledWith(1);
-  fireEvent.click(screen.getByLabelText("increase"));
-  expect(screen.getByLabelText("portions value")).toHaveTextContent("3");
-  expect(onFactor).toHaveBeenLastCalledWith(1.5);
-});
-
-test("uses a multiplier when base servings is unknown", () => {
-  const onFactor = vi.fn();
-  render(<PortionsStepper base={null} onFactorChange={onFactor} />);
-  expect(onFactor).toHaveBeenLastCalledWith(1);
-  fireEvent.click(screen.getByLabelText("increase"));
-  expect(onFactor).toHaveBeenLastCalledWith(1.5);
+test("groups by section, blank becomes null, order preserved", () => {
+  const groups = groupIngredientsBySection([
+    { position: 0, quantity: "1", unit: "cup", item: "flour", section: "Dredging" },
+    { position: 1, quantity: null, unit: null, item: "salt", section: "Spices" },
+    { position: 2, quantity: "1", unit: null, item: "egg", section: "  " },
+    { position: 3, quantity: "2", unit: null, item: "breadcrumbs", section: "Dredging" },
+  ]);
+  expect(groups.map((g) => g.section)).toEqual(["Dredging", "Spices", null]);
+  expect(groups[0].items.map((i) => i.item)).toEqual(["flour", "breadcrumbs"]);
 });
 ```
 
-## Edit `src/pages/RecipeDetail.tsx`
+## 6. Edit `src/components/IngredientEditor.tsx`
 
-1. Add imports at the top (with the other imports):
-```tsx
-import { useState } from "react"; // ADD useState to the existing react import if not present
-import PortionsStepper from "../components/PortionsStepper";
-import { scaleIngredientQty } from "../lib/api/quantity";
-```
-(The file already imports `useEffect, useState` from react, so no react import change is needed; just add the two new lines.)
+Add a Section input per row (with a datalist of sections already used in this recipe) and make
+a new ingredient inherit the previous row's section.
 
-2. Inside the component, add state near the other useState calls:
+(a) At the top of the component body (before `return`), add:
 ```tsx
-  const [factor, setFactor] = useState(1);
+  const usedSections = Array.from(
+    new Set(items.map((g) => g.section).filter((s): s is string => !!s && s.trim() !== "")),
+  );
 ```
 
-3. In the Ingredients `<section>`, immediately after `<h2>Ingredients</h2>`, insert:
+(b) In each row, immediately AFTER the Item `<input>` (the one with `placeholder="Item"`) and
+BEFORE the Remove button, add:
 ```tsx
-          <PortionsStepper base={recipe.servings} onFactorChange={setFactor} />
+          <input
+            value={g.section ?? ""}
+            onChange={(e) => update(i, { section: e.target.value })}
+            placeholder="Section"
+            list="ingredient-sections"
+          />
 ```
 
-4. In that same list, change the quantity span from:
+(c) Change the "Add ingredient" onChange to inherit the last row's section:
+FROM:
 ```tsx
-                <span className="qty">{[g.quantity, g.unit].filter(Boolean).join(" ")}</span>
+        onClick={() => onChange([...items, { position: items.length, quantity: "", unit: "", item: "" }])}
 ```
-to:
+TO:
 ```tsx
+        onClick={() => onChange([...items, { position: items.length, quantity: "", unit: "", item: "", section: items[items.length - 1]?.section ?? null }])}
+```
+
+(d) Immediately before the closing `</div>` of the component's outer wrapper (after the Add
+ingredient button), add the datalist:
+```tsx
+      <datalist id="ingredient-sections">
+        {usedSections.map((s) => <option key={s} value={s} />)}
+      </datalist>
+```
+
+## 7. Edit `src/pages/RecipeDetail.tsx` — grouped ingredient display
+
+(a) Add import:
+```tsx
+import { groupIngredientsBySection } from "../lib/groupIngredients";
+```
+
+(b) In the Ingredients section, REPLACE this block:
+```tsx
+          <ul className="ing-list">
+            {ingredients.map((g, i) => (
+              <li key={i}>
                 <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
+                <span>{g.item}</span>
+              </li>
+            ))}
+          </ul>
 ```
-
-## Edit `src/pages/CookMode.tsx`
-
-1. Add imports:
+WITH:
 ```tsx
-import PortionsStepper from "../components/PortionsStepper";
-import { scaleIngredientQty } from "../lib/api/quantity";
-```
-
-2. Add state near the other useState calls:
-```tsx
-  const [servings, setServings] = useState<number | null>(null);
-  const [factor, setFactor] = useState(1);
-```
-
-3. In the `getRecipe(id).then((data) => { ... })` block, after `setSteps(data.steps);` add:
-```tsx
-        setServings(data.recipe.servings);
-```
-
-4. In the `showIngredients` list, immediately before the `<ul className="cook-ings">`, wrap so the stepper shows above it. Replace:
-```tsx
-      {showIngredients && (
-        <ul className="cook-ings">
-          {ingredients.map((g, i) => (
-            <li key={i}>
-              {[g.quantity, g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-            </li>
+          {groupIngredientsBySection(ingredients).map((grp) => (
+            <div key={grp.section ?? "_"}>
+              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
+              <ul className="ing-list">
+                {grp.items.map((g, i) => (
+                  <li key={i}>
+                    <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
+                    <span>{g.item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
-      )}
 ```
-with:
+
+## 8. Edit `src/pages/CookMode.tsx` — grouped ingredient display
+
+(a) Add import:
 ```tsx
-      {showIngredients && (
-        <div>
-          <PortionsStepper base={servings} onFactorChange={setFactor} />
+import { groupIngredientsBySection } from "../lib/groupIngredients";
+```
+
+(b) REPLACE this block:
+```tsx
           <ul className="cook-ings">
             {ingredients.map((g, i) => (
               <li key={i}>
@@ -140,10 +190,23 @@ with:
               </li>
             ))}
           </ul>
-        </div>
-      )}
+```
+WITH:
+```tsx
+          {groupIngredientsBySection(ingredients).map((grp) => (
+            <div key={grp.section ?? "_"}>
+              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
+              <ul className="cook-ings">
+                {grp.items.map((g, i) => (
+                  <li key={i}>
+                    {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 ```
 
 ## Constraints
-- Do not modify any other file. Do not touch brief.md. Do not run any commands.
+- Use the code verbatim. Do not modify any other file. Do not touch brief.md. Do not run commands.
 - No em/en dashes anywhere.

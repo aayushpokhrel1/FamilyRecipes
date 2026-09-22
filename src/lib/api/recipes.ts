@@ -14,7 +14,7 @@ export async function createRecipe(familyId: string, draft: RecipeDraft, visibil
 
   if (draft.ingredients.length) {
     const rows = draft.ingredients.map((g, i) => ({
-      recipe_id: rec.id, position: i, quantity: g.quantity, unit: g.unit, item: g.item }));
+      recipe_id: rec.id, position: i, quantity: g.quantity, unit: g.unit, item: g.item, section: g.section ?? null }));
     const { error: e2 } = await supabase.from("recipe_ingredients").insert(rows);
     if (e2) throw new Error(e2.message);
   }

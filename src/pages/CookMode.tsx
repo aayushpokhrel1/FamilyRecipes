@@ -4,6 +4,7 @@ import { getRecipe } from "../lib/api/recipes";
 import type { Ingredient, Step } from "../lib/api/types";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
+import { groupIngredientsBySection } from "../lib/groupIngredients";
 
 export default function CookMode() {
   const { id } = useParams();
@@ -90,13 +91,18 @@ export default function CookMode() {
       {showIngredients && (
         <div>
           <PortionsStepper base={servings} onFactorChange={setFactor} />
-          <ul className="cook-ings">
-            {ingredients.map((g, i) => (
-              <li key={i}>
-                {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-              </li>
-            ))}
-          </ul>
+          {groupIngredientsBySection(ingredients).map((grp) => (
+            <div key={grp.section ?? "_"}>
+              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
+              <ul className="cook-ings">
+                {grp.items.map((g, i) => (
+                  <li key={i}>
+                    {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
       {step ? (

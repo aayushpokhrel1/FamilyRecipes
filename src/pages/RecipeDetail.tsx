@@ -5,6 +5,7 @@ import type { Ingredient, Recipe, Step } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
+import { groupIngredientsBySection } from "../lib/groupIngredients";
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -99,14 +100,19 @@ export default function RecipeDetail() {
         <section className="plate panel">
           <h2>Ingredients</h2>
           <PortionsStepper base={recipe.servings} onFactorChange={setFactor} />
-          <ul className="ing-list">
-            {ingredients.map((g, i) => (
-              <li key={i}>
-                <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
-                <span>{g.item}</span>
-              </li>
-            ))}
-          </ul>
+          {groupIngredientsBySection(ingredients).map((grp) => (
+            <div key={grp.section ?? "_"}>
+              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
+              <ul className="ing-list">
+                {grp.items.map((g, i) => (
+                  <li key={i}>
+                    <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
+                    <span>{g.item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </section>
 
         <section className="plate panel">
