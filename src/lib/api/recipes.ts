@@ -68,29 +68,19 @@ export async function getRecipe(id: string) {
   return { recipe, ingredients: ingredients ?? [], steps: steps ?? [], photos: photos ?? [] };
 }
 
-export async function listRecipes(familyId: string, opts: { search?: string; tagId?: string } = {}) {
-  let q = supabase.from("recipes").select("*").eq("family_id", familyId).order("created_at", { ascending: false });
-  if (opts.tagId) {
-    const { data: links, error: tErr } = await supabase.from("recipe_tags")
-      .select("recipe_id").eq("tag_id", opts.tagId);
-    if (tErr) throw new Error(tErr.message);
-    const ids = (links ?? []).map((r: any) => r.recipe_id);
-    if (ids.length === 0) return [];
-    q = q.in("id", ids);
-  }
-  if (opts.search) {
-    const s = opts.search.replace(/[,()\\]/g, " ").trim();
-    if (s) {
-      const { data: ingRows, error: ingErr } = await supabase
-        .from("recipe_ingredients").select("recipe_id").ilike("item", `%${s}%`);
-      if (ingErr) throw new Error(ingErr.message);
-      const ingIds = Array.from(new Set((ingRows ?? []).map((r: any) => r.recipe_id)));
-      q = ingIds.length
-        ? q.or(`title.ilike.%${s}%,id.in.(${ingIds.join(",")})`)
-        : q.or(`title.ilike.%${s}%`);
-    }
-  }
-  const { data, error } = await q;
+// Search goes through the search_recipes RPC so the term is a bound parameter
+// rather than an interpolated PostgREST filter expression (no more building
+// `or=` strings out of user input). Matching is trigram-fuzzy plus substring,
+// so typos and variants ("chiken", "tomatos") still find the recipe.
+export async function listRecipes(
+  familyId: string,
+  opts: { search?: string; tagId?: string } = {},
+): Promise<Recipe[]> {
+  const { data, error } = await supabase.rpc("search_recipes", {
+    p_family_id: familyId,
+    p_search: opts.search ?? null,
+    p_tag_id: opts.tagId ?? null,
+  });
   if (error) throw new Error(error.message);
   return (data ?? []) as Recipe[];
 }
