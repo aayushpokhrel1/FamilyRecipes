@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteRecipe, getRecipe } from "../lib/api/recipes";
-import type { Ingredient, Recipe, Step } from "../lib/api/types";
+import { listPlans, addRecipe } from "../lib/api/mealPlans";
+import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
@@ -16,6 +17,9 @@ export default function RecipeDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [factor, setFactor] = useState(1);
+  const [plans, setPlans] = useState<MealPlan[]>([]);
+  const [planId, setPlanId] = useState("");
+  const [addMsg, setAddMsg] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +45,10 @@ export default function RecipeDetail() {
     };
   }, [id]);
 
+  useEffect(() => {
+    listPlans().then(setPlans).catch(() => setPlans([]));
+  }, []);
+
   async function handleDelete() {
     if (!id) return;
     if (!window.confirm("Delete this recipe?")) return;
@@ -50,6 +58,17 @@ export default function RecipeDetail() {
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleAddToPlan() {
+    if (!id || !planId) return;
+    try {
+      await addRecipe(planId, id);
+      const name = plans.find((p) => p.id === planId)?.name ?? "plan";
+      setAddMsg("Added to " + name);
+    } catch (err) {
+      setAddMsg(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -85,6 +104,15 @@ export default function RecipeDetail() {
         <Link to={"/recipes/" + id + "/edit"} className="btn">
           Edit
         </Link>
+        {plans.length > 0 && (
+          <>
+            <select aria-label="plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
+              <option value="">Add to plan...</option>
+              {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button type="button" onClick={handleAddToPlan} disabled={!planId}>Add to plan</button>
+          </>
+        )}
         <span className="spacer" />
         <button type="button" onClick={handleDelete}>
           Delete
@@ -95,6 +123,7 @@ export default function RecipeDetail() {
           {error}
         </p>
       )}
+      {addMsg && <p className="vault-note">{addMsg}</p>}
 
       <div className="recipe-body">
         <section className="plate panel">

@@ -17,6 +17,14 @@ vi.mock("../lib/api/recipes", () => ({
   }),
 }));
 
+vi.mock("../lib/api/mealPlans", () => ({
+  listPlans: vi.fn().mockResolvedValue([
+    { id: "p1", owner_id: "u", family_id: "f1", name: "This week", view_mode: "list",
+      is_shared: false, checked_items: [], created_at: "", updated_at: "" },
+  ]),
+  addRecipe: vi.fn(),
+}));
+
 test("renders the recipe title, ingredients and steps", async () => {
   render(
     <MemoryRouter initialEntries={["/recipes/r1"]}>
@@ -28,4 +36,16 @@ test("renders the recipe title, ingredients and steps", async () => {
   expect(await screen.findByText("Dal")).toBeInTheDocument();
   expect(await screen.findByText("flour")).toBeInTheDocument();
   expect(await screen.findByText("mix well")).toBeInTheDocument();
+});
+
+test("shows an add-to-plan control listing the user's plans", async () => {
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes>
+        <Route path="/recipes/:id" element={<RecipeDetail />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("button", { name: /add to plan/i })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "This week" })).toBeInTheDocument();
 });
