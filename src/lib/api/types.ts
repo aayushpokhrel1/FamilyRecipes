@@ -2,7 +2,7 @@ export type Visibility = "private" | "family" | "public";
 export interface Profile { id: string; display_name: string; avatar_url: string | null; }
 export interface Family { id: string; name: string; invite_code: string; created_by: string; }
 export interface FamilyMember { family_id: string; user_id: string; role: "owner" | "member"; }
-export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; }
+export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; }
 export interface Step { id?: string; position: number; text: string; }
 export interface Recipe {
   id: string; family_id: string; author_id: string; title: string;

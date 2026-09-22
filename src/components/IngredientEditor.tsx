@@ -15,6 +15,10 @@ export default function IngredientEditor({
     onChange(items.filter((_, i) => i !== index));
   }
 
+  const usedSections = Array.from(
+    new Set(items.map((g) => g.section).filter((s): s is string => !!s && s.trim() !== "")),
+  );
+
   return (
     <div>
       <h2>Ingredients</h2>
@@ -35,6 +39,12 @@ export default function IngredientEditor({
             onChange={(e) => update(i, { item: e.target.value })}
             placeholder="Item"
           />
+          <input
+            value={g.section ?? ""}
+            onChange={(e) => update(i, { section: e.target.value })}
+            placeholder="Section"
+            list="ingredient-sections"
+          />
           <button type="button" onClick={() => remove(i)}>
             Remove
           </button>
@@ -42,10 +52,13 @@ export default function IngredientEditor({
       ))}
       <button
         type="button"
-        onClick={() => onChange([...items, { position: items.length, quantity: "", unit: "", item: "" }])}
+        onClick={() => onChange([...items, { position: items.length, quantity: "", unit: "", item: "", section: items[items.length - 1]?.section ?? null }])}
       >
         Add ingredient
       </button>
+      <datalist id="ingredient-sections">
+        {usedSections.map((s) => <option key={s} value={s} />)}
+      </datalist>
     </div>
   );
 }
