@@ -1,131 +1,82 @@
-# Brief: Slice 5 — ingredient catalog popup (categorized multi-select)
+# Brief: Slice 6 — AI prefill on edit (append merge)
 
-A modal palette that lists the catalog by category with checkboxes and a search box; picking
-items adds them as new ingredient rows, optionally under a section.
+Let the AI extract panel be used while editing a saved recipe. On edit, its result is MERGED
+into the current draft (append ingredients/steps, fill only empty scalars, never overwrite
+existing text or the title), not replaced.
 
-## 1. Create `src/components/IngredientCatalogPicker.tsx` EXACTLY
+## 1. Create `src/lib/mergeDraft.ts` EXACTLY
 
-```tsx
-import { useState } from "react";
-import { CATALOG } from "../lib/catalog";
+```ts
+import type { RecipeDraft } from "./api/types";
 
-// Modal: browse the catalog by category, search across all, multi-select, and add the checked
-// names as ingredients under an optional section. Presentation only; styling comes later.
-export default function IngredientCatalogPicker(
-  { onAdd, onClose, defaultSection }:
-  { onAdd: (names: string[], section: string | null) => void; onClose: () => void; defaultSection?: string | null },
-) {
-  const [query, setQuery] = useState("");
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const [section, setSection] = useState(defaultSection ?? "");
-
-  const q = query.trim().toLowerCase();
-  const filtered = CATALOG
-    .map((c) => ({ category: c.category, items: c.items.filter((i) => !q || i.toLowerCase().includes(q)) }))
-    .filter((c) => c.items.length > 0);
-
-  function toggle(name: string) {
-    setChecked((prev) => ({ ...prev, [name]: !prev[name] }));
-  }
-  function confirm() {
-    const names = Object.keys(checked).filter((n) => checked[n]);
-    if (names.length) onAdd(names, section.trim() || null);
-    onClose();
-  }
-
-  return (
-    <div className="catalog-overlay" role="dialog" aria-label="Add ingredients from list">
-      <div className="catalog-modal">
-        <input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search ingredients" aria-label="search ingredients" />
-        <input value={section} onChange={(e) => setSection(e.target.value)}
-          placeholder="Section (optional)" aria-label="target section" />
-        <div className="catalog-list">
-          {filtered.map((c) => (
-            <section key={c.category}>
-              <h4>{c.category}</h4>
-              {c.items.map((name) => (
-                <label key={name}>
-                  <input type="checkbox" checked={!!checked[name]} onChange={() => toggle(name)} />
-                  {name}
-                </label>
-              ))}
-            </section>
-          ))}
-          {filtered.length === 0 && <p>No matches.</p>}
-        </div>
-        <div className="catalog-actions">
-          <button type="button" onClick={confirm}>Add selected</button>
-          <button type="button" onClick={onClose}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
+// Merge an AI-extracted draft into the current one for editing: append the lists, fill only
+// empty scalar fields, and never overwrite existing text (including the title).
+export function mergeDraft(current: RecipeDraft, incoming: RecipeDraft): RecipeDraft {
+  return {
+    title: current.title || incoming.title,
+    story: current.story || incoming.story,
+    provenance: current.provenance || incoming.provenance,
+    servings: current.servings ?? incoming.servings,
+    prep_minutes: current.prep_minutes ?? incoming.prep_minutes,
+    cook_minutes: current.cook_minutes ?? incoming.cook_minutes,
+    source_url: current.source_url ?? incoming.source_url,
+    ingredients: [...current.ingredients, ...incoming.ingredients],
+    steps: [...current.steps, ...incoming.steps],
+  };
 }
 ```
 
-## 2. Create `src/components/IngredientCatalogPicker.test.tsx` EXACTLY
+## 2. Create `src/lib/mergeDraft.test.ts` EXACTLY
 
-```tsx
-import { render, screen, fireEvent } from "@testing-library/react";
-import { vi } from "vitest";
-import IngredientCatalogPicker from "./IngredientCatalogPicker";
+```ts
+import { test, expect } from "vitest";
+import { mergeDraft } from "./mergeDraft";
+import type { RecipeDraft } from "./api/types";
 
-test("adds checked items with the chosen section", () => {
-  const onAdd = vi.fn();
-  const onClose = vi.fn();
-  render(<IngredientCatalogPicker onAdd={onAdd} onClose={onClose} defaultSection="Spices" />);
-  fireEvent.click(screen.getAllByRole("checkbox")[0]);
-  fireEvent.click(screen.getByRole("button", { name: /add selected/i }));
-  expect(onAdd).toHaveBeenCalledTimes(1);
-  const [names, section] = onAdd.mock.calls[0];
-  expect(names.length).toBe(1);
-  expect(section).toBe("Spices");
-  expect(onClose).toHaveBeenCalled();
+const base = (o: Partial<RecipeDraft>): RecipeDraft => ({
+  title: "", story: "", provenance: "", servings: null, prep_minutes: null, cook_minutes: null,
+  ingredients: [], steps: [], source_url: null, ...o,
 });
 
-test("search narrows the catalog to nothing for a nonsense query", () => {
-  render(<IngredientCatalogPicker onAdd={() => {}} onClose={() => {}} />);
-  expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0);
-  fireEvent.change(screen.getByLabelText("search ingredients"), { target: { value: "zzzznotreal" } });
-  expect(screen.queryAllByRole("checkbox").length).toBe(0);
+test("appends lists, fills empty scalars, never overwrites existing text", () => {
+  const current = base({
+    title: "Nana's Dal", servings: 4,
+    ingredients: [{ position: 0, quantity: "1", unit: "cup", item: "lentils" }],
+    steps: [{ position: 0, text: "Boil" }],
+  });
+  const incoming = base({
+    title: "Dal Extracted", servings: 8, story: "from a blog",
+    ingredients: [{ position: 0, quantity: "2", unit: null, item: "tomato" }],
+    steps: [{ position: 0, text: "Simmer" }],
+  });
+  const merged = mergeDraft(current, incoming);
+  expect(merged.title).toBe("Nana's Dal");
+  expect(merged.servings).toBe(4);
+  expect(merged.story).toBe("from a blog");
+  expect(merged.ingredients.map((i) => i.item)).toEqual(["lentils", "tomato"]);
+  expect(merged.steps.map((s) => s.text)).toEqual(["Boil", "Simmer"]);
 });
 ```
 
-## 3. Edit `src/components/IngredientEditor.tsx`
+## 3. Edit `src/pages/RecipeEdit.tsx`
 
-(a) Change the top import line `import type { Ingredient } from "../lib/api/types";` to ALSO
-import useState and the picker (add two lines):
+(a) Add imports (with the other imports):
 ```tsx
-import { useState } from "react";
-import IngredientCatalogPicker from "./IngredientCatalogPicker";
+import AiPrefillPanel from "../components/AiPrefillPanel";
+import { mergeDraft } from "../lib/mergeDraft";
 ```
 
-(b) At the start of the component body (before `function update`), add:
+(b) Add a handler inside the component (near `handleSubmit`):
 ```tsx
-  const [showPicker, setShowPicker] = useState(false);
+  function handlePrefill(incoming: RecipeDraft) {
+    setDraft((cur) => (cur ? mergeDraft(cur, incoming) : incoming));
+  }
 ```
 
-(c) Immediately AFTER the existing "Add ingredient" `</button>`, add an "Add from list" button:
+(c) In the returned JSX, immediately AFTER the `{error && <p role="alert">{error}</p>}` line
+and BEFORE the `<form onSubmit={handleSubmit}>` line, insert:
 ```tsx
-      <button type="button" onClick={() => setShowPicker(true)}>Add from list</button>
-```
-
-(d) Immediately before the closing `</div>` of the component's outer wrapper (next to the
-datalists), add the picker:
-```tsx
-      {showPicker && (
-        <IngredientCatalogPicker
-          defaultSection={items[items.length - 1]?.section ?? null}
-          onClose={() => setShowPicker(false)}
-          onAdd={(names, section) =>
-            onChange([
-              ...items,
-              ...names.map((item, k) => ({ position: items.length + k, quantity: "", unit: "", item, section })),
-            ])
-          }
-        />
-      )}
+      <AiPrefillPanel onDraft={handlePrefill} />
 ```
 
 ## Constraints

@@ -4,6 +4,8 @@ import { getRecipe, updateRecipe, listFamilyIngredientNames } from "../lib/api/r
 import { getRecipeTagIds, setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
+import { mergeDraft } from "../lib/mergeDraft";
+import AiPrefillPanel from "../components/AiPrefillPanel";
 import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
 import TagPicker from "../components/TagPicker";
@@ -80,6 +82,10 @@ export default function RecipeEdit() {
     }
   }
 
+  function handlePrefill(incoming: RecipeDraft) {
+    setDraft((cur) => (cur ? mergeDraft(cur, incoming) : incoming));
+  }
+
   function handleCover(e: ChangeEvent<HTMLInputElement>) {
     setCoverFile(e.target.files?.[0] ?? null);
   }
@@ -91,6 +97,7 @@ export default function RecipeEdit() {
     <div>
       <h1>Edit recipe</h1>
       {error && <p role="alert">{error}</p>}
+      <AiPrefillPanel onDraft={handlePrefill} />
       <form onSubmit={handleSubmit}>
         <IngredientEditor
           items={draft.ingredients}
