@@ -1,0 +1,23 @@
+import { render, screen, fireEvent } from "@testing-library/react";
+import { vi } from "vitest";
+import IngredientCatalogPicker from "./IngredientCatalogPicker";
+
+test("adds checked items with the chosen section", () => {
+  const onAdd = vi.fn();
+  const onClose = vi.fn();
+  render(<IngredientCatalogPicker onAdd={onAdd} onClose={onClose} defaultSection="Spices" />);
+  fireEvent.click(screen.getAllByRole("checkbox")[0]);
+  fireEvent.click(screen.getByRole("button", { name: /add selected/i }));
+  expect(onAdd).toHaveBeenCalledTimes(1);
+  const [names, section] = onAdd.mock.calls[0];
+  expect(names.length).toBe(1);
+  expect(section).toBe("Spices");
+  expect(onClose).toHaveBeenCalled();
+});
+
+test("search narrows the catalog to nothing for a nonsense query", () => {
+  render(<IngredientCatalogPicker onAdd={() => {}} onClose={() => {}} />);
+  expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0);
+  fireEvent.change(screen.getByLabelText("search ingredients"), { target: { value: "zzzznotreal" } });
+  expect(screen.queryAllByRole("checkbox").length).toBe(0);
+});

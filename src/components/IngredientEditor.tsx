@@ -1,3 +1,5 @@
+import { useState } from "react";
+import IngredientCatalogPicker from "./IngredientCatalogPicker";
 import type { Ingredient } from "../lib/api/types";
 import { mergeItemSuggestions } from "../lib/catalog";
 
@@ -10,6 +12,8 @@ export default function IngredientEditor({
   onChange: (items: Ingredient[]) => void;
   itemSuggestions?: string[];
 }) {
+  const [showPicker, setShowPicker] = useState(false);
+
   function update(index: number, patch: Partial<Ingredient>) {
     onChange(items.map((g, i) => (i === index ? { ...g, ...patch } : g)));
   }
@@ -60,12 +64,25 @@ export default function IngredientEditor({
       >
         Add ingredient
       </button>
+      <button type="button" onClick={() => setShowPicker(true)}>Add from list</button>
       <datalist id="ingredient-sections">
         {usedSections.map((s) => <option key={s} value={s} />)}
       </datalist>
       <datalist id="ingredient-items">
         {mergeItemSuggestions(itemSuggestions).map((name) => <option key={name} value={name} />)}
       </datalist>
+      {showPicker && (
+        <IngredientCatalogPicker
+          defaultSection={items[items.length - 1]?.section ?? null}
+          onClose={() => setShowPicker(false)}
+          onAdd={(names, section) =>
+            onChange([
+              ...items,
+              ...names.map((item, k) => ({ position: items.length + k, quantity: "", unit: "", item, section })),
+            ])
+          }
+        />
+      )}
     </div>
   );
 }

@@ -1,150 +1,133 @@
-# Brief: Slice 4 — ingredient catalog (native datalist autocomplete)
+# Brief: Slice 5 — ingredient catalog popup (categorized multi-select)
 
-Let people pick ingredient names from a list while typing, seeded from a static catalog plus
-the family's previously used ingredient names.
+A modal palette that lists the catalog by category with checkboxes and a search box; picking
+items adds them as new ingredient rows, optionally under a section.
 
-## 1. Create `src/lib/catalog.ts`
+## 1. Create `src/components/IngredientCatalogPicker.tsx` EXACTLY
 
-Author a modest static catalog: the exact structure below, and fill each category's `items`
-with about 12 to 16 common, singular, lowercase ingredient names (no quantities). Categories:
-Produce, Herbs, Spices, Dairy & Eggs, Proteins, Pantry & Grains, Baking, Condiments & Sauces.
-Use ordinary comma lists. Example items: Produce -> "onion","garlic","tomato","carrot",...;
-Spices -> "cumin","paprika","cinnamon","black pepper",...; Baking -> "flour","sugar","baking
-soda","vanilla extract",... Keep names generic and singular.
+```tsx
+import { useState } from "react";
+import { CATALOG } from "../lib/catalog";
 
-```ts
-export interface CatalogCategory { category: string; items: string[] }
+// Modal: browse the catalog by category, search across all, multi-select, and add the checked
+// names as ingredients under an optional section. Presentation only; styling comes later.
+export default function IngredientCatalogPicker(
+  { onAdd, onClose, defaultSection }:
+  { onAdd: (names: string[], section: string | null) => void; onClose: () => void; defaultSection?: string | null },
+) {
+  const [query, setQuery] = useState("");
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [section, setSection] = useState(defaultSection ?? "");
 
-export const CATALOG: CatalogCategory[] = [
-  { category: "Produce", items: [/* ~12-16 items */] },
-  { category: "Herbs", items: [/* ... */] },
-  { category: "Spices", items: [/* ... */] },
-  { category: "Dairy & Eggs", items: [/* ... */] },
-  { category: "Proteins", items: [/* ... */] },
-  { category: "Pantry & Grains", items: [/* ... */] },
-  { category: "Baking", items: [/* ... */] },
-  { category: "Condiments & Sauces", items: [/* ... */] },
-];
+  const q = query.trim().toLowerCase();
+  const filtered = CATALOG
+    .map((c) => ({ category: c.category, items: c.items.filter((i) => !q || i.toLowerCase().includes(q)) }))
+    .filter((c) => c.items.length > 0);
 
-export const CATALOG_ITEMS: string[] = CATALOG.flatMap((c) => c.items);
-
-// Catalog items first, then the family's own past names, deduped case-insensitively.
-export function mergeItemSuggestions(history: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const name of [...CATALOG_ITEMS, ...history]) {
-    const key = name.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(name);
+  function toggle(name: string) {
+    setChecked((prev) => ({ ...prev, [name]: !prev[name] }));
   }
-  return out;
+  function confirm() {
+    const names = Object.keys(checked).filter((n) => checked[n]);
+    if (names.length) onAdd(names, section.trim() || null);
+    onClose();
+  }
+
+  return (
+    <div className="catalog-overlay" role="dialog" aria-label="Add ingredients from list">
+      <div className="catalog-modal">
+        <input value={query} onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search ingredients" aria-label="search ingredients" />
+        <input value={section} onChange={(e) => setSection(e.target.value)}
+          placeholder="Section (optional)" aria-label="target section" />
+        <div className="catalog-list">
+          {filtered.map((c) => (
+            <section key={c.category}>
+              <h4>{c.category}</h4>
+              {c.items.map((name) => (
+                <label key={name}>
+                  <input type="checkbox" checked={!!checked[name]} onChange={() => toggle(name)} />
+                  {name}
+                </label>
+              ))}
+            </section>
+          ))}
+          {filtered.length === 0 && <p>No matches.</p>}
+        </div>
+        <div className="catalog-actions">
+          <button type="button" onClick={confirm}>Add selected</button>
+          <button type="button" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 ```
 
-## 2. Create `src/lib/catalog.test.ts` EXACTLY
+## 2. Create `src/components/IngredientCatalogPicker.test.tsx` EXACTLY
 
-```ts
-import { test, expect } from "vitest";
-import { mergeItemSuggestions, CATALOG_ITEMS } from "./catalog";
+```tsx
+import { render, screen, fireEvent } from "@testing-library/react";
+import { vi } from "vitest";
+import IngredientCatalogPicker from "./IngredientCatalogPicker";
 
-test("merges history after catalog, deduped case-insensitively", () => {
-  const result = mergeItemSuggestions(["Onion", "gochujang", "  "]);
-  // catalog items come first
-  expect(result.slice(0, CATALOG_ITEMS.length)).toEqual(CATALOG_ITEMS);
-  // a new history item is appended
-  expect(result).toContain("gochujang");
-  // "Onion" duplicates catalog "onion" (case-insensitive) and blanks are dropped
-  expect(result.filter((x) => x.toLowerCase() === "onion")).toHaveLength(1);
+test("adds checked items with the chosen section", () => {
+  const onAdd = vi.fn();
+  const onClose = vi.fn();
+  render(<IngredientCatalogPicker onAdd={onAdd} onClose={onClose} defaultSection="Spices" />);
+  fireEvent.click(screen.getAllByRole("checkbox")[0]);
+  fireEvent.click(screen.getByRole("button", { name: /add selected/i }));
+  expect(onAdd).toHaveBeenCalledTimes(1);
+  const [names, section] = onAdd.mock.calls[0];
+  expect(names.length).toBe(1);
+  expect(section).toBe("Spices");
+  expect(onClose).toHaveBeenCalled();
+});
+
+test("search narrows the catalog to nothing for a nonsense query", () => {
+  render(<IngredientCatalogPicker onAdd={() => {}} onClose={() => {}} />);
+  expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0);
+  fireEvent.change(screen.getByLabelText("search ingredients"), { target: { value: "zzzznotreal" } });
+  expect(screen.queryAllByRole("checkbox").length).toBe(0);
 });
 ```
 
-## 3. Edit `src/lib/api/recipes.ts` — add distinct family ingredient names
+## 3. Edit `src/components/IngredientEditor.tsx`
 
-Append this exported function:
-```ts
-export async function listFamilyIngredientNames(familyId: string): Promise<string[]> {
-  const { data: recs, error } = await supabase.from("recipes").select("id").eq("family_id", familyId);
-  if (error) throw new Error(error.message);
-  const ids = (recs ?? []).map((r: any) => r.id);
-  if (!ids.length) return [];
-  const { data, error: e2 } = await supabase.from("recipe_ingredients").select("item").in("recipe_id", ids);
-  if (e2) throw new Error(e2.message);
-  const names = new Set((data ?? []).map((r: any) => r.item as string).filter(Boolean));
-  return Array.from(names).sort();
-}
-```
-
-## 4. Edit `src/components/IngredientEditor.tsx`
-
-(a) Add the import at the top:
+(a) Change the top import line `import type { Ingredient } from "../lib/api/types";` to ALSO
+import useState and the picker (add two lines):
 ```tsx
-import { mergeItemSuggestions } from "../lib/catalog";
+import { useState } from "react";
+import IngredientCatalogPicker from "./IngredientCatalogPicker";
 ```
 
-(b) Change the component signature to accept an optional `itemSuggestions` prop:
-FROM:
+(b) At the start of the component body (before `function update`), add:
 ```tsx
-export default function IngredientEditor({
-  items,
-  onChange,
-}: {
-  items: Ingredient[];
-  onChange: (items: Ingredient[]) => void;
-}) {
-```
-TO:
-```tsx
-export default function IngredientEditor({
-  items,
-  onChange,
-  itemSuggestions = [],
-}: {
-  items: Ingredient[];
-  onChange: (items: Ingredient[]) => void;
-  itemSuggestions?: string[];
-}) {
+  const [showPicker, setShowPicker] = useState(false);
 ```
 
-(c) On the Item `<input>` (the one with `placeholder="Item"`), add `list="ingredient-items"`.
-
-(d) Immediately before the closing `</div>` of the outer wrapper (next to the existing
-`ingredient-sections` datalist), add:
+(c) Immediately AFTER the existing "Add ingredient" `</button>`, add an "Add from list" button:
 ```tsx
-      <datalist id="ingredient-items">
-        {mergeItemSuggestions(itemSuggestions).map((name) => <option key={name} value={name} />)}
-      </datalist>
+      <button type="button" onClick={() => setShowPicker(true)}>Add from list</button>
 ```
 
-## 5. Wire the parents to pass family history
-
-### `src/pages/RecipeCreate.tsx`
-(a) Add to imports: `import { createRecipe, listFamilyIngredientNames } from "../lib/api/recipes";` (replace the existing `import { createRecipe } from "../lib/api/recipes";`). Also add `useEffect` to the react import.
-(b) Add state + effect in the component:
+(d) Immediately before the closing `</div>` of the component's outer wrapper (next to the
+datalists), add the picker:
 ```tsx
-  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
-  useEffect(() => {
-    if (activeFamily) listFamilyIngredientNames(activeFamily.id).then(setItemSuggestions).catch(() => setItemSuggestions([]));
-  }, [activeFamily]);
+      {showPicker && (
+        <IngredientCatalogPicker
+          defaultSection={items[items.length - 1]?.section ?? null}
+          onClose={() => setShowPicker(false)}
+          onAdd={(names, section) =>
+            onChange([
+              ...items,
+              ...names.map((item, k) => ({ position: items.length + k, quantity: "", unit: "", item, section })),
+            ])
+          }
+        />
+      )}
 ```
-(c) Pass the prop to the editor: change `<IngredientEditor items={draft.ingredients} onChange={...} />` to also pass `itemSuggestions={itemSuggestions}`.
-
-### `src/pages/RecipeEdit.tsx`
-(a) Change `import { getRecipe, updateRecipe } from "../lib/api/recipes";` to
-`import { getRecipe, updateRecipe, listFamilyIngredientNames } from "../lib/api/recipes";`.
-(b) Add state:
-```tsx
-  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
-```
-(c) Add an effect (after the existing load effect) that fetches once `familyId` is set:
-```tsx
-  useEffect(() => {
-    if (familyId) listFamilyIngredientNames(familyId).then(setItemSuggestions).catch(() => setItemSuggestions([]));
-  }, [familyId]);
-```
-(d) Pass `itemSuggestions={itemSuggestions}` to the `<IngredientEditor ... />`.
 
 ## Constraints
-- Use the code verbatim (fill the catalog item lists yourself per step 1). Do not modify any
-  other file. Do not touch brief.md. Do not run any commands.
+- Use the code verbatim. Do not modify any other file. Do not touch brief.md. Do not run commands.
 - No em/en dashes anywhere.
