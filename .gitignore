@@ -43,3 +43,6 @@ graphify-out/
 .impeccable/review/
 .impeccable/build/
 .impeccable/config.local.json
+
+# session scratch briefs
+brief.md
