@@ -24,25 +24,30 @@ create index recipe_ingredients_item_trgm_idx on recipe_ingredients using gin (i
 create function search_recipes(p_family_id uuid, p_search text, p_tag_id uuid default null)
 returns setof recipes
 language sql stable security invoker set search_path = public, extensions as $$
+  -- Normalize the term once: trim it, and treat whitespace-only as "no search".
+  -- Trimming has to apply to the MATCHING too, not just the is-it-blank test:
+  -- a trailing space (mobile keyboards add one) would otherwise turn into
+  -- ilike '%chicken %' and match nothing.
+  with q as (select nullif(trim(coalesce(p_search, '')), '') as term)
   select r.*
-  from recipes r
+  from recipes r, q
   where r.family_id = p_family_id
     and (p_tag_id is null or exists (
       select 1 from recipe_tags rt where rt.recipe_id = r.id and rt.tag_id = p_tag_id))
     and (
-      coalesce(trim(p_search), '') = ''
-      or r.title % p_search
-      or r.title ilike '%' || p_search || '%'
+      q.term is null
+      or r.title % q.term
+      or r.title ilike '%' || q.term || '%'
       or exists (
         select 1 from recipe_ingredients i
         where i.recipe_id = r.id
-          and (i.item % p_search or i.item ilike '%' || p_search || '%'))
+          and (i.item % q.term or i.item ilike '%' || q.term || '%'))
     )
   order by
-    case when coalesce(trim(p_search), '') = '' then 0
+    case when q.term is null then 0
       else greatest(
-        similarity(r.title, p_search),
-        coalesce((select max(similarity(i.item, p_search))
+        similarity(r.title, q.term),
+        coalesce((select max(similarity(i.item, q.term))
           from recipe_ingredients i where i.recipe_id = r.id), 0))
     end desc,
     r.created_at desc;
