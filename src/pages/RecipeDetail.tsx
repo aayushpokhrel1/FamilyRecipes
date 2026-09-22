@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteRecipe, getRecipe } from "../lib/api/recipes";
 import type { Ingredient, Recipe, Step } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
+import PortionsStepper from "../components/PortionsStepper";
+import { scaleIngredientQty } from "../lib/api/quantity";
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -12,6 +14,7 @@ export default function RecipeDetail() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [factor, setFactor] = useState(1);
 
   useEffect(() => {
     if (!id) return;
@@ -95,10 +98,11 @@ export default function RecipeDetail() {
       <div className="recipe-body">
         <section className="plate panel">
           <h2>Ingredients</h2>
+          <PortionsStepper base={recipe.servings} onFactorChange={setFactor} />
           <ul className="ing-list">
             {ingredients.map((g, i) => (
               <li key={i}>
-                <span className="qty">{[g.quantity, g.unit].filter(Boolean).join(" ")}</span>
+                <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
                 <span>{g.item}</span>
               </li>
             ))}

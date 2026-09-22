@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getRecipe } from "../lib/api/recipes";
 import type { Ingredient, Step } from "../lib/api/types";
+import PortionsStepper from "../components/PortionsStepper";
+import { scaleIngredientQty } from "../lib/api/quantity";
 
 export default function CookMode() {
   const { id } = useParams();
@@ -11,6 +13,8 @@ export default function CookMode() {
   const [showIngredients, setShowIngredients] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [servings, setServings] = useState<number | null>(null);
+  const [factor, setFactor] = useState(1);
 
   useEffect(() => {
     if (!id) return;
@@ -21,6 +25,7 @@ export default function CookMode() {
         if (ignore) return;
         setIngredients(data.ingredients);
         setSteps(data.steps);
+        setServings(data.recipe.servings);
       })
       .catch((err) => {
         if (ignore) return;
@@ -83,13 +88,16 @@ export default function CookMode() {
         </button>
       </div>
       {showIngredients && (
-        <ul className="cook-ings">
-          {ingredients.map((g, i) => (
-            <li key={i}>
-              {[g.quantity, g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-            </li>
-          ))}
-        </ul>
+        <div>
+          <PortionsStepper base={servings} onFactorChange={setFactor} />
+          <ul className="cook-ings">
+            {ingredients.map((g, i) => (
+              <li key={i}>
+                {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {step ? (
         <>
