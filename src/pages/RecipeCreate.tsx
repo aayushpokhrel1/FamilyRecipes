@@ -1,7 +1,7 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
-import { createRecipe } from "../lib/api/recipes";
+import { createRecipe, listFamilyIngredientNames } from "../lib/api/recipes";
 import { setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
@@ -30,6 +30,10 @@ function toNumber(value: string): number | null {
 export default function RecipeCreate() {
   const { activeFamily } = useFamily();
   const navigate = useNavigate();
+  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (activeFamily) listFamilyIngredientNames(activeFamily.id).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+  }, [activeFamily]);
   const [draft, setDraft] = useState<RecipeDraft>(emptyDraft);
   const [visibility, setVisibility] = useState<Visibility>("family");
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -72,6 +76,7 @@ export default function RecipeCreate() {
         <IngredientEditor
           items={draft.ingredients}
           onChange={(ingredients) => setDraft({ ...draft, ingredients })}
+          itemSuggestions={itemSuggestions}
         />
         <StepEditor items={draft.steps} onChange={(steps) => setDraft({ ...draft, steps })} />
         <label>

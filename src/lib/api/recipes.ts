@@ -99,3 +99,14 @@ export async function deleteRecipe(id: string) {
   const { error } = await supabase.from("recipes").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+export async function listFamilyIngredientNames(familyId: string): Promise<string[]> {
+  const { data: recs, error } = await supabase.from("recipes").select("id").eq("family_id", familyId);
+  if (error) throw new Error(error.message);
+  const ids = (recs ?? []).map((r: any) => r.id);
+  if (!ids.length) return [];
+  const { data, error: e2 } = await supabase.from("recipe_ingredients").select("item").in("recipe_id", ids);
+  if (e2) throw new Error(e2.message);
+  const names = new Set((data ?? []).map((r: any) => r.item as string).filter(Boolean));
+  return Array.from(names).sort();
+}
