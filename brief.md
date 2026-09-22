@@ -1,82 +1,97 @@
-# Brief: Slice 6 — AI prefill on edit (append merge)
+# Brief: Slice 7 — add a recipe to a My Kitchen plan from the recipe page
 
-Let the AI extract panel be used while editing a saved recipe. On edit, its result is MERGED
-into the current draft (append ingredients/steps, fill only empty scalars, never overwrite
-existing text or the title), not replaced.
+Add an "Add to plan" control on the recipe detail page. It lists the caller's plans and adds
+the recipe (unscheduled) to the chosen one via the existing `addRecipe` API.
 
-## 1. Create `src/lib/mergeDraft.ts` EXACTLY
+## 1. Edit `src/pages/RecipeDetail.tsx`
 
-```ts
-import type { RecipeDraft } from "./api/types";
-
-// Merge an AI-extracted draft into the current one for editing: append the lists, fill only
-// empty scalar fields, and never overwrite existing text (including the title).
-export function mergeDraft(current: RecipeDraft, incoming: RecipeDraft): RecipeDraft {
-  return {
-    title: current.title || incoming.title,
-    story: current.story || incoming.story,
-    provenance: current.provenance || incoming.provenance,
-    servings: current.servings ?? incoming.servings,
-    prep_minutes: current.prep_minutes ?? incoming.prep_minutes,
-    cook_minutes: current.cook_minutes ?? incoming.cook_minutes,
-    source_url: current.source_url ?? incoming.source_url,
-    ingredients: [...current.ingredients, ...incoming.ingredients],
-    steps: [...current.steps, ...incoming.steps],
-  };
-}
-```
-
-## 2. Create `src/lib/mergeDraft.test.ts` EXACTLY
-
-```ts
-import { test, expect } from "vitest";
-import { mergeDraft } from "./mergeDraft";
-import type { RecipeDraft } from "./api/types";
-
-const base = (o: Partial<RecipeDraft>): RecipeDraft => ({
-  title: "", story: "", provenance: "", servings: null, prep_minutes: null, cook_minutes: null,
-  ingredients: [], steps: [], source_url: null, ...o,
-});
-
-test("appends lists, fills empty scalars, never overwrites existing text", () => {
-  const current = base({
-    title: "Nana's Dal", servings: 4,
-    ingredients: [{ position: 0, quantity: "1", unit: "cup", item: "lentils" }],
-    steps: [{ position: 0, text: "Boil" }],
-  });
-  const incoming = base({
-    title: "Dal Extracted", servings: 8, story: "from a blog",
-    ingredients: [{ position: 0, quantity: "2", unit: null, item: "tomato" }],
-    steps: [{ position: 0, text: "Simmer" }],
-  });
-  const merged = mergeDraft(current, incoming);
-  expect(merged.title).toBe("Nana's Dal");
-  expect(merged.servings).toBe(4);
-  expect(merged.story).toBe("from a blog");
-  expect(merged.ingredients.map((i) => i.item)).toEqual(["lentils", "tomato"]);
-  expect(merged.steps.map((s) => s.text)).toEqual(["Boil", "Simmer"]);
-});
-```
-
-## 3. Edit `src/pages/RecipeEdit.tsx`
-
-(a) Add imports (with the other imports):
+(a) Add imports (with the others):
 ```tsx
-import AiPrefillPanel from "../components/AiPrefillPanel";
-import { mergeDraft } from "../lib/mergeDraft";
+import { listPlans, addRecipe } from "../lib/api/mealPlans";
+```
+And change the types import to include `MealPlan`:
+FROM:
+```tsx
+import type { Ingredient, Recipe, Step } from "../lib/api/types";
+```
+TO:
+```tsx
+import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
 ```
 
-(b) Add a handler inside the component (near `handleSubmit`):
+(b) Add state near the other useState calls:
 ```tsx
-  function handlePrefill(incoming: RecipeDraft) {
-    setDraft((cur) => (cur ? mergeDraft(cur, incoming) : incoming));
+  const [plans, setPlans] = useState<MealPlan[]>([]);
+  const [planId, setPlanId] = useState("");
+  const [addMsg, setAddMsg] = useState("");
+```
+
+(c) Add an effect that loads the plans once (place it after the existing load effect):
+```tsx
+  useEffect(() => {
+    listPlans().then(setPlans).catch(() => setPlans([]));
+  }, []);
+```
+
+(d) Add a handler (near `handleDelete`):
+```tsx
+  async function handleAddToPlan() {
+    if (!id || !planId) return;
+    try {
+      await addRecipe(planId, id);
+      const name = plans.find((p) => p.id === planId)?.name ?? "plan";
+      setAddMsg("Added to " + name);
+    } catch (err) {
+      setAddMsg(err instanceof Error ? err.message : String(err));
+    }
   }
 ```
 
-(c) In the returned JSX, immediately AFTER the `{error && <p role="alert">{error}</p>}` line
-and BEFORE the `<form onSubmit={handleSubmit}>` line, insert:
+(e) In the `<div className="recipe-actions">` block, immediately BEFORE the
+`<span className="spacer" />` line, insert:
 ```tsx
-      <AiPrefillPanel onDraft={handlePrefill} />
+        {plans.length > 0 && (
+          <>
+            <select aria-label="plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
+              <option value="">Add to plan...</option>
+              {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button type="button" onClick={handleAddToPlan} disabled={!planId}>Add to plan</button>
+          </>
+        )}
+```
+
+(f) Immediately AFTER the `{error && (...)}` block (the one with `role="alert"`), insert:
+```tsx
+      {addMsg && <p className="vault-note">{addMsg}</p>}
+```
+
+## 2. Edit `src/pages/RecipeDetail.test.tsx`
+
+(a) After the existing `vi.mock("../lib/api/recipes", ...)` block, ADD a mealPlans mock:
+```tsx
+vi.mock("../lib/api/mealPlans", () => ({
+  listPlans: vi.fn().mockResolvedValue([
+    { id: "p1", owner_id: "u", family_id: "f1", name: "This week", view_mode: "list",
+      is_shared: false, checked_items: [], created_at: "", updated_at: "" },
+  ]),
+  addRecipe: vi.fn(),
+}));
+```
+
+(b) APPEND a new test (keep the existing one unchanged):
+```tsx
+test("shows an add-to-plan control listing the user's plans", async () => {
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes>
+        <Route path="/recipes/:id" element={<RecipeDetail />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("button", { name: /add to plan/i })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "This week" })).toBeInTheDocument();
+});
 ```
 
 ## Constraints
