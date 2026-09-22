@@ -1,212 +1,150 @@
-# Brief: Slice 3 — ingredient sections
+# Brief: Slice 4 — ingredient catalog (native datalist autocomplete)
 
-Let each ingredient carry an optional free-text section label ("Spices", "For dredging",
-"Sauce"). Group by it in the recipe and cook views. Persist it through create AND edit (the
-edit path goes through an RPC that currently drops unknown columns, so the RPC must be updated).
+Let people pick ingredient names from a list while typing, seeded from a static catalog plus
+the family's previously used ingredient names.
 
-## 1. Create `supabase/migrations/0009_ingredient_sections.sql` EXACTLY
+## 1. Create `src/lib/catalog.ts`
 
-```sql
--- Ingredient sections: group a recipe's ingredients under named components.
-alter table recipe_ingredients add column section text;
-
--- replace_recipe_children (0006) inserted a fixed column list without `section`,
--- so edits would drop it. Redefine it to carry section through.
-create or replace function replace_recipe_children(
-  p_recipe_id uuid, p_ingredients jsonb, p_steps jsonb
-) returns void language plpgsql security invoker set search_path = public as $$
-begin
-  if p_ingredients is not null then
-    delete from recipe_ingredients where recipe_id = p_recipe_id;
-    insert into recipe_ingredients (recipe_id, position, quantity, unit, item, section)
-    select p_recipe_id, (ord - 1)::int, e->>'quantity', e->>'unit', e->>'item', e->>'section'
-    from jsonb_array_elements(p_ingredients) with ordinality as t(e, ord);
-  end if;
-  if p_steps is not null then
-    delete from recipe_steps where recipe_id = p_recipe_id;
-    insert into recipe_steps (recipe_id, position, text)
-    select p_recipe_id, (ord - 1)::int, e->>'text'
-    from jsonb_array_elements(p_steps) with ordinality as t(e, ord);
-  end if;
-end; $$;
-```
-
-## 2. Edit `src/lib/api/types.ts`
-
-Change the `Ingredient` interface to add an optional `section` (keep it optional so existing
-constructions do not break):
-
-FROM:
-```ts
-export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; }
-```
-TO:
-```ts
-export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; }
-```
-
-## 3. Edit `src/lib/api/recipes.ts` — persist section on create
-
-In `createRecipe`, the ingredient insert maps rows. Change:
-```ts
-    const rows = draft.ingredients.map((g, i) => ({
-      recipe_id: rec.id, position: i, quantity: g.quantity, unit: g.unit, item: g.item }));
-```
-to:
-```ts
-    const rows = draft.ingredients.map((g, i) => ({
-      recipe_id: rec.id, position: i, quantity: g.quantity, unit: g.unit, item: g.item, section: g.section ?? null }));
-```
-(The edit path uses the `replace_recipe_children` RPC, already handled by the migration above.)
-
-## 4. Create `src/lib/groupIngredients.ts` EXACTLY
+Author a modest static catalog: the exact structure below, and fill each category's `items`
+with about 12 to 16 common, singular, lowercase ingredient names (no quantities). Categories:
+Produce, Herbs, Spices, Dairy & Eggs, Proteins, Pantry & Grains, Baking, Condiments & Sauces.
+Use ordinary comma lists. Example items: Produce -> "onion","garlic","tomato","carrot",...;
+Spices -> "cumin","paprika","cinnamon","black pepper",...; Baking -> "flour","sugar","baking
+soda","vanilla extract",... Keep names generic and singular.
 
 ```ts
-import type { Ingredient } from "./api/types";
+export interface CatalogCategory { category: string; items: string[] }
 
-export interface IngredientGroup { section: string | null; items: Ingredient[] }
+export const CATALOG: CatalogCategory[] = [
+  { category: "Produce", items: [/* ~12-16 items */] },
+  { category: "Herbs", items: [/* ... */] },
+  { category: "Spices", items: [/* ... */] },
+  { category: "Dairy & Eggs", items: [/* ... */] },
+  { category: "Proteins", items: [/* ... */] },
+  { category: "Pantry & Grains", items: [/* ... */] },
+  { category: "Baking", items: [/* ... */] },
+  { category: "Condiments & Sauces", items: [/* ... */] },
+];
 
-// Group ingredients by section label, preserving first-seen order. A blank or
-// whitespace-only section is treated as ungrouped (null).
-export function groupIngredientsBySection(items: Ingredient[]): IngredientGroup[] {
-  const groups: IngredientGroup[] = [];
-  for (const g of items) {
-    const key = g.section && g.section.trim() ? g.section : null;
-    let grp = groups.find((x) => x.section === key);
-    if (!grp) { grp = { section: key, items: [] }; groups.push(grp); }
-    grp.items.push(g);
+export const CATALOG_ITEMS: string[] = CATALOG.flatMap((c) => c.items);
+
+// Catalog items first, then the family's own past names, deduped case-insensitively.
+export function mergeItemSuggestions(history: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of [...CATALOG_ITEMS, ...history]) {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
   }
-  return groups;
+  return out;
 }
 ```
 
-## 5. Create `src/lib/groupIngredients.test.ts` EXACTLY
+## 2. Create `src/lib/catalog.test.ts` EXACTLY
 
 ```ts
 import { test, expect } from "vitest";
-import { groupIngredientsBySection } from "./groupIngredients";
+import { mergeItemSuggestions, CATALOG_ITEMS } from "./catalog";
 
-test("groups by section, blank becomes null, order preserved", () => {
-  const groups = groupIngredientsBySection([
-    { position: 0, quantity: "1", unit: "cup", item: "flour", section: "Dredging" },
-    { position: 1, quantity: null, unit: null, item: "salt", section: "Spices" },
-    { position: 2, quantity: "1", unit: null, item: "egg", section: "  " },
-    { position: 3, quantity: "2", unit: null, item: "breadcrumbs", section: "Dredging" },
-  ]);
-  expect(groups.map((g) => g.section)).toEqual(["Dredging", "Spices", null]);
-  expect(groups[0].items.map((i) => i.item)).toEqual(["flour", "breadcrumbs"]);
+test("merges history after catalog, deduped case-insensitively", () => {
+  const result = mergeItemSuggestions(["Onion", "gochujang", "  "]);
+  // catalog items come first
+  expect(result.slice(0, CATALOG_ITEMS.length)).toEqual(CATALOG_ITEMS);
+  // a new history item is appended
+  expect(result).toContain("gochujang");
+  // "Onion" duplicates catalog "onion" (case-insensitive) and blanks are dropped
+  expect(result.filter((x) => x.toLowerCase() === "onion")).toHaveLength(1);
 });
 ```
 
-## 6. Edit `src/components/IngredientEditor.tsx`
+## 3. Edit `src/lib/api/recipes.ts` — add distinct family ingredient names
 
-Add a Section input per row (with a datalist of sections already used in this recipe) and make
-a new ingredient inherit the previous row's section.
-
-(a) At the top of the component body (before `return`), add:
-```tsx
-  const usedSections = Array.from(
-    new Set(items.map((g) => g.section).filter((s): s is string => !!s && s.trim() !== "")),
-  );
+Append this exported function:
+```ts
+export async function listFamilyIngredientNames(familyId: string): Promise<string[]> {
+  const { data: recs, error } = await supabase.from("recipes").select("id").eq("family_id", familyId);
+  if (error) throw new Error(error.message);
+  const ids = (recs ?? []).map((r: any) => r.id);
+  if (!ids.length) return [];
+  const { data, error: e2 } = await supabase.from("recipe_ingredients").select("item").in("recipe_id", ids);
+  if (e2) throw new Error(e2.message);
+  const names = new Set((data ?? []).map((r: any) => r.item as string).filter(Boolean));
+  return Array.from(names).sort();
+}
 ```
 
-(b) In each row, immediately AFTER the Item `<input>` (the one with `placeholder="Item"`) and
-BEFORE the Remove button, add:
+## 4. Edit `src/components/IngredientEditor.tsx`
+
+(a) Add the import at the top:
 ```tsx
-          <input
-            value={g.section ?? ""}
-            onChange={(e) => update(i, { section: e.target.value })}
-            placeholder="Section"
-            list="ingredient-sections"
-          />
+import { mergeItemSuggestions } from "../lib/catalog";
 ```
 
-(c) Change the "Add ingredient" onChange to inherit the last row's section:
+(b) Change the component signature to accept an optional `itemSuggestions` prop:
 FROM:
 ```tsx
-        onClick={() => onChange([...items, { position: items.length, quantity: "", unit: "", item: "" }])}
+export default function IngredientEditor({
+  items,
+  onChange,
+}: {
+  items: Ingredient[];
+  onChange: (items: Ingredient[]) => void;
+}) {
 ```
 TO:
 ```tsx
-        onClick={() => onChange([...items, { position: items.length, quantity: "", unit: "", item: "", section: items[items.length - 1]?.section ?? null }])}
+export default function IngredientEditor({
+  items,
+  onChange,
+  itemSuggestions = [],
+}: {
+  items: Ingredient[];
+  onChange: (items: Ingredient[]) => void;
+  itemSuggestions?: string[];
+}) {
 ```
 
-(d) Immediately before the closing `</div>` of the component's outer wrapper (after the Add
-ingredient button), add the datalist:
+(c) On the Item `<input>` (the one with `placeholder="Item"`), add `list="ingredient-items"`.
+
+(d) Immediately before the closing `</div>` of the outer wrapper (next to the existing
+`ingredient-sections` datalist), add:
 ```tsx
-      <datalist id="ingredient-sections">
-        {usedSections.map((s) => <option key={s} value={s} />)}
+      <datalist id="ingredient-items">
+        {mergeItemSuggestions(itemSuggestions).map((name) => <option key={name} value={name} />)}
       </datalist>
 ```
 
-## 7. Edit `src/pages/RecipeDetail.tsx` — grouped ingredient display
+## 5. Wire the parents to pass family history
 
-(a) Add import:
+### `src/pages/RecipeCreate.tsx`
+(a) Add to imports: `import { createRecipe, listFamilyIngredientNames } from "../lib/api/recipes";` (replace the existing `import { createRecipe } from "../lib/api/recipes";`). Also add `useEffect` to the react import.
+(b) Add state + effect in the component:
 ```tsx
-import { groupIngredientsBySection } from "../lib/groupIngredients";
+  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (activeFamily) listFamilyIngredientNames(activeFamily.id).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+  }, [activeFamily]);
 ```
+(c) Pass the prop to the editor: change `<IngredientEditor items={draft.ingredients} onChange={...} />` to also pass `itemSuggestions={itemSuggestions}`.
 
-(b) In the Ingredients section, REPLACE this block:
+### `src/pages/RecipeEdit.tsx`
+(a) Change `import { getRecipe, updateRecipe } from "../lib/api/recipes";` to
+`import { getRecipe, updateRecipe, listFamilyIngredientNames } from "../lib/api/recipes";`.
+(b) Add state:
 ```tsx
-          <ul className="ing-list">
-            {ingredients.map((g, i) => (
-              <li key={i}>
-                <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
-                <span>{g.item}</span>
-              </li>
-            ))}
-          </ul>
+  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
 ```
-WITH:
+(c) Add an effect (after the existing load effect) that fetches once `familyId` is set:
 ```tsx
-          {groupIngredientsBySection(ingredients).map((grp) => (
-            <div key={grp.section ?? "_"}>
-              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
-              <ul className="ing-list">
-                {grp.items.map((g, i) => (
-                  <li key={i}>
-                    <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
-                    <span>{g.item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+  useEffect(() => {
+    if (familyId) listFamilyIngredientNames(familyId).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+  }, [familyId]);
 ```
-
-## 8. Edit `src/pages/CookMode.tsx` — grouped ingredient display
-
-(a) Add import:
-```tsx
-import { groupIngredientsBySection } from "../lib/groupIngredients";
-```
-
-(b) REPLACE this block:
-```tsx
-          <ul className="cook-ings">
-            {ingredients.map((g, i) => (
-              <li key={i}>
-                {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-              </li>
-            ))}
-          </ul>
-```
-WITH:
-```tsx
-          {groupIngredientsBySection(ingredients).map((grp) => (
-            <div key={grp.section ?? "_"}>
-              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
-              <ul className="cook-ings">
-                {grp.items.map((g, i) => (
-                  <li key={i}>
-                    {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-```
+(d) Pass `itemSuggestions={itemSuggestions}` to the `<IngredientEditor ... />`.
 
 ## Constraints
-- Use the code verbatim. Do not modify any other file. Do not touch brief.md. Do not run commands.
+- Use the code verbatim (fill the catalog item lists yourself per step 1). Do not modify any
+  other file. Do not touch brief.md. Do not run any commands.
 - No em/en dashes anywhere.

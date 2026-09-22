@@ -1,11 +1,14 @@
 import type { Ingredient } from "../lib/api/types";
+import { mergeItemSuggestions } from "../lib/catalog";
 
 export default function IngredientEditor({
   items,
   onChange,
+  itemSuggestions = [],
 }: {
   items: Ingredient[];
   onChange: (items: Ingredient[]) => void;
+  itemSuggestions?: string[];
 }) {
   function update(index: number, patch: Partial<Ingredient>) {
     onChange(items.map((g, i) => (i === index ? { ...g, ...patch } : g)));
@@ -38,6 +41,7 @@ export default function IngredientEditor({
             value={g.item}
             onChange={(e) => update(i, { item: e.target.value })}
             placeholder="Item"
+            list="ingredient-items"
           />
           <input
             value={g.section ?? ""}
@@ -58,6 +62,9 @@ export default function IngredientEditor({
       </button>
       <datalist id="ingredient-sections">
         {usedSections.map((s) => <option key={s} value={s} />)}
+      </datalist>
+      <datalist id="ingredient-items">
+        {mergeItemSuggestions(itemSuggestions).map((name) => <option key={name} value={name} />)}
       </datalist>
     </div>
   );
