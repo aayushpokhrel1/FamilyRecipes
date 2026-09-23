@@ -106,7 +106,15 @@ A set of recipe-side enhancements plus a My Kitchen entry point:
 
 ## Roadmap (still deferred)
 
-- LLM/synonym ingredient canonicalization and cross-recipe unit-aware quantity merging in the grocery list.
-- Feeding portions scaling into the grocery list (scale a planned recipe by target servings) — unlocked by `quantity.ts`, but its own slice.
+> Status update 2026-09-22: the first two items below were built in a follow-up slice. See
+> `docs/superpowers/specs/2026-09-22-grocery-scaling-canonicalization-design.md`.
+
+- ~~LLM/synonym ingredient canonicalization and cross-recipe unit-aware quantity merging in the grocery list.~~
+  **Partly done.** The curated *synonym* map and unit-aware merging within a unit family are
+  built. The *LLM* canonicalization pass is still deferred, behind the same `normalizeItem`
+  seam. Cross-system (metric to imperial) conversion is now explicitly out of scope.
+- ~~Feeding portions scaling into the grocery list (scale a planned recipe by target servings) — unlocked by `quantity.ts`, but its own slice.~~
+  **Done.** Migration `0011` adds `meal_plan_items.servings`; `getGroceryList` scales rows and
+  de-dupes by `(recipe_id, servings)`.
 - My Kitchen "Up next" landing / week calendar (separate spec, design session).
 - Server-side user-managed ingredient catalog.

@@ -72,8 +72,14 @@ future design should protect each of them, not trade one for another.
 Explicitly undecided or deferred (future work must not present these as done):
 
 - The **public community feed** (follow / save / fork with link-back) is designed, not built.
-- **Ingredient normalization** for grocery lists is a cheap key-based grouping today;
-  synonym / LLM canonicalization and unit-aware quantity merging are deferred to the roadmap.
+- **Ingredient normalization** for grocery lists now adds a curated synonym map on top of the
+  cheap key-based grouping, so "all-purpose flour" and "flour" become one line. **LLM / entity
+  canonicalization is still deferred** and remains the unbuilt half: anything the map has never
+  seen stays a separate line. `normalizeItem` is the seam it will slot into.
+- **Unit-aware quantity merging** is built, but only WITHIN a unit family, and metric and
+  imperial are separate families. So 2 tbsp + 1/4 cup merges to 6 tbsp, while 1 cup + 500 g,
+  or cups + millilitres, deliberately do not. Cross-system conversion is out of scope, and
+  volume-to-weight needs per-ingredient density that does not exist here.
 - A **React Native app** is planned later, sharing the same API. It does not exist yet.
 - Email confirmation is currently off for pre-real-user testing.
 
