@@ -85,3 +85,37 @@ test("duplicating a plan you cannot read clones nothing", async () => {
     .rpc("duplicate_plan", { p_id: plan!.id, p_start: "2026-09-28" });
   expect(error).not.toBeNull();
 });
+
+test("a shared family plan's items are readable by another member", async () => {
+  // listUpcoming relies entirely on RLS (can_read_plan) for the merge, so this
+  // pins the policy rather than the client-side query.
+  const { user: owner, family } = await familyWith("share");
+  const member = await makeUser(`member${Date.now()}@t.dev`);
+  await admin.from("family_members")
+    .insert({ family_id: family.id, user_id: member.id, role: "member" });
+
+  const { data: rec } = await admin.from("recipes")
+    .insert({ family_id: family.id, author_id: owner.id, title: "Pasta bake", visibility: "family" })
+    .select().single();
+  const { data: plan } = await admin.from("meal_plans")
+    .insert({ name: "Mum's week", owner_id: owner.id, family_id: family.id, is_shared: true })
+    .select().single();
+  const day = new Date().toISOString().slice(0, 10);
+  await admin.from("meal_plan_items")
+    .insert({ plan_id: plan!.id, recipe_id: rec!.id, day, meal_slot: "dinner" });
+
+  const { data: seen } = await member.client.from("meal_plan_items")
+    .select("id,day,meal_plans(name,owner_id)").eq("plan_id", plan!.id);
+  expect(seen).toHaveLength(1);
+  expect((seen![0] as any).meal_plans.owner_id).toBe(owner.id); // so readOnly is true
+
+  // an unshared plan stays invisible to the same member
+  const { data: priv } = await admin.from("meal_plans")
+    .insert({ name: "Private", owner_id: owner.id, family_id: family.id, is_shared: false })
+    .select().single();
+  await admin.from("meal_plan_items")
+    .insert({ plan_id: priv!.id, recipe_id: rec!.id, day, meal_slot: "lunch" });
+  const { data: hidden } = await member.client.from("meal_plan_items")
+    .select("id").eq("plan_id", priv!.id);
+  expect(hidden).toEqual([]);
+});

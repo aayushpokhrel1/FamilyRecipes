@@ -1,7 +1,8 @@
 import { supabase } from "../supabaseClient";
 import { buildGroceryList, type IngredientRow } from "./grocery";
 import { parseQuantity, scaleIngredientQty } from "./quantity";
-import type { MealPlan, MealPlanItem, ManualItem, MealPlanViewMode, MealSlot, GroceryLine } from "./types";
+import { addDays, today } from "../dates";
+import type { MealPlan, MealPlanItem, ManualItem, MealPlanViewMode, MealSlot, GroceryLine, UpcomingItem } from "./types";
 
 async function myId(): Promise<string> {
   const { data } = await supabase.auth.getUser();
@@ -108,6 +109,43 @@ export async function moveItem(
   if (!Object.keys(row).length) return;
   const { error } = await supabase.from("meal_plan_items").update(row).eq("id", itemId);
   if (error) throw new Error(error.message);
+}
+
+
+// What is coming up across every plan the caller can READ, which RLS already
+// defines as "mine, or shared with a family I am in" (plan_items_read =
+// can_read_plan). So this needs no ownership filter and no RPC: asking for the
+// rows IS asking the right question.
+export async function listUpcoming(days: number): Promise<UpcomingItem[]> {
+  const from = today();
+  const to = addDays(from, days);
+  const { data: auth } = await supabase.auth.getUser();
+  const { data, error } = await supabase.from("meal_plan_items")
+    .select("id,day,meal_slot,servings,leftover_of,recipes(id,title,servings),meal_plans(id,name,owner_id)")
+    .gte("day", from).lt("day", to).order("day");
+  if (error) throw new Error(error.message);
+
+  const SLOT_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 };
+  return ((data ?? []) as any[])
+    .filter((r) => r.recipes && r.meal_plans)
+    .map((r) => ({
+      id: r.id, day: r.day, meal_slot: r.meal_slot, servings: r.servings,
+      recipe: r.recipes,
+      plan: { id: r.meal_plans.id, name: r.meal_plans.name },
+      isLeftover: r.leftover_of !== null,
+      readOnly: r.meal_plans.owner_id !== auth?.user?.id,
+    }))
+    .sort((a, b) => a.day === b.day
+      ? (SLOT_ORDER[a.meal_slot ?? ""] ?? 9) - (SLOT_ORDER[b.meal_slot ?? ""] ?? 9)
+      : (a.day < b.day ? -1 : 1));
+}
+
+// Clone a plan onto a new start date. The shifting and the leftover repointing
+// happen inside the duplicate_plan RPC so a half-cloned plan is impossible.
+export async function duplicatePlan(id: string, newStartDate: string): Promise<string> {
+  const { data, error } = await supabase.rpc("duplicate_plan", { p_id: id, p_start: newStartDate });
+  if (error) throw new Error(error.message);
+  return data as string;
 }
 
 export async function listManualItems(planId: string): Promise<ManualItem[]> {
