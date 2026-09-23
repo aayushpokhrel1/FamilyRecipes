@@ -44,6 +44,6 @@ to a self-owned Node/Express + Postgres backend later is a bounded swap.
   [Design](docs/superpowers/specs/2026-09-22-grocery-scaling-canonicalization-design.md).
 - **Phase 2** — public recipe-only community feed: follow, save, fork with
   link-back. The `public` flag already ships in v1.
-- **Later** — LLM / entity canonicalization for ingredients (the curated map
-  above handles only what it has seen), a My Kitchen "Up next" week calendar,
-  a server-side user-managed ingredient catalog, native app.
+- **Later** - LLM / entity canonicalization for ingredients (the curated map
+  above handles only what it has seen), a server-side user-managed ingredient
+  catalog, native app.

@@ -51,9 +51,11 @@ future design should protect each of them, not trade one for another.
 ## Operating Context
 
 - **In the kitchen while cooking:** Cook Mode (large text, screen kept awake) for hands-busy use.
-- **Weekly planning:** My Kitchen personal meal plans (list and calendar views) with an
-  auto grocery list, grouped by normalized ingredient and de-duplicated across recipes,
-  checkable, plus manual lines; plans are shareable read-only with the family.
+- **Weekly planning:** My Kitchen opens on what is being cooked today and over the next few
+  days, merged across every plan the member can read (their own, plus plans shared with them).
+  A dated plan is editable as a week grid of days by meal slots, and can be duplicated onto the
+  following week. The auto grocery list is grouped by normalized ingredient, de-duplicated
+  across recipes, checkable, and takes manual lines; plans are shareable read-only with the family.
 - **Capture:** entering recipes from cards, links, photos, or voice, then reviewing the draft.
 - **Family collaboration:** in-family comments on recipes.
 - Data lives in Supabase (Postgres, Auth, Storage, RLS). All data access is isolated in
@@ -67,7 +69,15 @@ future design should protect each of them, not trade one for another.
   (`extract-recipe`). The AI produces a draft the user reviews before saving.
 - Per-recipe visibility Private / Family / Public, enforced by RLS.
 - In-family comments and Cook Mode.
-- My Kitchen: personal meal plans, auto grocery list, plans shareable read-only with family.
+- My Kitchen: personal meal plans (open-ended, or dated and shown as a week grid), a today and
+  up-next landing merged across readable plans, week duplication, an auto grocery list, and
+  plans shareable read-only with family.
+- Leftovers: one cook event can fill several slots. A leftover slot points at its source item,
+  renders in its own slot, and contributes NOTHING to the grocery list, so a pot is bought once.
+  Marking a leftover offers to raise the source's servings; it never changes them on its own.
+- Pantry staples: ingredients a family always keeps in are recorded per family and their grocery
+  lines are moved into a separate "check you have these" group. They are FLAGGED, never hidden,
+  because silently dropping a line would hide a real shortage.
 
 Explicitly undecided or deferred (future work must not present these as done):
 
