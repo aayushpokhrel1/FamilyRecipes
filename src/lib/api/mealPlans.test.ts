@@ -35,10 +35,13 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
       return { select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [] }, error: null }) }) }) };
     }
     if (table === "meal_plan_items") {
-      return { select: () => ({ eq: () => ({ data: [
+      // .is("leftover_of", null) is chained after .eq, so the mock returns the
+      // same rows either way: this test is about scaling, not leftovers.
+      const rows = { data: [
         { recipe_id: "r1", servings: 8 },
         { recipe_id: "r1", servings: null },
-      ], error: null }) }) };
+      ], error: null };
+      return { select: () => ({ eq: () => ({ ...rows, is: () => rows }) }) };
     }
     if (table === "meal_plan_manual_items") {
       return { select: () => ({ eq: () => ({ order: () => ({ data: [], error: null }) }) }) };

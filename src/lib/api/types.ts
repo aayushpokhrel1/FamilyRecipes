@@ -24,12 +24,22 @@ export type MealSlot = "breakfast" | "lunch" | "dinner";
 export interface MealPlan {
   id: string; owner_id: string; family_id: string; name: string;
   view_mode: MealPlanViewMode; is_shared: boolean; checked_items: string[];
+  // null start_date = an open-ended plan (a trip, a someday list) rather than a week.
+  start_date: string | null; length_days: number;
   created_at: string; updated_at: string;
 }
 export interface MealPlanItem {
   id: string; plan_id: string; recipe_id: string;
   day: string | null; meal_slot: MealSlot | null; position: number;
   servings: number | null;
+  // set when this slot is eating an earlier item's pot again, so it buys nothing
+  leftover_of: string | null;
+}
+export interface UpcomingItem {
+  id: string; day: string; meal_slot: MealSlot | null; servings: number | null;
+  recipe: { id: string; title: string; servings: number | null };
+  plan: { id: string; name: string };
+  isLeftover: boolean; readOnly: boolean;
 }
 export interface ManualItem { id: string; label: string; position: number; }
 export interface GroceryContribution {

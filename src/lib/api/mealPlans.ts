@@ -32,6 +32,13 @@ export async function setViewMode(id: string, mode: MealPlanViewMode): Promise<v
   const { error } = await supabase.from("meal_plans").update({ view_mode: mode }).eq("id", id);
   if (error) throw new Error(error.message);
 }
+export async function setPlanDates(
+  id: string, startDate: string | null, lengthDays: number,
+): Promise<void> {
+  const { error } = await supabase.from("meal_plans")
+    .update({ start_date: startDate, length_days: lengthDays }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
 export async function setShared(id: string, isShared: boolean): Promise<void> {
   const { error } = await supabase.from("meal_plans").update({ is_shared: isShared }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -43,7 +50,7 @@ export async function deletePlan(id: string): Promise<void> {
 
 export async function listItems(planId: string): Promise<MealPlanItem[]> {
   const { data, error } = await supabase.from("meal_plan_items")
-    .select("id,plan_id,recipe_id,day,meal_slot,position,servings").eq("plan_id", planId).order("position");
+    .select("id,plan_id,recipe_id,day,meal_slot,position,servings,leftover_of").eq("plan_id", planId).order("position");
   if (error) throw new Error(error.message);
   return (data ?? []) as MealPlanItem[];
 }
@@ -61,6 +68,24 @@ export async function addRecipe(
   return data as MealPlanItem;
 }
 
+// A leftover copies its source's recipe so it renders normally in its slot,
+// and carries leftover_of so the grocery list skips it.
+export async function addLeftover(
+  planId: string, sourceItemId: string,
+  opts: { day: string | null; mealSlot: MealSlot | null },
+): Promise<MealPlanItem> {
+  const { data: src, error: sErr } = await supabase.from("meal_plan_items")
+    .select("recipe_id").eq("id", sourceItemId).single();
+  if (sErr) throw new Error(sErr.message);
+  const { data, error } = await supabase.from("meal_plan_items")
+    .insert({
+      plan_id: planId, recipe_id: (src as { recipe_id: string }).recipe_id,
+      day: opts.day, meal_slot: opts.mealSlot, leftover_of: sourceItemId,
+    })
+    .select("id,plan_id,recipe_id,day,meal_slot,position,servings,leftover_of").single();
+  if (error) throw new Error(error.message);
+  return data as MealPlanItem;
+}
 export async function removeItem(itemId: string): Promise<void> {
   const { error } = await supabase.from("meal_plan_items").delete().eq("id", itemId);
   if (error) throw new Error(error.message);
@@ -121,7 +146,10 @@ export async function toggleChecked(planId: string, key: string, checked: boolea
 export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
   const [{ data: plan, error: pErr }, { data: items, error: iErr }, { data: manual, error: mErr }] = await Promise.all([
     supabase.from("meal_plans").select("checked_items").eq("id", planId).single(),
-    supabase.from("meal_plan_items").select("recipe_id,servings").eq("plan_id", planId),
+    // A leftover is the same pot eaten again, so it buys nothing. This is the
+    // ONLY place leftovers are filtered out: buildGroceryList never needs to
+    // know the concept exists.
+    supabase.from("meal_plan_items").select("recipe_id,servings").eq("plan_id", planId).is("leftover_of", null),
     supabase.from("meal_plan_manual_items").select("id,label").eq("plan_id", planId).order("position"),
   ]);
   if (pErr) throw new Error(pErr.message);
