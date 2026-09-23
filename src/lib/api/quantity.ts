@@ -5,6 +5,10 @@
 export interface QtyRange {
   min: number;
   max: number;
+  // Trailing text that followed the number ("tablespoons", "28-ounce can").
+  // Present when the quantity field carried more than a bare amount, which
+  // voice extraction sometimes produces. Scaling leaves it untouched.
+  suffix?: string;
 }
 
 // half, third, quarter, three-quarters, two-thirds
@@ -68,11 +72,27 @@ function splitRange(s: string): [string, string] | null {
   return null;
 }
 
-export function parseQuantity(text: string | null): QtyRange | null {
-  if (text === null) return null;
-  const s = text.trim();
-  if (!s) return null;
+// Numeric-ish leading tokens: digits, fractions, unicode fractions, ranges,
+// plus "to" as a range word. Anything else ends the quantity.
+const NUMERIC_TOKEN = /^[\d./½⅓¼¾⅔-]+$/;
 
+// Split "2 tablespoons" into ["2", "tablespoons"], or null if it does not start
+// with a number.
+function splitLeadingNumber(s: string): [string, string] | null {
+  const tokens = s.split(/\s+/);
+  let taken = 0;
+  while (
+    taken < tokens.length &&
+    (NUMERIC_TOKEN.test(tokens[taken]) || tokens[taken].toLowerCase() === "to")
+  ) {
+    taken++;
+  }
+  while (taken > 0 && tokens[taken - 1].toLowerCase() === "to") taken--;
+  if (taken === 0 || taken === tokens.length) return null;
+  return [tokens.slice(0, taken).join(" "), tokens.slice(taken).join(" ")];
+}
+
+function parseExact(s: string): QtyRange | null {
   const range = splitRange(s);
   if (range) {
     const min = parseSingle(range[0]);
@@ -82,6 +102,20 @@ export function parseQuantity(text: string | null): QtyRange | null {
 
   const single = parseSingle(s);
   return single !== null ? { min: single, max: single } : null;
+}
+
+export function parseQuantity(text: string | null): QtyRange | null {
+  if (text === null) return null;
+  const s = text.trim();
+  if (!s) return null;
+
+  const exact = parseExact(s);
+  if (exact) return exact;
+
+  const split = splitLeadingNumber(s);
+  if (!split) return null;
+  const leading = parseExact(split[0]);
+  return leading ? { ...leading, suffix: split[1] } : null;
 }
 
 export function formatQuantity(n: number): string {
@@ -122,6 +156,9 @@ export function scaleIngredientQty(
   const parsed = parseQuantity(quantity);
   if (parsed === null) return quantity;
 
-  if (parsed.min === parsed.max) return formatQuantity(parsed.min * factor);
-  return `${formatQuantity(parsed.min * factor)}-${formatQuantity(parsed.max * factor)}`;
+  const scaled =
+    parsed.min === parsed.max
+      ? formatQuantity(parsed.min * factor)
+      : `${formatQuantity(parsed.min * factor)}-${formatQuantity(parsed.max * factor)}`;
+  return parsed.suffix ? `${scaled} ${parsed.suffix}` : scaled;
 }
