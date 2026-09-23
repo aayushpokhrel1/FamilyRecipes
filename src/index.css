@@ -649,6 +649,26 @@ button[aria-pressed="true"] {
 /* ------------------------------------------------------------ kitchen ----- */
 
 .meal-item .day-slot { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Servings stepper: the RecipeDetail portions control, reused per plan item. */
+.meal-item .portions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sign);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+.meal-item .portions button { padding: 4px 12px; font-size: 0.9rem; }
+.meal-item .portions [aria-label="portions value"] {
+  min-width: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
 .cal-day { margin-bottom: 16px; padding: 18px 20px; }
 .cal-day h3 {
   color: var(--ink);
@@ -681,6 +701,13 @@ button[aria-pressed="true"] {
 .grocery-list label { display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; }
 .grocery-list input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }
 .grocery-list small { color: var(--ink-soft); }
+.grocery-list .qty {
+  font-family: var(--sign);
+  font-weight: 700;
+  color: var(--action);
+  font-variant-numeric: tabular-nums;
+}
+.grocery-list .chip { margin-left: 2px; }
 
 /* ---------------------------------------------------------- cook mode ----- */
 

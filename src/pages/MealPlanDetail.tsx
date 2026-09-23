@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
-import { listPlans, listItems, addRecipe, removeItem, moveItem, setViewMode } from "../lib/api/mealPlans";
+import { listPlans, listItems, addRecipe, removeItem, moveItem, setViewMode, setItemServings } from "../lib/api/mealPlans";
 import { listRecipes } from "../lib/api/recipes";
 import type { MealPlan, MealPlanItem, MealSlot, Recipe } from "../lib/api/types";
 import GroceryPanel from "../components/GroceryPanel";
@@ -27,6 +27,7 @@ export default function MealPlanDetail() {
   }, [activeFamily]);
 
   const titleById = new Map(recipes.map((r) => [r.id, r.title]));
+  const recipeById = new Map(recipes.map((r) => [r.id, r]));
   function refresh() { setReloadKey((k) => k + 1); }
 
   async function handleAdd() {
@@ -48,11 +49,41 @@ export default function MealPlanDetail() {
     await moveItem(it.id, { mealSlot: (value || null) as MealSlot | null });
     refresh();
   }
+  async function handleServings(it: MealPlanItem, value: number) {
+    await setItemServings(it.id, value);
+    refresh();
+  }
 
   function itemRow(it: MealPlanItem) {
+    const recipe = recipeById.get(it.recipe_id);
+    const base = recipe?.servings ?? null;
+    const canScale = base !== null && base > 0;
+    const value = it.servings ?? base ?? 1;
     return (
       <li key={it.id} className="plate plate-row meal-item">
         <span className="row-title">{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
+        <div className="portions">
+          <span>Serves</span>
+          <button
+            type="button"
+            aria-label="decrease"
+            disabled={!canScale || value <= 1}
+            title={canScale ? undefined : "This recipe does not record how many it serves, so it cannot be scaled."}
+            onClick={() => handleServings(it, Math.max(1, value - 1))}
+          >
+            -
+          </button>
+          <span aria-label="portions value">{value}</span>
+          <button
+            type="button"
+            aria-label="increase"
+            disabled={!canScale}
+            title={canScale ? undefined : "This recipe does not record how many it serves, so it cannot be scaled."}
+            onClick={() => handleServings(it, value + 1)}
+          >
+            +
+          </button>
+        </div>
         <span className="day-slot">
           <input type="date" aria-label="day" value={it.day ?? ""} onChange={(e) => handleDay(it, e.target.value)} />
           <select aria-label="meal slot" value={it.meal_slot ?? ""} onChange={(e) => handleSlot(it, e.target.value)}>
@@ -120,7 +151,7 @@ export default function MealPlanDetail() {
         <button type="button" className="action" onClick={handleAdd} disabled={!pick}>Add recipe</button>
       </div>
 
-      <GroceryPanel planId={plan.id} />
+      <GroceryPanel key={reloadKey} planId={plan.id} />
     </div>
   );
 }
