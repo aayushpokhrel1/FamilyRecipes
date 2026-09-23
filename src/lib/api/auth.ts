@@ -5,7 +5,9 @@ export async function signUp(email: string, password: string, displayName: strin
     email, password, options: { data: { display_name: displayName } },
   });
   if (error) throw new Error(error.message);
-  return data.user;
+  // With email confirmation ON, Supabase returns a user but no session until the link is
+  // clicked. The caller decides between "you're in" and "go check your inbox".
+  return { user: data.user, session: data.session };
 }
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
