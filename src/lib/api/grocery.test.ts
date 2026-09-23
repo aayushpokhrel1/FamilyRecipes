@@ -1,12 +1,12 @@
 import { test, expect } from "vitest";
-import { buildGroceryList } from "./grocery";
+import { buildGroceryList, type IngredientRow } from "./grocery";
 
 test("groups the same ingredient across recipes into one line", () => {
   const lines = buildGroceryList(
     [
-      { recipeTitle: "Bread", quantity: "2", unit: "cups", item: "Flour" },
-      { recipeTitle: "Pancakes", quantity: "1", unit: "cup", item: "flour" },
-      { recipeTitle: "Pancakes", quantity: "3", unit: null, item: "eggs" },
+      { recipeTitle: "Bread", quantity: "2", unit: "cups", item: "Flour", scaled: false },
+      { recipeTitle: "Pancakes", quantity: "1", unit: "cup", item: "flour", scaled: false },
+      { recipeTitle: "Pancakes", quantity: "3", unit: null, item: "eggs", scaled: false },
     ],
     [],
     [],
@@ -19,7 +19,7 @@ test("groups the same ingredient across recipes into one line", () => {
 
 test("marks checked lines and appends manual items", () => {
   const lines = buildGroceryList(
-    [{ recipeTitle: "Bread", quantity: "2", unit: "cups", item: "Flour" }],
+    [{ recipeTitle: "Bread", quantity: "2", unit: "cups", item: "Flour", scaled: false }],
     [{ id: "m1", label: "Aluminium foil" }],
     ["flour"],
   );
@@ -28,4 +28,50 @@ test("marks checked lines and appends manual items", () => {
   expect(manual.manual).toBe(true);
   expect(manual.name).toBe("Aluminium foil");
   expect(manual.contributions).toHaveLength(0);
+});
+
+const row = (o: Partial<IngredientRow> & { item: string }): IngredientRow => ({
+  recipeTitle: "R", quantity: null, unit: null, scaled: false, ...o,
+});
+
+test("sums contributions that share a unit", () => {
+  const [line] = buildGroceryList([
+    row({ item: "flour", quantity: "2", unit: "cups", recipeTitle: "A" }),
+    row({ item: "flour", quantity: "1", unit: "cup", recipeTitle: "B" }),
+  ], [], []);
+  expect(line.totals).toEqual([{ quantity: "3", unit: "cup" }]);
+  expect(line.partial).toBe(false);
+});
+
+test("converts within a family before summing", () => {
+  const [line] = buildGroceryList([
+    row({ item: "olive oil", quantity: "2", unit: "tbsp" }),
+    row({ item: "olive oil", quantity: "1/4", unit: "cup" }),
+  ], [], []);
+  expect(line.totals).toEqual([{ quantity: "6", unit: "tbsp" }]);
+  expect(line.partial).toBe(false);
+});
+
+test("reports one total per family and flags the line as partial", () => {
+  const [line] = buildGroceryList([
+    row({ item: "flour", quantity: "1", unit: "cup" }),
+    row({ item: "flour", quantity: "500", unit: "g" }),
+  ], [], []);
+  expect(line.totals).toHaveLength(2);
+  expect(line.partial).toBe(true);
+});
+
+test("an unparseable quantity does not merge and marks the line partial", () => {
+  const [line] = buildGroceryList([
+    row({ item: "salt", quantity: "1", unit: "tsp" }),
+    row({ item: "salt", quantity: "a pinch", unit: null }),
+  ], [], []);
+  expect(line.totals).toEqual([{ quantity: "1", unit: "tsp" }]);
+  expect(line.partial).toBe(true);
+});
+
+test("a manual line has no totals and is not partial", () => {
+  const lines = buildGroceryList([], [{ id: "m1", label: "napkins" }], []);
+  expect(lines[0].totals).toEqual([]);
+  expect(lines[0].partial).toBe(false);
 });
