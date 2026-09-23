@@ -34,3 +34,24 @@ test("category order starts at produce and lists every catalog category once", (
   expect(CATEGORY_ORDER[0]).toBe("Produce");
   expect(new Set(CATEGORY_ORDER).size).toBe(CATEGORY_ORDER.length);
 });
+
+test("a catalog term at the head of the name still resolves", () => {
+  // the written ingredient names a cut, the catalog knows the animal
+  expect(inferCategory("chicken thighs")).toBe("Proteins");
+  expect(inferCategory("beef chuck")).toBe("Proteins");
+});
+
+test("a tail match still wins over a head match", () => {
+  // stock is a pantry item even though it starts with a protein
+  expect(inferCategory("chicken stock")).toBe("Pantry & Grains");
+});
+
+test("salt is a seasoning, not a baking good", () => {
+  expect(inferCategory("salt")).toBe("Spices");
+  expect(inferCategory("kosher salt")).toBe("Spices");
+});
+
+test("cooking fats and cheeses beyond the western default resolve too", () => {
+  expect(inferCategory("ghee")).toBe("Dairy & Eggs");
+  expect(inferCategory("paneer")).toBe("Dairy & Eggs");
+});
