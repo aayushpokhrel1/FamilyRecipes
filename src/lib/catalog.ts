@@ -43,6 +43,7 @@ export const CATALOG: CatalogCategory[] = [
   {
     category: "Spices",
     items: [
+      "salt",
       "cumin",
       "paprika",
       "cinnamon",
@@ -64,6 +65,8 @@ export const CATALOG: CatalogCategory[] = [
       "milk",
       "egg",
       "butter",
+      "ghee",
+      "paneer",
       "heavy cream",
       "yogurt",
       "sour cream",
@@ -109,6 +112,7 @@ export const CATALOG: CatalogCategory[] = [
       "olive oil",
       "vegetable oil",
       "chicken broth",
+      "stock",
       "beef broth",
       "peanut butter",
       "tomato paste",
@@ -194,15 +198,22 @@ export function inferCategory(item: string): string | null {
   if (!key) return null;
   const direct = CATEGORY_BY_ITEM.get(key);
   if (direct) return direct;
-  // "smoked paprika" is paprika; take the longest catalog item that the name
-  // ends with, so "black pepper" beats "pepper" when both could match.
+  // A catalog term can sit at either end of a written ingredient: "smoked
+  // paprika" is paprika (tail), "chicken thighs" is chicken (head). Take the
+  // longest match either way, so "black pepper" beats "pepper" rather than
+  // borrowing the aisle of "bell pepper". Tails are tried first because the
+  // head noun of an English food name is usually last.
   let best: string | null = null;
   let bestLen = 0;
-  for (const [name, category] of CATEGORY_BY_ITEM) {
-    if (name.length > bestLen && (key.endsWith(` ${name}`) || key === name)) {
-      best = category;
-      bestLen = name.length;
+  for (const suffixFirst of [true, false]) {
+    for (const [name, category] of CATEGORY_BY_ITEM) {
+      const hit = suffixFirst ? key.endsWith(` ${name}`) : key.startsWith(`${name} `);
+      if (hit && name.length > bestLen) {
+        best = category;
+        bestLen = name.length;
+      }
     }
+    if (best) return best;
   }
   return best;
 }
