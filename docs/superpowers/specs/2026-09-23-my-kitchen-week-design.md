@@ -72,17 +72,17 @@ therefore returns exactly the merge decision 4 asks for, with no RPC and no new 
 All new data access stays inside `src/lib/api/`, per the project's data-access boundary rule.
 
 - `setPlanDates(id, startDate: string | null, lengthDays: number)`
-- `listUpcoming(days: number)` — one select over `meal_plan_items` filtered `day >= today` and
+- `listUpcoming(days: number)`: one select over `meal_plan_items` filtered `day >= today` and
   `day < today + days`, embedding `recipes(id,title,servings)` and `meal_plans(id,name,owner_id,is_shared)`,
   ordered by `day` then slot. Returns rows tagged `readOnly` when `owner_id !== auth user`.
-- `addLeftover(planId, sourceItemId, { day, mealSlot })` — copies `recipe_id` from the source row and
+- `addLeftover(planId, sourceItemId, { day, mealSlot })`: copies `recipe_id` from the source row and
   sets `leftover_of`.
-- `duplicatePlan(id, newStartDate)` — a `duplicate_plan(p_id uuid, p_start date)` SECURITY INVOKER
+- `duplicatePlan(id, newStartDate)`: a `duplicate_plan(p_id uuid, p_start date)` SECURITY INVOKER
   RPC (new in `0012`). Clones the plan row and its items in one statement, shifting every `day` by
   `newStartDate - old start_date`, and remapping `leftover_of` to the cloned rows. Doing this
   client-side would be N+1 round trips and could half-clone on failure. Mirrors the existing
   `replace_recipe_children` precedent.
-- `listStaples(familyId)` / `addStaple(familyId, label)` / `removeStaple(id)` — `addStaple` stores
+- `listStaples(familyId)` / `addStaple(familyId, label)` / `removeStaple(id)`: `addStaple` stores
   `normalizeItem(label)` as `key`.
 
 ### Grocery interaction
