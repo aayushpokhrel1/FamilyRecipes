@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { buildGroceryList, type IngredientRow } from "./grocery";
+import { parseQuantity, scaleIngredientQty } from "./quantity";
 import type { MealPlan, MealPlanItem, ManualItem, MealPlanViewMode, MealSlot, GroceryLine } from "./types";
 
 async function myId(): Promise<string> {
@@ -114,30 +115,57 @@ export async function toggleChecked(planId: string, key: string, checked: boolea
   if (uErr) throw new Error(uErr.message);
 }
 
-// Derived at read time: gather ingredients from the plan's DISTINCT recipes,
-// then group by normalized name. Never stored.
+// Derived at read time: gather ingredients from the plan's DISTINCT
+// (recipe, servings) pairs, scale each pair's rows to its target, then group by
+// normalized name. Never stored.
 export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
   const [{ data: plan, error: pErr }, { data: items, error: iErr }, { data: manual, error: mErr }] = await Promise.all([
     supabase.from("meal_plans").select("checked_items").eq("id", planId).single(),
-    supabase.from("meal_plan_items").select("recipe_id").eq("plan_id", planId),
+    supabase.from("meal_plan_items").select("recipe_id,servings").eq("plan_id", planId),
     supabase.from("meal_plan_manual_items").select("id,label").eq("plan_id", planId).order("position"),
   ]);
   if (pErr) throw new Error(pErr.message);
   if (iErr) throw new Error(iErr.message);
   if (mErr) throw new Error(mErr.message);
 
-  const recipeIds = Array.from(new Set((items ?? []).map((r: any) => r.recipe_id)));
+  // De-dupe by the (recipe_id, servings) pair, not by recipe alone: the same
+  // recipe planned for 8 and for 2 must contribute twice, scaled differently.
+  // The same recipe at the same servings still contributes once.
+  const pairs = new Map<string, { recipeId: string; servings: number | null }>();
+  for (const r of (items ?? []) as any[]) {
+    pairs.set(`${r.recipe_id}:${r.servings ?? ""}`, { recipeId: r.recipe_id, servings: r.servings ?? null });
+  }
+  const recipeIds = Array.from(new Set(Array.from(pairs.values()).map((p) => p.recipeId)));
   let rows: IngredientRow[] = [];
   if (recipeIds.length) {
     const [{ data: recipes }, { data: ings }] = await Promise.all([
-      supabase.from("recipes").select("id,title").in("id", recipeIds),
+      supabase.from("recipes").select("id,title,servings").in("id", recipeIds),
       supabase.from("recipe_ingredients").select("recipe_id,quantity,unit,item").in("recipe_id", recipeIds),
     ]);
-    const titleById = new Map((recipes ?? []).map((r: any) => [r.id, r.title]));
-    rows = (ings ?? []).map((g: any) => ({
-      recipeTitle: titleById.get(g.recipe_id) ?? "", quantity: g.quantity, unit: g.unit, item: g.item,
-      scaled: false,
-    }));
+    const recipeById = new Map((recipes ?? []).map((r: any) => [r.id, r]));
+    const ingsByRecipe = new Map<string, any[]>();
+    for (const g of (ings ?? []) as any[]) {
+      const list = ingsByRecipe.get(g.recipe_id) ?? [];
+      list.push(g);
+      ingsByRecipe.set(g.recipe_id, list);
+    }
+    for (const { recipeId, servings: target } of pairs.values()) {
+      const recipe = recipeById.get(recipeId);
+      if (!recipe) continue;
+      // Only scale when we have both a target and a base to scale from. A recipe
+      // with no servings has no base, so its rows pass through untouched.
+      const factor = target && recipe.servings ? target / recipe.servings : null;
+      for (const g of ingsByRecipe.get(recipeId) ?? []) {
+        const canScale = factor !== null && factor !== 1 && parseQuantity(g.quantity) !== null;
+        rows.push({
+          recipeTitle: recipe.title ?? "",
+          quantity: canScale ? scaleIngredientQty(g.quantity, factor!) : g.quantity,
+          unit: g.unit,
+          item: g.item,
+          scaled: canScale,
+        });
+      }
+    }
   }
   const manualList = ((manual ?? []) as any[]).map((m) => ({ id: m.id, label: m.label }));
   return buildGroceryList(rows, manualList, ((plan?.checked_items ?? []) as string[]));

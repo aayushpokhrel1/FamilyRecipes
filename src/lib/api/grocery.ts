@@ -33,9 +33,11 @@ function summarize(cs: GroceryContribution[]): { totals: { quantity: string; uni
   return { totals, partial: partial || totals.length > 1 };
 }
 
-// Callers pass ingredient rows already de-duped at recipe level (a recipe placed
-// in several slots contributes its ingredients once). Each contribution keeps its
-// own quantity, and the line carries the summed totals per unit family.
+// Callers pass ingredient rows already de-duped per (recipe, servings) pair (a
+// recipe placed in several slots at the same servings contributes its
+// ingredients once, but the same recipe at a different servings target
+// contributes again, scaled). Each contribution keeps its own quantity, and the
+// line carries the summed totals per unit family.
 export function buildGroceryList(
   rows: IngredientRow[],
   manual: { id: string; label: string }[],
