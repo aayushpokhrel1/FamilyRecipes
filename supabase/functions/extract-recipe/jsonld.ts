@@ -90,14 +90,66 @@ function parseServings(value: unknown): number | null {
   return null;
 }
 
+// schema.org gives ingredients as flat strings ("2 cups all-purpose flour"), so the fast
+// path has to split them itself or the whole line lands in `item` and nothing scales.
+// Same contract as prompt.ts: quantity is digits only, unit is singular and spelled out.
+const UNITS: Record<string, string> = {
+  tsp: "teaspoon", teaspoon: "teaspoon", teaspoons: "teaspoon",
+  tbsp: "tablespoon", tbs: "tablespoon", tablespoon: "tablespoon", tablespoons: "tablespoon",
+  c: "cup", cup: "cup", cups: "cup",
+  oz: "ounce", ounce: "ounce", ounces: "ounce",
+  lb: "pound", lbs: "pound", pound: "pound", pounds: "pound",
+  g: "gram", gram: "gram", grams: "gram",
+  kg: "kilogram", kilogram: "kilogram", kilograms: "kilogram",
+  ml: "milliliter", milliliter: "milliliter", milliliters: "milliliter", millilitre: "milliliter", millilitres: "milliliter",
+  l: "liter", liter: "liter", liters: "liter", litre: "liter", litres: "liter",
+  qt: "quart", quart: "quart", quarts: "quart",
+  pt: "pint", pint: "pint", pints: "pint",
+  gal: "gallon", gallon: "gallon", gallons: "gallon",
+  clove: "clove", cloves: "clove",
+  can: "can", cans: "can",
+  package: "package", packages: "package", pkg: "package",
+  slice: "slice", slices: "slice",
+  stick: "stick", sticks: "stick",
+  bunch: "bunch", bunches: "bunch",
+  sprig: "sprig", sprigs: "sprig",
+  head: "head", heads: "head",
+  stalk: "stalk", stalks: "stalk",
+  pinch: "pinch", pinches: "pinch",
+  dash: "dash", dashes: "dash",
+  handful: "handful", handfuls: "handful",
+};
+
+// "1 1/2" | "1/2" | "1.5" | "2" | "1½" | "½"
+const NUM = String.raw`\d+\s+\d+\/\d+|\d+\s*[¼-¾⅐-⅞]|\d+\/\d+|\d*\.\d+|\d+|[¼-¾⅐-⅞]`;
+// A leading amount, optionally a range ("2-3", "2 to 3"), then an optional "(14-ounce)"
+// size note, then an optional unit word. Everything after that is the item.
+const LINE_RE = new RegExp(
+  String.raw`^(${NUM})(?:\s*(?:-|–|to)\s*(${NUM}))?\s*(\([^)]*\)\s*)?([a-zA-Z]+\.?)?\s*(.*)$`,
+);
+
+export function splitIngredient(line: string): Omit<Ingredient, "position"> {
+  const m = LINE_RE.exec(line);
+  if (!m) return { quantity: null, unit: null, item: line };
+
+  const [, lo, hi, note, word, rest] = m;
+  const key = (word ?? "").replace(/\.$/, "").toLowerCase();
+  const unit = UNITS[key] ?? null;
+  // An unrecognized word was never a unit, so it belongs back on the front of the item.
+  const item = [note?.trim(), unit ? "" : word, rest]
+    .filter(Boolean).join(" ").replace(/^of\s+/i, "").replace(/\s+/g, " ").trim();
+
+  return { quantity: hi ? `${lo}-${hi}` : lo, unit, item: item || line };
+}
+
 function parseIngredients(value: unknown): Ingredient[] {
   if (!Array.isArray(value)) return [];
   const out: Ingredient[] = [];
   for (const raw of value) {
     if (typeof raw !== "string") continue;
-    const item = raw.trim();
-    if (!item) continue;
-    out.push({ position: out.length, quantity: null, unit: null, item });
+    const line = raw.trim();
+    if (!line) continue;
+    out.push({ position: out.length, ...splitIngredient(line) });
   }
   return out;
 }
