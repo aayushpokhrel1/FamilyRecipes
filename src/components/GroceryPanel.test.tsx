@@ -4,7 +4,7 @@ import GroceryPanel from "./GroceryPanel";
 
 vi.mock("../lib/api/mealPlans", () => ({
   getGroceryList: vi.fn().mockResolvedValue([
-    { key: "flour", name: "Flour", contributions: [{ quantity: "2", unit: "cups", recipeTitle: "Bread" }], checked: false, manual: false },
+    { key: "flour", name: "Flour", contributions: [{ quantity: "2", unit: "cups", recipeTitle: "Bread", scaled: false }], checked: false, manual: false, totals: [{ quantity: "2", unit: "cup" }], partial: false },
   ]),
   toggleChecked: vi.fn(),
   addManualItem: vi.fn(),

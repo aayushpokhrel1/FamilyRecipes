@@ -31,8 +31,12 @@ export interface MealPlanItem {
   day: string | null; meal_slot: MealSlot | null; position: number;
 }
 export interface ManualItem { id: string; label: string; position: number; }
-export interface GroceryContribution { quantity: string | null; unit: string | null; recipeTitle: string; }
+export interface GroceryContribution {
+  quantity: string | null; unit: string | null; recipeTitle: string; scaled: boolean;
+}
 export interface GroceryLine {
   key: string; name: string; contributions: GroceryContribution[];
   checked: boolean; manual: boolean;
+  totals: { quantity: string; unit: string }[];
+  partial: boolean;
 }

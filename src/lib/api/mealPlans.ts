@@ -128,6 +128,7 @@ export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
     const titleById = new Map((recipes ?? []).map((r: any) => [r.id, r.title]));
     rows = (ings ?? []).map((g: any) => ({
       recipeTitle: titleById.get(g.recipe_id) ?? "", quantity: g.quantity, unit: g.unit, item: g.item,
+      scaled: false,
     }));
   }
   const manualList = ((manual ?? []) as any[]).map((m) => ({ id: m.id, label: m.label }));
