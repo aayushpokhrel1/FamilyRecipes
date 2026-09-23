@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import MealPlanDetail from "./MealPlanDetail";
@@ -9,7 +9,7 @@ vi.mock("../context/FamilyContext", () => ({
 vi.mock("../lib/api/mealPlans", () => ({
   listPlans: vi.fn().mockResolvedValue([{ id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "list", is_shared: false, checked_items: [], created_at: "", updated_at: "" }]),
   listItems: vi.fn().mockResolvedValue([]),
-  addRecipe: vi.fn(), removeItem: vi.fn(), moveItem: vi.fn(), setViewMode: vi.fn(),
+  addRecipe: vi.fn(), removeItem: vi.fn(), moveItem: vi.fn(), setViewMode: vi.fn(), setItemServings: vi.fn(),
 }));
 vi.mock("../lib/api/recipes", () => ({ listRecipes: vi.fn().mockResolvedValue([]) }));
 vi.mock("../components/GroceryPanel", () => ({ default: () => <div>grocery</div> }));
@@ -42,4 +42,46 @@ test("renders per-item day and meal-slot controls for a scheduled item", async (
   );
   expect(await screen.findByLabelText("day")).toHaveValue("2026-09-20");
   expect(screen.getByLabelText("meal slot")).toHaveValue("dinner");
+});
+
+const recipe = (servings: number | null) => ({
+  id: "r1", family_id: "f1", author_id: "me", title: "Pancakes", story: null, provenance: null,
+  servings, prep_minutes: null, cook_minutes: null, visibility: "family", source_url: null,
+  created_at: "", updated_at: "",
+});
+
+test("disables the servings stepper when the recipe records no servings", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.listItems as any).mockResolvedValue([
+    { id: "it1", plan_id: "p1", recipe_id: "r1", day: null, meal_slot: null, position: 0, servings: null },
+  ]);
+  const rc = await import("../lib/api/recipes");
+  (rc.listRecipes as any).mockResolvedValue([recipe(null)]);
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  const increase = await screen.findByLabelText("increase");
+  expect(increase).toBeDisabled();
+  expect(increase).toHaveAttribute("title", "This recipe does not record how many it serves, so it cannot be scaled.");
+});
+
+test("incrementing the servings stepper calls setItemServings", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.listItems as any).mockResolvedValue([
+    { id: "it1", plan_id: "p1", recipe_id: "r1", day: null, meal_slot: null, position: 0, servings: null },
+  ]);
+  const rc = await import("../lib/api/recipes");
+  (rc.listRecipes as any).mockResolvedValue([recipe(4)]);
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  const increase = await screen.findByLabelText("increase");
+  await waitFor(() => expect(increase).toBeEnabled());
+  expect(screen.getByLabelText("portions value")).toHaveTextContent("4");
+  fireEvent.click(increase);
+  await waitFor(() => expect(mp.setItemServings).toHaveBeenCalledWith("it1", 5));
 });

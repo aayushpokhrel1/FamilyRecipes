@@ -7,6 +7,10 @@ function contribLabel(c: { quantity: string | null; unit: string | null; recipeT
   return qty ? `${qty} (${c.recipeTitle})` : `(${c.recipeTitle})`;
 }
 
+function totalLabel(t: { quantity: string; unit: string }): string {
+  return [t.quantity, t.unit].filter(Boolean).join(" ").trim();
+}
+
 export default function GroceryPanel({ planId }: { planId: string }) {
   const [lines, setLines] = useState<GroceryLine[]>([]);
   const [label, setLabel] = useState("");
@@ -34,20 +38,36 @@ export default function GroceryPanel({ planId }: { planId: string }) {
       <h2>Grocery list</h2>
       {lines.length === 0 && <p>Pick recipes to build a grocery list.</p>}
       <ul className="grocery-list stack">
-        {lines.map((line) => (
-          <li key={line.key}>
-            <label>
-              <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
-              <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{line.name}</span>
-            </label>
-            {!line.manual && line.contributions.length > 0 && (
-              <small> {line.contributions.map(contribLabel).join(", ")}</small>
-            )}
-            {line.manual && (
-              <button type="button" onClick={() => handleRemoveManual(line)}>Remove</button>
-            )}
-          </li>
-        ))}
+        {lines.map((line) => {
+          const hasScaled = line.contributions.some((c) => c.scaled);
+          return (
+            <li key={line.key}>
+              <label>
+                <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
+                <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{line.name}</span>
+              </label>
+              {line.totals.length > 0 && (
+                <span className="qty">{line.totals.map(totalLabel).join(", ")}</span>
+              )}
+              {line.partial && <span className="chip">mixed units</span>}
+              {!line.manual && line.contributions.length > 0 && (
+                <small>
+                  {" "}
+                  {line.contributions.map((c, i) => (
+                    <span key={i}>
+                      {i > 0 && ", "}
+                      {contribLabel(c)}
+                      {hasScaled && !c.scaled && <span className="chip">unscaled</span>}
+                    </span>
+                  ))}
+                </small>
+              )}
+              {line.manual && (
+                <button type="button" onClick={() => handleRemoveManual(line)}>Remove</button>
+              )}
+            </li>
+          );
+        })}
       </ul>
       <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Add your own item" />
