@@ -10,6 +10,7 @@ vi.mock("../lib/api/mealPlans", () => ({
   listPlans: vi.fn().mockResolvedValue([{ id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "list", is_shared: false, checked_items: [], created_at: "", updated_at: "" }]),
   listItems: vi.fn().mockResolvedValue([]),
   addRecipe: vi.fn(), removeItem: vi.fn(), moveItem: vi.fn(), setViewMode: vi.fn(), setItemServings: vi.fn(),
+  setPlanDates: vi.fn(), duplicatePlan: vi.fn(),
 }));
 vi.mock("../lib/api/recipes", () => ({ listRecipes: vi.fn().mockResolvedValue([]) }));
 vi.mock("../components/GroceryPanel", () => ({ default: () => <div>grocery</div> }));
@@ -84,4 +85,36 @@ test("incrementing the servings stepper calls setItemServings", async () => {
   expect(screen.getByLabelText("portions value")).toHaveTextContent("4");
   fireEvent.click(increase);
   await waitFor(() => expect(mp.setItemServings).toHaveBeenCalledWith("it1", 5));
+});
+
+test("duplicating a dated plan starts the clone the day after its last day", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.listPlans as any).mockResolvedValue([
+    { id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "list", is_shared: false,
+      checked_items: [], start_date: "2026-09-21", length_days: 7, created_at: "", updated_at: "" },
+  ]);
+  (mp.duplicatePlan as any).mockResolvedValue("p2");
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  const button = await screen.findByRole("button", { name: /duplicate to next week/i });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  await waitFor(() => expect(mp.duplicatePlan).toHaveBeenCalledWith("p1", "2026-09-28"));
+});
+
+test("the duplicate button is disabled for an open-ended plan", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.listPlans as any).mockResolvedValue([
+    { id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "list", is_shared: false,
+      checked_items: [], start_date: null, length_days: 7, created_at: "", updated_at: "" },
+  ]);
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("button", { name: /duplicate to next week/i })).toBeDisabled();
 });

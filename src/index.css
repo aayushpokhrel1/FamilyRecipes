@@ -823,6 +823,29 @@ button[aria-pressed="true"] {
   background: var(--plate-2); color: var(--ink); border: 1.5px solid var(--rim);
 }
 
+/* --------------------------------------------------------- up next ------- */
+.upnext { margin-bottom: 30px; }
+.upnext h3 {
+  font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--on-wall-soft); margin: 18px 0 8px;
+}
+.upnext .slot {
+  font-family: var(--sign); text-transform: uppercase; font-size: 0.72rem;
+  letter-spacing: 0.06em; color: var(--ink-soft); min-width: 78px;
+}
+
+/* --------------------------------------------------------- staples ------- */
+.staples { margin-top: 18px; }
+.staples summary {
+  cursor: pointer; font-family: var(--sign); color: var(--ink);
+  text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em;
+}
+.staples .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.staples .chip button {
+  padding: 0 2px; margin-left: 6px; border: 0; background: none;
+  color: inherit; font: inherit; cursor: pointer; box-shadow: none;
+}
+
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }

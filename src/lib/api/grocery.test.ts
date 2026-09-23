@@ -75,3 +75,21 @@ test("a manual line has no totals and is not partial", () => {
   expect(lines[0].totals).toEqual([]);
   expect(lines[0].partial).toBe(false);
 });
+
+test("a staple line is flagged, not dropped", () => {
+  const rows = [{ recipeTitle: "Dal", quantity: "1", unit: "teaspoon", item: "salt", scaled: false }];
+  const lines = buildGroceryList(rows, [], [], new Set(["salt"]));
+  expect(lines).toHaveLength(1);
+  expect(lines[0].staple).toBe(true);
+});
+
+test("a line that is not a staple is untouched", () => {
+  const rows = [{ recipeTitle: "Dal", quantity: "2", unit: "cup", item: "lentils", scaled: false }];
+  expect(buildGroceryList(rows, [], [], new Set(["salt"]))[0].staple).toBe(false);
+});
+
+test("a staple matches through the normalizer, not by raw text", () => {
+  const rows = [{ recipeTitle: "Cake", quantity: "2", unit: "cup", item: "all-purpose flour", scaled: false }];
+  // normalizeItem("all-purpose flour") is "flour", which is what addStaple stores
+  expect(buildGroceryList(rows, [], [], new Set(["flour"]))[0].staple).toBe(true);
+});

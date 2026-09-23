@@ -50,4 +50,6 @@ export interface GroceryLine {
   checked: boolean; manual: boolean;
   totals: { quantity: string; unit: string }[];
   partial: boolean;
+  // the family always keeps this in, so it is flagged rather than dropped
+  staple: boolean;
 }
