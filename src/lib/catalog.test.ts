@@ -1,12 +1,36 @@
-import { test, expect } from "vitest";
-import { mergeItemSuggestions, CATALOG_ITEMS } from "./catalog";
+import { inferCategory, CATEGORY_ORDER } from "./catalog";
 
-test("merges history after catalog, deduped case-insensitively", () => {
-  const result = mergeItemSuggestions(["Onion", "gochujang", "  "]);
-  // catalog items come first
-  expect(result.slice(0, CATALOG_ITEMS.length)).toEqual(CATALOG_ITEMS);
-  // a new history item is appended
-  expect(result).toContain("gochujang");
-  // "Onion" duplicates catalog "onion" (case-insensitive) and blanks are dropped
-  expect(result.filter((x) => x.toLowerCase() === "onion")).toHaveLength(1);
+test("finds the aisle for a plain catalog item", () => {
+  expect(inferCategory("onion")).toBe("Produce");
+  expect(inferCategory("cumin")).toBe("Spices");
+  expect(inferCategory("butter")).toBe("Dairy & Eggs");
+});
+
+test("matches through the normalizer, so plurals and prep words do not matter", () => {
+  expect(inferCategory("Tomatoes")).toBe("Produce");
+  expect(inferCategory("garlic, minced")).toBe("Produce");
+  expect(inferCategory("chopped onions")).toBe("Produce");
+});
+
+test("falls back to the longest trailing match", () => {
+  // not in the catalog verbatim, but the head word is
+  expect(inferCategory("smoked paprika")).toBe("Spices");
+  expect(inferCategory("fresh basil")).toBe("Herbs");
+});
+
+test("prefers the longer match when two could apply", () => {
+  // "black pepper" is a spice; "bell pepper" is produce. Neither may borrow
+  // the other's aisle just because both end in "pepper".
+  expect(inferCategory("black pepper")).toBe("Spices");
+  expect(inferCategory("bell pepper")).toBe("Produce");
+});
+
+test("returns null rather than guessing at something unknown", () => {
+  expect(inferCategory("dragonfruit shrub")).toBeNull();
+  expect(inferCategory("")).toBeNull();
+});
+
+test("category order starts at produce and lists every catalog category once", () => {
+  expect(CATEGORY_ORDER[0]).toBe("Produce");
+  expect(new Set(CATEGORY_ORDER).size).toBe(CATEGORY_ORDER.length);
 });

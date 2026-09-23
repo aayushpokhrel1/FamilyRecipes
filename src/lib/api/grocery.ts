@@ -1,4 +1,5 @@
 import { normalizeItem } from "./normalizeItem";
+import { inferCategory } from "../catalog";
 import { normalizeUnit, unitFamily, toBase, fromBase, type UnitFamily } from "./units";
 import { parseQuantity, formatQuantity } from "./quantity";
 import type { GroceryLine, GroceryContribution } from "./types";
@@ -59,6 +60,7 @@ export function buildGroceryList(
       line = {
         key, name: r.item, contributions: [], checked: checked.has(key), manual: false,
         totals: [], partial: false, staple: staples.has(key),
+        category: inferCategory(r.item),
       };
       byKey.set(key, line);
       order.push(key);
@@ -78,7 +80,7 @@ export function buildGroceryList(
     const key = `manual:${m.id}`;
     lines.push({
       key, name: m.label, contributions: [], checked: checked.has(key), manual: true,
-      totals: [], partial: false, staple: false,
+      totals: [], partial: false, staple: false, category: null,
     });
   }
   return lines;

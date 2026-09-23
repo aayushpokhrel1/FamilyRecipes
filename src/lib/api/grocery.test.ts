@@ -93,3 +93,21 @@ test("a staple matches through the normalizer, not by raw text", () => {
   // normalizeItem("all-purpose flour") is "flour", which is what addStaple stores
   expect(buildGroceryList(rows, [], [], new Set(["flour"]))[0].staple).toBe(true);
 });
+
+test("a grocery line carries the aisle it belongs to", () => {
+  const rows = [
+    { recipeTitle: "Dal", quantity: "1", unit: "cup", item: "red lentils", scaled: false },
+    { recipeTitle: "Dal", quantity: "1", unit: null, item: "onion", scaled: false },
+    { recipeTitle: "Dal", quantity: "1", unit: null, item: "unobtainium", scaled: false },
+  ];
+  const lines = buildGroceryList(rows, [], []);
+  expect(lines.find((l) => l.key === "onion")!.category).toBe("Produce");
+  expect(lines.find((l) => l.key === "red lentil")!.category).toBe("Pantry & Grains");
+  // unknown stays null so the panel can bucket it as Other rather than guess
+  expect(lines.find((l) => l.key === "unobtainium")!.category).toBeNull();
+});
+
+test("a manual line has no aisle", () => {
+  const lines = buildGroceryList([], [{ id: "m1", label: "birthday candles" }], []);
+  expect(lines[0].category).toBeNull();
+});

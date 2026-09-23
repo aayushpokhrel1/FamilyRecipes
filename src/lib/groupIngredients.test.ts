@@ -1,13 +1,32 @@
-import { test, expect } from "vitest";
-import { groupIngredientsBySection } from "./groupIngredients";
+import { groupIngredientsBySection, groupIngredientsByCategory } from "./groupIngredients";
+import type { Ingredient } from "./api/types";
 
-test("groups by section, blank becomes null, order preserved", () => {
+const ing = (item: string, section: string | null = null): Ingredient =>
+  ({ position: 0, quantity: null, unit: null, item, section });
+
+test("section grouping keeps first-seen order and treats blank as ungrouped", () => {
   const groups = groupIngredientsBySection([
-    { position: 0, quantity: "1", unit: "cup", item: "flour", section: "Dredging" },
-    { position: 1, quantity: null, unit: null, item: "salt", section: "Spices" },
-    { position: 2, quantity: "1", unit: null, item: "egg", section: "  " },
-    { position: 3, quantity: "2", unit: null, item: "breadcrumbs", section: "Dredging" },
+    ing("garlic", "For the sauce"), ing("salt", "  "), ing("basil", "For the sauce"),
   ]);
-  expect(groups.map((g) => g.section)).toEqual(["Dredging", "Spices", null]);
-  expect(groups[0].items.map((i) => i.item)).toEqual(["flour", "breadcrumbs"]);
+  expect(groups.map((g) => g.section)).toEqual(["For the sauce", null]);
+  expect(groups[0].items).toHaveLength(2);
+});
+
+test("category grouping walks the catalog order, produce first", () => {
+  const groups = groupIngredientsByCategory([
+    ing("cumin"), ing("onion"), ing("butter"), ing("garlic"),
+  ]);
+  expect(groups.map((g) => g.section)).toEqual(["Produce", "Spices", "Dairy & Eggs"]);
+  expect(groups[0].items.map((i) => i.item)).toEqual(["onion", "garlic"]);
+});
+
+test("an unknown ingredient lands in a trailing Other group, never dropped", () => {
+  const groups = groupIngredientsByCategory([ing("dragonfruit shrub"), ing("onion")]);
+  expect(groups.map((g) => g.section)).toEqual(["Produce", "Other"]);
+  expect(groups.flatMap((g) => g.items)).toHaveLength(2);
+});
+
+test("every ingredient survives grouping", () => {
+  const items = [ing("onion"), ing("cumin"), ing("mystery powder"), ing("butter")];
+  expect(groupIngredientsByCategory(items).flatMap((g) => g.items)).toHaveLength(items.length);
 });

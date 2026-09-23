@@ -52,4 +52,7 @@ export interface GroceryLine {
   partial: boolean;
   // the family always keeps this in, so it is flagged rather than dropped
   staple: boolean;
+  // which aisle this line belongs to, derived from the item name. null when the
+  // catalog has not seen it, and always null for a manual line.
+  category: string | null;
 }
