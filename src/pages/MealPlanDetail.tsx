@@ -1,10 +1,10 @@
 import { Fragment, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { addDays, dayLabel } from "../lib/dates";
 import {
   listPlans, listItems, addRecipe, addLeftover, removeItem, moveItem, setViewMode,
-  setItemServings, setPlanDates,
+  setItemServings, setPlanDates, duplicatePlan,
 } from "../lib/api/mealPlans";
 import { listRecipes } from "../lib/api/recipes";
 import { suggestedServings } from "../lib/leftovers";
@@ -16,6 +16,7 @@ const LENGTHS = [3, 5, 7, 14];
 
 export default function MealPlanDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { activeFamily } = useFamily();
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [items, setItems] = useState<MealPlanItem[]>([]);
@@ -218,6 +219,11 @@ export default function MealPlanDetail() {
               {LENGTHS.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
+          <button type="button" disabled={!plan.start_date} onClick={async () => {
+            if (!plan.start_date) return;
+            const newId = await duplicatePlan(plan.id, addDays(plan.start_date, plan.length_days));
+            navigate(`/kitchen/${newId}`);
+          }}>Duplicate to next week</button>
         </div>
       </div>
 

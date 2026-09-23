@@ -32,7 +32,10 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
   // so the flour line carries a scaled 4 cups and an unscaled 2 cups
   from.mockImplementation((table: string) => {
     if (table === "meal_plans") {
-      return { select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [] }, error: null }) }) }) };
+      return { select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [], family_id: "f1" }, error: null }) }) }) };
+    }
+    if (table === "pantry_staples") {
+      return { select: () => ({ eq: () => ({ order: () => ({ data: [{ id: "s1", key: "flour", label: "Flour" }], error: null }) }) }) };
     }
     if (table === "meal_plan_items") {
       // .is("leftover_of", null) is chained after .eq, so the mock returns the
@@ -63,4 +66,6 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
   expect(flour.contributions.some((c) => c.quantity === "4" && c.scaled)).toBe(true);
   expect(flour.contributions.some((c) => c.quantity === "2" && !c.scaled)).toBe(true);
   expect(flour.totals).toEqual([{ quantity: "6", unit: "cup" }]);
+  // the family's staples reach buildGroceryList, so flour is flagged not dropped
+  expect(flour.staple).toBe(true);
 });

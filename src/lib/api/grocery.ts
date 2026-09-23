@@ -38,10 +38,14 @@ function summarize(cs: GroceryContribution[]): { totals: { quantity: string; uni
 // ingredients once, but the same recipe at a different servings target
 // contributes again, scaled). Each contribution keeps its own quantity, and the
 // line carries the summed totals per unit family.
+//
+// `staples` holds normalized keys the family always keeps in. A matching line is
+// FLAGGED, never dropped: hiding it would hide a real shortage.
 export function buildGroceryList(
   rows: IngredientRow[],
   manual: { id: string; label: string }[],
   checkedKeys: string[],
+  staples: Set<string> = new Set(),
 ): GroceryLine[] {
   const checked = new Set(checkedKeys);
   const order: string[] = [];
@@ -54,7 +58,7 @@ export function buildGroceryList(
     if (!line) {
       line = {
         key, name: r.item, contributions: [], checked: checked.has(key), manual: false,
-        totals: [], partial: false,
+        totals: [], partial: false, staple: staples.has(key),
       };
       byKey.set(key, line);
       order.push(key);
@@ -74,7 +78,7 @@ export function buildGroceryList(
     const key = `manual:${m.id}`;
     lines.push({
       key, name: m.label, contributions: [], checked: checked.has(key), manual: true,
-      totals: [], partial: false,
+      totals: [], partial: false, staple: false,
     });
   }
   return lines;

@@ -2,9 +2,17 @@ import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import GroceryPanel from "./GroceryPanel";
 
+vi.mock("../context/FamilyContext", () => ({
+  useFamily: () => ({ activeFamily: { id: "f1", name: "F", invite_code: "x", created_by: "u" } }),
+}));
+vi.mock("../lib/api/staples", () => ({
+  listStaples: vi.fn().mockResolvedValue([]),
+  addStaple: vi.fn(),
+  removeStaple: vi.fn(),
+}));
 vi.mock("../lib/api/mealPlans", () => ({
   getGroceryList: vi.fn().mockResolvedValue([
-    { key: "flour", name: "Flour", contributions: [{ quantity: "2", unit: "cups", recipeTitle: "Bread", scaled: false }], checked: false, manual: false, totals: [{ quantity: "2", unit: "cup" }], partial: false },
+    { key: "flour", name: "Flour", contributions: [{ quantity: "2", unit: "cups", recipeTitle: "Bread", scaled: false }], checked: false, manual: false, totals: [{ quantity: "2", unit: "cup" }], partial: false, staple: false },
   ]),
   toggleChecked: vi.fn(),
   addManualItem: vi.fn(),
@@ -52,8 +60,28 @@ test("marks an unscaled contribution on an otherwise scaled line", async () => {
     { key: "flour", name: "Flour", contributions: [
       { quantity: "4", unit: "cups", recipeTitle: "Bread", scaled: true },
       { quantity: "a pinch", unit: null, recipeTitle: "Soup", scaled: false },
-    ], checked: false, manual: false, totals: [{ quantity: "4", unit: "cup" }], partial: true },
+    ], checked: false, manual: false, totals: [{ quantity: "4", unit: "cup" }], partial: true, staple: false },
   ]);
   render(<GroceryPanel planId="p1" />);
   expect(await screen.findByText("unscaled")).toBeInTheDocument();
+});
+
+test("staple lines sit behind the check-you-have-these group", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.getGroceryList as any).mockResolvedValue([
+    { key: "lentils", name: "Lentils", contributions: [{ quantity: "2", unit: "cup", recipeTitle: "Dal", scaled: false }], checked: false, manual: false, totals: [{ quantity: "2", unit: "cup" }], partial: false, staple: false },
+    { key: "salt", name: "Salt", contributions: [{ quantity: "1", unit: "teaspoon", recipeTitle: "Dal", scaled: false }], checked: false, manual: false, totals: [{ quantity: "1", unit: "teaspoon" }], partial: false, staple: true },
+  ]);
+  render(<GroceryPanel planId="p1" />);
+  expect(await screen.findByText("Lentils")).toBeInTheDocument();
+  expect(screen.getByText("Check you have these (1)")).toBeInTheDocument();
+  expect(screen.getByText("Salt")).toBeInTheDocument();
+});
+
+test("lists the family's staples as removable chips", async () => {
+  const st = await import("../lib/api/staples");
+  (st.listStaples as any).mockResolvedValue([{ id: "s1", key: "salt", label: "Salt" }]);
+  render(<GroceryPanel planId="p1" />);
+  expect(await screen.findByText("Pantry staples")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Remove Salt" })).toBeInTheDocument();
 });

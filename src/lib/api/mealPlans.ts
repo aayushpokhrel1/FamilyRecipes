@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { buildGroceryList, type IngredientRow } from "./grocery";
+import { listStaples } from "./staples";
 import { parseQuantity, scaleIngredientQty } from "./quantity";
 import { addDays, today } from "../dates";
 import type { MealPlan, MealPlanItem, ManualItem, MealPlanViewMode, MealSlot, GroceryLine, UpcomingItem } from "./types";
@@ -183,7 +184,7 @@ export async function toggleChecked(planId: string, key: string, checked: boolea
 // normalized name. Never stored.
 export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
   const [{ data: plan, error: pErr }, { data: items, error: iErr }, { data: manual, error: mErr }] = await Promise.all([
-    supabase.from("meal_plans").select("checked_items").eq("id", planId).single(),
+    supabase.from("meal_plans").select("checked_items,family_id").eq("id", planId).single(),
     // A leftover is the same pot eaten again, so it buys nothing. This is the
     // ONLY place leftovers are filtered out: buildGroceryList never needs to
     // know the concept exists.
@@ -234,5 +235,12 @@ export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
     }
   }
   const manualList = ((manual ?? []) as any[]).map((m) => ({ id: m.id, label: m.label }));
-  return buildGroceryList(rows, manualList, ((plan?.checked_items ?? []) as string[]));
+  // Staples are family-scoped, so a plan with no family (or a family with none
+  // recorded) simply flags nothing.
+  const familyId = (plan as { family_id?: string } | null)?.family_id;
+  const staples = familyId ? await listStaples(familyId) : [];
+  return buildGroceryList(
+    rows, manualList, ((plan?.checked_items ?? []) as string[]),
+    new Set(staples.map((s) => s.key)),
+  );
 }
