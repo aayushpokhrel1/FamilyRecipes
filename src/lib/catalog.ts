@@ -1,3 +1,4 @@
+import { normalizeItem } from "./api/normalizeItem";
 export interface CatalogCategory { category: string; items: string[] }
 
 export const CATALOG: CatalogCategory[] = [
@@ -165,4 +166,43 @@ export function mergeItemSuggestions(history: string[]): string[] {
     out.push(name);
   }
   return out;
+}
+
+// item -> category, built once from CATALOG and keyed through normalizeItem so
+// "garlic cloves", "Tomatoes" and "tomato" all land on the same entry.
+// First entry wins. Different categories can normalize to the same key, for
+// example Pantry's "canned tomato" loses its prep word and collides with
+// Produce's "tomato". CATALOG is curated produce-first with the plainest form
+// of a name earliest, so keeping the first match is the right tie-break.
+const CATEGORY_BY_ITEM = new Map<string, string>();
+for (const c of CATALOG) {
+  for (const item of c.items) {
+    const key = normalizeItem(item);
+    if (key && !CATEGORY_BY_ITEM.has(key)) CATEGORY_BY_ITEM.set(key, c.category);
+  }
+}
+
+// The order categories should appear in, which is the order they are curated in
+// CATALOG: roughly a walk around a supermarket, produce first.
+export const CATEGORY_ORDER: string[] = CATALOG.map((c) => c.category);
+
+// Which aisle an ingredient belongs to. Derived, never stored: it is a fact
+// about the ingredient, not about the recipe, so computing it on render can
+// never go stale. Returns null for anything the catalog has not seen.
+export function inferCategory(item: string): string | null {
+  const key = normalizeItem(item);
+  if (!key) return null;
+  const direct = CATEGORY_BY_ITEM.get(key);
+  if (direct) return direct;
+  // "smoked paprika" is paprika; take the longest catalog item that the name
+  // ends with, so "black pepper" beats "pepper" when both could match.
+  let best: string | null = null;
+  let bestLen = 0;
+  for (const [name, category] of CATEGORY_BY_ITEM) {
+    if (name.length > bestLen && (key.endsWith(` ${name}`) || key === name)) {
+      best = category;
+      bestLen = name.length;
+    }
+  }
+  return best;
 }
