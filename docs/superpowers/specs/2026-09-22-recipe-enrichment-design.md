@@ -116,5 +116,6 @@ A set of recipe-side enhancements plus a My Kitchen entry point:
 - ~~Feeding portions scaling into the grocery list (scale a planned recipe by target servings) — unlocked by `quantity.ts`, but its own slice.~~
   **Done.** Migration `0011` adds `meal_plan_items.servings`; `getGroceryList` scales rows and
   de-dupes by `(recipe_id, servings)`.
-- My Kitchen "Up next" landing / week calendar (separate spec, design session).
+- ~~My Kitchen "Up next" landing / week calendar (separate spec, design session).~~ **Done**,
+  see `docs/superpowers/specs/2026-09-23-my-kitchen-week-design.md` (migration `0012`).
 - Server-side user-managed ingredient catalog.
