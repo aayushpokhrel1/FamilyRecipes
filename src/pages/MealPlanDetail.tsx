@@ -1,12 +1,31 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
-import { listPlans, listItems, addRecipe, removeItem, moveItem, setViewMode, setItemServings } from "../lib/api/mealPlans";
+import {
+  listPlans, listItems, addRecipe, addLeftover, removeItem, moveItem, setViewMode,
+  setItemServings, setPlanDates,
+} from "../lib/api/mealPlans";
 import { listRecipes } from "../lib/api/recipes";
+import { suggestedServings } from "../lib/leftovers";
 import type { MealPlan, MealPlanItem, MealSlot, Recipe } from "../lib/api/types";
 import GroceryPanel from "../components/GroceryPanel";
 
 const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
+const LENGTHS = [3, 5, 7, 14];
+
+// The day after a YYYY-MM-DD string, in the same format. Built from local
+// midnight so a timezone offset can never shift the date by one.
+function nextDay(day: string): string {
+  const d = new Date(`${day}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function dayLabel(day: string): string {
+  return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short", day: "numeric",
+  });
+}
 
 export default function MealPlanDetail() {
   const { id } = useParams();
@@ -15,6 +34,8 @@ export default function MealPlanDetail() {
   const [items, setItems] = useState<MealPlanItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [pick, setPick] = useState("");
+  const [cell, setCell] = useState<{ day: string; slot: MealSlot } | null>(null);
+  const [nudge, setNudge] = useState<{ itemId: string; title: string; current: number; suggested: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -32,13 +53,25 @@ export default function MealPlanDetail() {
 
   async function handleAdd() {
     if (!id || !pick) return;
-    await addRecipe(id, pick);
+    if (cell) await addRecipe(id, pick, { day: cell.day, mealSlot: cell.slot });
+    else await addRecipe(id, pick);
     setPick("");
+    setCell(null);
     refresh();
   }
   async function handleToggleView() {
     if (!plan) return;
     await setViewMode(plan.id, plan.view_mode === "list" ? "calendar" : "list");
+    refresh();
+  }
+  async function handleStartDate(value: string) {
+    if (!plan) return;
+    await setPlanDates(plan.id, value || null, plan.length_days);
+    refresh();
+  }
+  async function handleLength(value: string) {
+    if (!plan) return;
+    await setPlanDates(plan.id, plan.start_date, Number(value));
     refresh();
   }
   async function handleDay(it: MealPlanItem, value: string) {
@@ -54,36 +87,70 @@ export default function MealPlanDetail() {
     refresh();
   }
 
-  function itemRow(it: MealPlanItem) {
+  // A leftover is the same pot eaten again, so it lands on the next day's lunch.
+  // The servings bump is only ever a suggestion: nothing is written until the
+  // user presses Bump.
+  async function handleLeftover(it: MealPlanItem) {
+    if (!plan || !it.day) return;
+    const day = nextDay(it.day);
+    await addLeftover(plan.id, it.id, { day, mealSlot: "lunch" });
+    const n = items.filter((x) => x.leftover_of === it.id).length + 1;
+    const base = it.servings ?? recipeById.get(it.recipe_id)?.servings ?? null;
+    const suggested = suggestedServings(base, n);
+    const current = it.servings ?? base ?? 0;
+    if (suggested !== null && current < suggested) {
+      setNudge({
+        itemId: it.id,
+        title: titleById.get(it.recipe_id) ?? it.recipe_id,
+        current,
+        suggested,
+      });
+    }
+    refresh();
+  }
+  async function handleBump() {
+    if (!nudge) return;
+    await setItemServings(nudge.itemId, nudge.suggested);
+    setNudge(null);
+    refresh();
+  }
+
+  function servingsStepper(it: MealPlanItem) {
     const recipe = recipeById.get(it.recipe_id);
     const base = recipe?.servings ?? null;
     const canScale = base !== null && base > 0;
     const value = it.servings ?? base ?? 1;
     return (
+      <div className="portions">
+        <span>Serves</span>
+        <button
+          type="button"
+          aria-label="decrease"
+          disabled={!canScale || value <= 1}
+          title={canScale ? undefined : "This recipe does not record how many it serves, so it cannot be scaled."}
+          onClick={() => handleServings(it, Math.max(1, value - 1))}
+        >
+          -
+        </button>
+        <span aria-label="portions value">{value}</span>
+        <button
+          type="button"
+          aria-label="increase"
+          disabled={!canScale}
+          title={canScale ? undefined : "This recipe does not record how many it serves, so it cannot be scaled."}
+          onClick={() => handleServings(it, value + 1)}
+        >
+          +
+        </button>
+      </div>
+    );
+  }
+
+  function itemRow(it: MealPlanItem) {
+    return (
       <li key={it.id} className="plate plate-row meal-item">
         <span className="row-title">{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
-        <div className="portions">
-          <span>Serves</span>
-          <button
-            type="button"
-            aria-label="decrease"
-            disabled={!canScale || value <= 1}
-            title={canScale ? undefined : "This recipe does not record how many it serves, so it cannot be scaled."}
-            onClick={() => handleServings(it, Math.max(1, value - 1))}
-          >
-            -
-          </button>
-          <span aria-label="portions value">{value}</span>
-          <button
-            type="button"
-            aria-label="increase"
-            disabled={!canScale}
-            title={canScale ? undefined : "This recipe does not record how many it serves, so it cannot be scaled."}
-            onClick={() => handleServings(it, value + 1)}
-          >
-            +
-          </button>
-        </div>
+        {servingsStepper(it)}
         <span className="day-slot">
           <input type="date" aria-label="day" value={it.day ?? ""} onChange={(e) => handleDay(it, e.target.value)} />
           <select aria-label="meal slot" value={it.meal_slot ?? ""} onChange={(e) => handleSlot(it, e.target.value)}>
@@ -98,9 +165,53 @@ export default function MealPlanDetail() {
 
   if (!plan) return <p>Loading...</p>;
 
-  // calendar groups items by day (distinct dates ascending, undated bucket last)
-  const days = Array.from(new Set(items.map((it) => it.day)))
-    .sort((a, b) => (a === null ? 1 : b === null ? -1 : a < b ? -1 : a > b ? 1 : 0));
+  const days = plan.start_date
+    ? Array.from({ length: plan.length_days }, (_, i) => {
+        const d = new Date(`${plan.start_date}T00:00:00`);
+        d.setDate(d.getDate() + i);
+        return d.toISOString().slice(0, 10);
+      })
+    : [];
+
+  const cellItems = (day: string, slot: MealSlot) =>
+    items.filter((it) => it.day === day && it.meal_slot === slot);
+
+  function weekCell(day: string, slot: MealSlot) {
+    const cellItemList = cellItems(day, slot);
+    if (cellItemList.length === 0) {
+      return (
+        <button
+          key={`${day}-${slot}`}
+          type="button"
+          className="week-cell empty"
+          aria-label={`Add to ${slot} on ${dayLabel(day)}`}
+          onClick={() => setCell({ day, slot })}
+        >
+          +
+        </button>
+      );
+    }
+    return (
+      <div key={`${day}-${slot}`} className="week-cell">
+        {cellItemList.map((it) => (
+          <div key={it.id}>
+            <span>{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
+            {it.leftover_of !== null ? (
+              <span className="leftover">leftovers</span>
+            ) : (
+              <>
+                {servingsStepper(it)}
+                <button type="button" onClick={() => handleLeftover(it)}>Leftovers</button>
+              </>
+            )}
+            <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const showGrid = plan.view_mode === "calendar" && days.length > 0;
 
   return (
     <div>
@@ -109,37 +220,60 @@ export default function MealPlanDetail() {
         <button type="button" onClick={handleToggleView}>
           {plan.view_mode === "list" ? "Calendar view" : "List view"}
         </button>
+        <div className="plan-dates">
+          <label>
+            Starts
+            <input
+              type="date"
+              value={plan.start_date ?? ""}
+              onChange={(e) => handleStartDate(e.target.value)}
+            />
+          </label>
+          <label>
+            Days
+            <select value={plan.length_days ?? 7} onChange={(e) => handleLength(e.target.value)}>
+              {LENGTHS.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
-      {plan.view_mode === "list" ? (
+      {nudge && (
+        <p className="nudge" role="status">
+          {nudge.title} is set to {nudge.current} servings. Bump to {nudge.suggested} to cover the leftovers?
+          <button type="button" onClick={handleBump}>Bump</button>
+          <button type="button" onClick={() => setNudge(null)}>No</button>
+        </p>
+      )}
+
+      {showGrid ? (
+        <div
+          className="week-grid"
+          style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(120px, 1fr))` }}
+        >
+          <span className="slot-head" />
+          {days.map((day) => (
+            <span key={day} className="col-head">{dayLabel(day)}</span>
+          ))}
+          {SLOTS.map((slot) => (
+            <Fragment key={slot}>
+              <span className="slot-head">{slot}</span>
+              {days.map((day) => weekCell(day, slot))}
+            </Fragment>
+          ))}
+        </div>
+      ) : plan.view_mode === "list" ? (
         <ul className="stack">
           {items.map((it) => itemRow(it))}
           {items.length === 0 && <li className="vault-note">No recipes picked yet.</li>}
         </ul>
       ) : (
         <div>
-          {days.map((day) => (
-            <section key={day ?? "undated"} className="plate cal-day">
-              <h3>{day ?? "No date"}</h3>
-              {SLOTS.map((slot) => {
-                const slotItems = items.filter((it) => it.day === day && it.meal_slot === slot);
-                if (slotItems.length === 0) return null;
-                return (
-                  <div key={slot}>
-                    <h4>{slot}</h4>
-                    <ul className="stack">{slotItems.map((it) => itemRow(it))}</ul>
-                  </div>
-                );
-              })}
-              {items.filter((it) => it.day === day && !it.meal_slot).length > 0 && (
-                <div>
-                  <h4>Any time</h4>
-                  <ul className="stack">{items.filter((it) => it.day === day && !it.meal_slot).map((it) => itemRow(it))}</ul>
-                </div>
-              )}
-            </section>
-          ))}
-          {items.length === 0 && <p className="vault-note">No recipes picked yet.</p>}
+          <p className="vault-note">Set a start date to see this plan as a week.</p>
+          <ul className="stack">
+            {items.map((it) => itemRow(it))}
+            {items.length === 0 && <li className="vault-note">No recipes picked yet.</li>}
+          </ul>
         </div>
       )}
 
