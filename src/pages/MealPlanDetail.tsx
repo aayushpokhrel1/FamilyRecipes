@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
+import { addDays, dayLabel } from "../lib/dates";
 import {
   listPlans, listItems, addRecipe, addLeftover, removeItem, moveItem, setViewMode,
   setItemServings, setPlanDates,
@@ -12,20 +13,6 @@ import GroceryPanel from "../components/GroceryPanel";
 
 const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
 const LENGTHS = [3, 5, 7, 14];
-
-// The day after a YYYY-MM-DD string, in the same format. Built from local
-// midnight so a timezone offset can never shift the date by one.
-function nextDay(day: string): string {
-  const d = new Date(`${day}T00:00:00`);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-function dayLabel(day: string): string {
-  return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
-    weekday: "short", day: "numeric",
-  });
-}
 
 export default function MealPlanDetail() {
   const { id } = useParams();
@@ -92,7 +79,7 @@ export default function MealPlanDetail() {
   // user presses Bump.
   async function handleLeftover(it: MealPlanItem) {
     if (!plan || !it.day) return;
-    const day = nextDay(it.day);
+    const day = addDays(it.day, 1);
     await addLeftover(plan.id, it.id, { day, mealSlot: "lunch" });
     const n = items.filter((x) => x.leftover_of === it.id).length + 1;
     const base = it.servings ?? recipeById.get(it.recipe_id)?.servings ?? null;
@@ -166,11 +153,7 @@ export default function MealPlanDetail() {
   if (!plan) return <p>Loading...</p>;
 
   const days = plan.start_date
-    ? Array.from({ length: plan.length_days }, (_, i) => {
-        const d = new Date(`${plan.start_date}T00:00:00`);
-        d.setDate(d.getDate() + i);
-        return d.toISOString().slice(0, 10);
-      })
+    ? Array.from({ length: plan.length_days }, (_, i) => addDays(plan.start_date!, i))
     : [];
 
   const cellItems = (day: string, slot: MealSlot) =>
@@ -279,10 +262,17 @@ export default function MealPlanDetail() {
 
       <div className="vault-tools">
         <select value={pick} onChange={(e) => setPick(e.target.value)}>
-          <option value="">Add a recipe from the vault...</option>
+          <option value="">
+            {cell ? `Add to ${cell.slot} on ${dayLabel(cell.day)}...` : "Add a recipe from the vault..."}
+          </option>
           {recipes.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
         </select>
         <button type="button" className="action" onClick={handleAdd} disabled={!pick}>Add recipe</button>
+        {cell && (
+          <button type="button" onClick={() => setCell(null)}>
+            Cancel {dayLabel(cell.day)} {cell.slot}
+          </button>
+        )}
       </div>
 
       <GroceryPanel key={reloadKey} planId={plan.id} />
