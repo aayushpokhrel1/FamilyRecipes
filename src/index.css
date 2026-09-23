@@ -795,6 +795,34 @@ button[aria-pressed="true"] {
 .catalog-items label:hover { background: var(--plate-2); }
 .catalog-actions { display: flex; gap: 10px; }
 
+/* -------------------------------------------------------- week grid ------ */
+.plan-dates { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+.week-grid { display: grid; gap: 8px; overflow-x: auto; margin-top: 18px; }
+.week-grid .col-head,
+.week-grid .slot-head {
+  font-family: var(--sign); text-transform: uppercase; font-size: 0.72rem;
+  letter-spacing: 0.06em; color: var(--on-wall-soft); align-self: center;
+}
+.week-cell {
+  min-height: 64px; padding: 8px; border-radius: var(--radius-sm);
+  background: var(--plate); color: var(--ink);
+  border: 1.5px solid var(--rim); box-shadow: var(--lift-sm);
+  display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem;
+}
+.week-cell.empty {
+  background: transparent; border-style: dashed; box-shadow: none;
+  color: var(--on-wall-soft); align-items: center; justify-content: center;
+}
+.week-cell .leftover {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+.nudge {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  background: var(--plate-2); color: var(--ink); border: 1.5px solid var(--rim);
+}
+
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }
@@ -802,4 +830,5 @@ button[aria-pressed="true"] {
   .app-main { padding: 22px 16px 56px; }
   :root { --gut: 16px; }
   .catalog-fields { grid-template-columns: 1fr; }
+  .week-grid { font-size: 0.82rem; }
 }
