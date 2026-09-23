@@ -41,7 +41,8 @@ export async function deletePlan(id: string): Promise<void> {
 }
 
 export async function listItems(planId: string): Promise<MealPlanItem[]> {
-  const { data, error } = await supabase.from("meal_plan_items").select("*").eq("plan_id", planId).order("position");
+  const { data, error } = await supabase.from("meal_plan_items")
+    .select("id,plan_id,recipe_id,day,meal_slot,position,servings").eq("plan_id", planId).order("position");
   if (error) throw new Error(error.message);
   return (data ?? []) as MealPlanItem[];
 }
@@ -61,6 +62,13 @@ export async function addRecipe(
 
 export async function removeItem(itemId: string): Promise<void> {
   const { error } = await supabase.from("meal_plan_items").delete().eq("id", itemId);
+  if (error) throw new Error(error.message);
+}
+
+// null means "use the recipe's own servings"
+export async function setItemServings(itemId: string, servings: number | null): Promise<void> {
+  const { error } = await supabase.from("meal_plan_items")
+    .update({ servings }).eq("id", itemId);
   if (error) throw new Error(error.message);
 }
 

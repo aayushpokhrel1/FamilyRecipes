@@ -29,6 +29,7 @@ export interface MealPlan {
 export interface MealPlanItem {
   id: string; plan_id: string; recipe_id: string;
   day: string | null; meal_slot: MealSlot | null; position: number;
+  servings: number | null;
 }
 export interface ManualItem { id: string; label: string; position: number; }
 export interface GroceryContribution {
