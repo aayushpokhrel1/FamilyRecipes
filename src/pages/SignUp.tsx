@@ -8,16 +8,33 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await signUp(email, password, displayName);
-      navigate("/");
+      const { session } = await signUp(email, password, displayName);
+      if (session) navigate("/");
+      else setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  if (sent) {
+    return (
+      <div className="plate auth-card">
+        <h1>Check your email</h1>
+        <p>
+          We sent a confirmation link to <strong>{email}</strong>. Click it to finish setting up
+          your account, then sign in.
+        </p>
+        <p>
+          <Link to="/signin">Back to sign in</Link>
+        </p>
+      </div>
+    );
   }
 
   return (
