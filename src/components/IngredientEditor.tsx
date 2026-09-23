@@ -13,6 +13,8 @@ export default function IngredientEditor({
   itemSuggestions?: string[];
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [namingRow, setNamingRow] = useState<number | null>(null);
+  const [typedSection, setTypedSection] = useState("");
 
   function update(index: number, patch: Partial<Ingredient>) {
     onChange(items.map((g, i) => (i === index ? { ...g, ...patch } : g)));
@@ -25,6 +27,17 @@ export default function IngredientEditor({
   const usedSections = Array.from(
     new Set(items.map((g) => g.section).filter((s): s is string => !!s && s.trim() !== "")),
   );
+
+  function startNaming(index: number) {
+    setTypedSection("");
+    setNamingRow(index);
+  }
+
+  function commitNaming(index: number) {
+    update(index, { section: typedSection.trim() || null });
+    setNamingRow(null);
+    setTypedSection("");
+  }
 
   return (
     <div>
@@ -47,12 +60,35 @@ export default function IngredientEditor({
             placeholder="Item"
             list="ingredient-items"
           />
-          <input
-            value={g.section ?? ""}
-            onChange={(e) => update(i, { section: e.target.value })}
-            placeholder="Section"
-            list="ingredient-sections"
-          />
+          <select
+            aria-label={`Section for ${g.item || "this ingredient"}`}
+            value={g.section && g.section.trim() ? g.section : ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "__new") startNaming(i);
+              else update(i, { section: value || null });
+            }}
+          >
+            <option value="">No section</option>
+            {usedSections.map((s) => <option key={s} value={s}>{s}</option>)}
+            <option value="__new">New section...</option>
+          </select>
+          {namingRow === i && (
+            <span className="section-namer">
+              <input
+                autoFocus
+                value={typedSection}
+                onChange={(e) => setTypedSection(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); commitNaming(i); }
+                  else if (e.key === "Escape") { setNamingRow(null); setTypedSection(""); }
+                }}
+                placeholder="Section name"
+                aria-label={`New section name for ${g.item || "this ingredient"}`}
+              />
+              <button type="button" onClick={() => commitNaming(i)}>Done</button>
+            </span>
+          )}
           <button type="button" onClick={() => remove(i)}>
             Remove
           </button>
@@ -65,9 +101,6 @@ export default function IngredientEditor({
         Add ingredient
       </button>
       <button type="button" onClick={() => setShowPicker(true)}>Add from list</button>
-      <datalist id="ingredient-sections">
-        {usedSections.map((s) => <option key={s} value={s} />)}
-      </datalist>
       <datalist id="ingredient-items">
         {mergeItemSuggestions(itemSuggestions).map((name) => <option key={name} value={name} />)}
       </datalist>

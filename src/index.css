@@ -846,6 +846,20 @@ button[aria-pressed="true"] {
   color: inherit; font: inherit; cursor: pointer; box-shadow: none;
 }
 
+/* ---------------------------------------------------- grouping views ----- */
+.group-toggle { display: flex; gap: 8px; margin: 10px 0 14px; }
+.group-toggle button { font-size: 0.78rem; padding: 6px 12px; }
+.group-toggle button[aria-pressed="true"] {
+  background: var(--action); color: var(--on-action); border-color: var(--action);
+}
+.aisle {
+  margin: 16px 0 6px; font-family: var(--sign); color: var(--ink-soft);
+  font-size: 0.74rem; letter-spacing: 0.07em; text-transform: uppercase;
+}
+.aisle:first-child { margin-top: 0; }
+.editor-row select { min-width: 9rem; }
+.section-namer { display: flex; gap: 6px; align-items: center; }
+
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }

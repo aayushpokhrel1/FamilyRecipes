@@ -3,6 +3,7 @@ import { getGroceryList, toggleChecked, addManualItem, removeManualItem } from "
 import { listStaples, addStaple, removeStaple, type Staple } from "../lib/api/staples";
 import { useFamily } from "../context/FamilyContext";
 import type { GroceryLine } from "../lib/api/types";
+import { CATEGORY_ORDER } from "../lib/catalog";
 
 function contribLabel(c: { quantity: string | null; unit: string | null; recipeTitle: string }): string {
   const qty = [c.quantity, c.unit].filter(Boolean).join(" ").trim();
@@ -59,6 +60,16 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   const shopping = lines.filter((l) => !l.staple);
   const stapleLines = lines.filter((l) => l.staple);
 
+  // Manual lines have no aisle and belong at the end, under Other, next to the
+  // ingredients the catalog did not recognise.
+  const byAisle = new Map<string, GroceryLine[]>();
+  for (const l of shopping) {
+    const key = l.category ?? "Other";
+    byAisle.set(key, [...(byAisle.get(key) ?? []), l]);
+  }
+  const aisles = [...CATEGORY_ORDER.filter((c) => byAisle.has(c))];
+  if (byAisle.has("Other")) aisles.push("Other");
+
   function lineRow(line: GroceryLine) {
     const hasScaled = line.contributions.some((c) => c.scaled);
     return (
@@ -97,9 +108,20 @@ export default function GroceryPanel({ planId }: { planId: string }) {
     <section className="plate panel note-plate">
       <h2>Grocery list</h2>
       {lines.length === 0 && <p>Pick recipes to build a grocery list.</p>}
-      <ul className="grocery-list stack">
-        {shopping.map((line) => lineRow(line))}
-      </ul>
+      {aisles.length === 1 && aisles[0] === "Other" ? (
+        <ul className="grocery-list stack">
+          {byAisle.get("Other")!.map((line) => lineRow(line))}
+        </ul>
+      ) : (
+        aisles.map((aisle) => (
+          <div key={aisle}>
+            <h4 className="aisle">{aisle}</h4>
+            <ul className="grocery-list stack">
+              {byAisle.get(aisle)!.map((line) => lineRow(line))}
+            </ul>
+          </div>
+        ))
+      )}
       {stapleLines.length > 0 && (
         <details className="staples">
           <summary>Check you have these ({stapleLines.length})</summary>

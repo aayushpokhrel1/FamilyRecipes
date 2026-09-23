@@ -6,7 +6,7 @@ import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
-import { groupIngredientsBySection } from "../lib/groupIngredients";
+import { groupIngredientsBySection, groupIngredientsByCategory } from "../lib/groupIngredients";
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -20,6 +20,7 @@ export default function RecipeDetail() {
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [planId, setPlanId] = useState("");
   const [addMsg, setAddMsg] = useState("");
+  const [groupBy, setGroupBy] = useState<"recipe" | "category">("recipe");
 
   useEffect(() => {
     if (!id) return;
@@ -129,7 +130,26 @@ export default function RecipeDetail() {
         <section className="plate panel">
           <h2>Ingredients</h2>
           <PortionsStepper base={recipe.servings} onFactorChange={setFactor} />
-          {groupIngredientsBySection(ingredients).map((grp) => (
+          <div className="group-toggle">
+            <button
+              type="button"
+              aria-pressed={groupBy === "recipe"}
+              onClick={() => setGroupBy("recipe")}
+            >
+              Recipe order
+            </button>
+            <button
+              type="button"
+              aria-pressed={groupBy === "category"}
+              onClick={() => setGroupBy("category")}
+            >
+              By category
+            </button>
+          </div>
+          {(groupBy === "category"
+            ? groupIngredientsByCategory(ingredients)
+            : groupIngredientsBySection(ingredients)
+          ).map((grp) => (
             <div key={grp.section ?? "_"}>
               {grp.section && <h3 className="ing-section">{grp.section}</h3>}
               <ul className="ing-list">
