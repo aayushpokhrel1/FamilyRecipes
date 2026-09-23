@@ -746,10 +746,60 @@ button[aria-pressed="true"] {
 }
 .comment .when { font-size: 0.78rem; color: var(--ink-soft); margin: 6px 0 0; }
 
+/* ----------------------------------------------------- catalog picker ---- */
+
+.catalog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--gut);
+  background: color-mix(in srgb, var(--wall-edge) 72%, transparent);
+}
+.catalog-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(640px, 100%);
+  max-height: min(80svh, 720px);
+  padding: 20px;
+}
+.catalog-modal h3 { margin: 0; }
+.catalog-fields { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+.catalog-cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.catalog-cats .chip { cursor: pointer; text-transform: uppercase; }
+.catalog-cats .chip[aria-pressed="true"] {
+  color: var(--on-action);
+  background: var(--action);
+  border-color: var(--action-deep);
+}
+.catalog-list { overflow-y: auto; }
+.catalog-list h4 {
+  margin: 12px 0 6px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.catalog-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
+.catalog-items label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+.catalog-items label:hover { background: var(--plate-2); }
+.catalog-actions { display: flex; gap: 10px; }
+
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }
   .app-header nav { width: 100%; order: 3; }
   .app-main { padding: 22px 16px 56px; }
   :root { --gut: 16px; }
+  .catalog-fields { grid-template-columns: 1fr; }
 }

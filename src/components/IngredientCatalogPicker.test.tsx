@@ -21,3 +21,19 @@ test("search narrows the catalog to nothing for a nonsense query", () => {
   fireEvent.change(screen.getByLabelText("search ingredients"), { target: { value: "zzzznotreal" } });
   expect(screen.queryAllByRole("checkbox").length).toBe(0);
 });
+
+test("shows one category at a time and keeps checks across a switch", () => {
+  const onAdd = vi.fn();
+  render(<IngredientCatalogPicker onAdd={onAdd} onClose={() => {}} />);
+  // Produce is the default category; Spices items are not rendered yet.
+  expect(screen.getByLabelText("onion")).toBeTruthy();
+  expect(screen.queryByLabelText("cumin")).toBeNull();
+
+  fireEvent.click(screen.getByLabelText("onion"));
+  fireEvent.click(screen.getByRole("button", { name: "Spices" }));
+  expect(screen.queryByLabelText("onion")).toBeNull();
+  fireEvent.click(screen.getByLabelText("cumin"));
+
+  fireEvent.click(screen.getByRole("button", { name: /add selected/i }));
+  expect(onAdd.mock.calls[0][0].sort()).toEqual(["cumin", "onion"]);
+});
