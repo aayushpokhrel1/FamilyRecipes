@@ -195,7 +195,12 @@ New **My Kitchen** tab:
 
 ## Roadmap (deferred, not this phase)
 
-1. **Expensive ingredient normalization.** Synonym/entity resolution so
+> Status update 2026-09-22: items 1 and 2 were partly built in a follow-up slice. See
+> `docs/superpowers/specs/2026-09-22-grocery-scaling-canonicalization-design.md`. The curated
+> synonym map and within-family unit merging now exist; the LLM pass does not.
+
+1. **Expensive ingredient normalization.** PARTLY DONE: the curated synonym map ships, the
+   LLM pass is still deferred. Synonym/entity resolution so
    `all-purpose flour` == `flour`, `scallions` == `green onions`, etc. Options to
    evaluate when picked up: a curated synonym map, or an LLM canonicalization
    pass (would add a stored canonical id/column, a backfill migration, cost +
@@ -204,5 +209,7 @@ New **My Kitchen** tab:
    extend.
 2. **Unit-aware quantity merging** (sum `2 cups + 1 cup`), which depends on
    parsing the freeform `quantity`/`unit` text — related to (1).
+   DONE, with limits: merging happens only within a unit family, and metric and imperial are
+   separate families, so `1 cup + 500 g` and cups + millilitres stay unmerged by design.
 3. Store/aisle categorization, export to external shopping apps, shared
    collaborative (editable) plans.
