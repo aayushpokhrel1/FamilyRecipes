@@ -36,6 +36,16 @@ test("marks a partial line as mixed units", async () => {
   expect(await screen.findByText("mixed units")).toBeInTheDocument();
 });
 
+test("does not say mixed units when a single contribution just cannot be measured", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.getGroceryList as any).mockResolvedValue([
+    { key: "saffron", name: "Saffron", contributions: [{ quantity: "a pinch", unit: null, recipeTitle: "Dal", scaled: false }], checked: false, manual: false, totals: [], partial: true },
+  ]);
+  render(<GroceryPanel planId="p1" />);
+  expect(await screen.findByText("Saffron")).toBeInTheDocument();
+  expect(screen.queryByText("mixed units")).toBeNull();
+});
+
 test("marks an unscaled contribution on an otherwise scaled line", async () => {
   const mp = await import("../lib/api/mealPlans");
   (mp.getGroceryList as any).mockResolvedValue([

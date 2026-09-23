@@ -49,7 +49,10 @@ export default function GroceryPanel({ planId }: { planId: string }) {
               {line.totals.length > 0 && (
                 <span className="qty">{line.totals.map(totalLabel).join(", ")}</span>
               )}
-              {line.partial && <span className="chip">mixed units</span>}
+              {/* partial also covers "one contribution could not be measured",
+                  which is not a mixed-unit line: saffron with a single
+                  "a pinch" would otherwise be labelled mixed units */}
+              {line.totals.length > 1 && <span className="chip">mixed units</span>}
               {!line.manual && line.contributions.length > 0 && (
                 <small>
                   {" "}
