@@ -1,7 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
-import { createRecipe, listFamilyIngredientNames } from "../lib/api/recipes";
+import { createRecipe, listFamilyIngredientNames, listFamilySectionNames } from "../lib/api/recipes";
 import { setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
@@ -31,8 +31,12 @@ export default function RecipeCreate() {
   const { activeFamily } = useFamily();
   const navigate = useNavigate();
   const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  const [sectionSuggestions, setSectionSuggestions] = useState<string[]>([]);
   useEffect(() => {
-    if (activeFamily) listFamilyIngredientNames(activeFamily.id).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+    if (activeFamily) {
+      listFamilyIngredientNames(activeFamily.id).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+      listFamilySectionNames(activeFamily.id).then(setSectionSuggestions).catch(() => setSectionSuggestions([]));
+    }
   }, [activeFamily]);
   const [draft, setDraft] = useState<RecipeDraft>(emptyDraft);
   const [visibility, setVisibility] = useState<Visibility>("family");
@@ -77,6 +81,7 @@ export default function RecipeCreate() {
           items={draft.ingredients}
           onChange={(ingredients) => setDraft({ ...draft, ingredients })}
           itemSuggestions={itemSuggestions}
+          sectionSuggestions={sectionSuggestions}
         />
         <StepEditor items={draft.steps} onChange={(steps) => setDraft({ ...draft, steps })} />
         <label>

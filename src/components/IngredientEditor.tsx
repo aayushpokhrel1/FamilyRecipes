@@ -1,16 +1,18 @@
 import { useState } from "react";
 import IngredientCatalogPicker from "./IngredientCatalogPicker";
 import type { Ingredient } from "../lib/api/types";
-import { mergeItemSuggestions } from "../lib/catalog";
+import { mergeItemSuggestions, mergeSectionSuggestions } from "../lib/catalog";
 
 export default function IngredientEditor({
   items,
   onChange,
   itemSuggestions = [],
+  sectionSuggestions = [],
 }: {
   items: Ingredient[];
   onChange: (items: Ingredient[]) => void;
   itemSuggestions?: string[];
+  sectionSuggestions?: string[];
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [namingRow, setNamingRow] = useState<number | null>(null);
@@ -38,6 +40,15 @@ export default function IngredientEditor({
     setNamingRow(null);
     setTypedSection("");
   }
+
+  // Sections already in this recipe sit in their own group at the top; the rest
+  // are offered below without repeating them.
+  const usedKeys = new Set(usedSections.map((x) => x.toLowerCase()));
+  const offered = mergeSectionSuggestions(sectionSuggestions)
+    .filter((x) => !usedKeys.has(x.toLowerCase()));
+  const familyKeys = new Set(sectionSuggestions.map((x) => x.trim().toLowerCase()));
+  const mine = offered.filter((x) => familyKeys.has(x.toLowerCase()));
+  const common = offered.filter((x) => !familyKeys.has(x.toLowerCase()));
 
   return (
     <div>
@@ -70,7 +81,21 @@ export default function IngredientEditor({
             }}
           >
             <option value="">No section</option>
-            {usedSections.map((s) => <option key={s} value={s}>{s}</option>)}
+            {usedSections.length > 0 && (
+              <optgroup label="Used in this recipe">
+                {usedSections.map((s) => <option key={s} value={s}>{s}</option>)}
+              </optgroup>
+            )}
+            {mine.length > 0 && (
+              <optgroup label="Your sections">
+                {mine.map((s) => <option key={s} value={s}>{s}</option>)}
+              </optgroup>
+            )}
+            {common.length > 0 && (
+              <optgroup label="Common">
+                {common.map((s) => <option key={s} value={s}>{s}</option>)}
+              </optgroup>
+            )}
             <option value="__new">New section...</option>
           </select>
           {namingRow === i && (

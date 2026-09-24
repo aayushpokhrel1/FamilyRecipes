@@ -1,4 +1,4 @@
-import { inferCategory, CATEGORY_ORDER } from "./catalog";
+import { inferCategory, CATEGORY_ORDER, mergeSectionSuggestions, SECTION_SUGGESTIONS } from "./catalog";
 
 test("finds the aisle for a plain catalog item", () => {
   expect(inferCategory("onion")).toBe("Produce");
@@ -54,4 +54,20 @@ test("salt is a seasoning, not a baking good", () => {
 test("cooking fats and cheeses beyond the western default resolve too", () => {
   expect(inferCategory("ghee")).toBe("Dairy & Eggs");
   expect(inferCategory("paneer")).toBe("Dairy & Eggs");
+});
+
+test("section suggestions put the family's own wording first", () => {
+  const merged = mergeSectionSuggestions(["For the tadka", "For the sauce"]);
+  expect(merged[0]).toBe("For the tadka");
+  expect(merged).toContain("Garnish");
+});
+
+test("a family section that matches a common one is not offered twice", () => {
+  const merged = mergeSectionSuggestions(["for the SAUCE "]);
+  const sauces = merged.filter((s) => s.toLowerCase().includes("sauce"));
+  expect(sauces).toEqual(["for the SAUCE"]);
+});
+
+test("blank history entries are ignored", () => {
+  expect(mergeSectionSuggestions(["", "   "])).toEqual(SECTION_SUGGESTIONS);
 });
