@@ -112,13 +112,13 @@ test("does not offer to repeat when a plan already covers the window", async () 
     },
   ]);
   render(<MemoryRouter><MyKitchen /></MemoryRouter>);
-  expect(await screen.findByRole("link", { name: `Add breakfast on ${dayLabel(today())}` }))
-    .toHaveAttribute("href", `/kitchen/p1?day=${today()}&slot=breakfast`);
+  expect(await screen.findByRole("link", { name: `Add something on ${dayLabel(today())}` }))
+    .toHaveAttribute("href", `/kitchen/p1?day=${today()}&slot=dinner`);
   expect(screen.queryByRole("button", { name: "Repeat last week" })).not.toBeInTheDocument();
   (mp.listPlans as any).mockResolvedValue([]);
 });
 
-test("links today's empty breakfast slot to the covering plan", async () => {
+test("links today's empty day to the covering plan", async () => {
   const mp = await import("../lib/api/mealPlans");
   (mp.listPlans as any).mockResolvedValue([
     {
@@ -129,8 +129,8 @@ test("links today's empty breakfast slot to the covering plan", async () => {
     },
   ]);
   render(<MemoryRouter><MyKitchen /></MemoryRouter>);
-  expect(await screen.findByRole("link", { name: `Add breakfast on ${dayLabel(today())}` }))
-    .toHaveAttribute("href", `/kitchen/p1?day=${today()}&slot=breakfast`);
+  expect(await screen.findByRole("link", { name: `Add something on ${dayLabel(today())}` }))
+    .toHaveAttribute("href", `/kitchen/p1?day=${today()}&slot=dinner`);
   (mp.listPlans as any).mockResolvedValue([]);
 });
 
@@ -171,4 +171,44 @@ test("says all stocked when nothing needs buying", async () => {
   ]);
   render(<MemoryRouter><MyKitchen /></MemoryRouter>);
   expect(await screen.findByText(/All stocked/i)).toBeInTheDocument();
+});
+
+// The cupboard summary is the only link to /kitchen/cupboard on this page, so
+// an empty cupboard must still offer the way in.
+test("still links to the cupboard when it is empty", async () => {
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  expect(await screen.findByText("Nothing in yet.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Set up the cupboard" }))
+    .toHaveAttribute("href", "/kitchen/cupboard");
+});
+
+// With no plan covering the days, the day blocks render nothing at all: no
+// heading, no slot label rows.
+test("renders no slot rows when no plan covers the days", async () => {
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  await screen.findByRole("button", { name: "Start this week" });
+  expect(screen.queryByText("breakfast")).not.toBeInTheDocument();
+  expect(screen.queryByText("lunch")).not.toBeInTheDocument();
+  expect(screen.queryByText("dinner")).not.toBeInTheDocument();
+});
+
+// Only PEEK_DAYS day headings render by default; the control reveals the rest.
+test("peeks at two days and reveals the rest on demand", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  (mp.listPlans as any).mockResolvedValue([
+    {
+      id: "p1", owner_id: "u1", family_id: "f1", name: "This week",
+      view_mode: "calendar", is_shared: false, checked_items: [],
+      start_date: today(), length_days: 7,
+      created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z",
+    },
+  ]);
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  expect(await screen.findByRole("heading", { name: "Today" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Tomorrow" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: dayLabel(addDays(today(), 2)) })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show 2 more days" }));
+  expect(screen.getByRole("heading", { name: dayLabel(addDays(today(), 2)) })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: dayLabel(addDays(today(), 3)) })).toBeInTheDocument();
+  (mp.listPlans as any).mockResolvedValue([]);
 });
