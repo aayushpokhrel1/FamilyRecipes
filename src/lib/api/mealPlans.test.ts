@@ -44,8 +44,11 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
     if (table === "meal_plans") {
       return { select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [], family_id: "f1" }, error: null }) }) }) };
     }
-    if (table === "pantry_staples") {
-      return { select: () => ({ eq: () => ({ order: () => ({ data: [{ id: "s1", key: "flour", label: "Flour" }], error: null }) }) }) };
+    if (table === "pantry_items") {
+      // listPantry chains .eq().or().order(); the mock returns the same rows
+      // at every step because this test is about scaling, not expiry.
+      const rows = { data: [{ id: "s1", key: "flour", label: "Flour" }], error: null };
+      return { select: () => ({ eq: () => ({ or: () => ({ order: () => rows }) }) }) };
     }
     if (table === "ingredient_categories") {
       // this family taught the app that besan is a pantry item

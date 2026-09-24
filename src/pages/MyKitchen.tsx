@@ -6,7 +6,7 @@ import {
   duplicatePlan,
 } from "../lib/api/mealPlans";
 import { getCoverPhotoUrl } from "../lib/api/photos";
-import { listStaples, type Staple } from "../lib/api/staples";
+import { listPantry, type PantryItem } from "../lib/api/pantry";
 import { notCookedLately } from "../lib/api/cookLog";
 import { addDays, dayLabel, today } from "../lib/dates";
 import UpcomingGroceryPanel from "../components/UpcomingGroceryPanel";
@@ -25,7 +25,7 @@ export default function MyKitchen() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [staples, setStaples] = useState<Staple[]>([]);
+  const [staples, setStaples] = useState<PantryItem[]>([]);
   const [forgotten, setForgotten] = useState<NotCookedLately[]>([]);
 
   async function reload() {
@@ -36,7 +36,7 @@ export default function MyKitchen() {
   useEffect(() => { listUpcoming(DAYS).then(setUpcoming).catch(() => setUpcoming([])); }, []);
   useEffect(() => {
     if (!activeFamily) { setStaples([]); return; }
-    listStaples(activeFamily.id).then(setStaples).catch(() => setStaples([]));
+    listPantry(activeFamily.id).then(setStaples).catch(() => setStaples([]));
   }, [activeFamily?.id]);
   // Three is a nudge, not a second recipe index. A failed suggestion must never
   // break the page, so the catch empties the list rather than surfacing.
