@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient";
 import { buildGroceryList, type IngredientRow } from "./grocery";
 import { listStaples } from "./staples";
+import { listCategoryOverrides } from "./ingredientCategories";
 import { parseQuantity, scaleIngredientQty } from "./quantity";
 import { addDays, today } from "../dates";
 import type { MealPlan, MealPlanItem, ManualItem, MealPlanViewMode, MealSlot, GroceryLine, UpcomingItem } from "./types";
@@ -239,8 +240,11 @@ export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
   // recorded) simply flags nothing.
   const familyId = (plan as { family_id?: string } | null)?.family_id;
   const staples = familyId ? await listStaples(familyId) : [];
+  // A family's own aisle tags beat the shared catalog, so an ingredient the
+  // catalog has never heard of stops falling into Other once they tag it.
+  const categories = familyId ? await listCategoryOverrides(familyId) : new Map<string, string>();
   return buildGroceryList(
     rows, manualList, ((plan?.checked_items ?? []) as string[]),
-    new Set(staples.map((s) => s.key)),
+    { staples: new Set(staples.map((s) => s.key)), categories },
   );
 }

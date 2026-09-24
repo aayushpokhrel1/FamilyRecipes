@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getGroceryList, toggleChecked, addManualItem, removeManualItem } from "../lib/api/mealPlans";
 import { listStaples, addStaple, removeStaple, type Staple } from "../lib/api/staples";
+import { setCategoryOverride } from "../lib/api/ingredientCategories";
 import { useFamily } from "../context/FamilyContext";
 import type { GroceryLine } from "../lib/api/types";
 import { CATEGORY_ORDER } from "../lib/catalog";
@@ -56,6 +57,11 @@ export default function GroceryPanel({ planId }: { planId: string }) {
     await reloadStaples();
     reload();
   }
+  async function handleSetAisle(line: GroceryLine, category: string) {
+    if (!activeFamily || !category) return;
+    await setCategoryOverride(activeFamily.id, line.name, category);
+    reload();
+  }
 
   const shopping = lines.filter((l) => !l.staple);
   const stapleLines = lines.filter((l) => l.staple);
@@ -70,7 +76,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   const aisles = [...CATEGORY_ORDER.filter((c) => byAisle.has(c))];
   if (byAisle.has("Other")) aisles.push("Other");
 
-  function lineRow(line: GroceryLine) {
+  function lineRow(line: GroceryLine, inOther: boolean) {
     const hasScaled = line.contributions.some((c) => c.scaled);
     return (
       <li key={line.key}>
@@ -78,6 +84,20 @@ export default function GroceryPanel({ planId }: { planId: string }) {
           <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
           <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{line.name}</span>
         </label>
+        {inOther && activeFamily && (
+          <span className="aisle-setter">
+            <select
+              aria-label={`Set aisle for ${line.name}`}
+              value=""
+              onChange={(e) => handleSetAisle(line, e.target.value)}
+            >
+              <option value="">Set aisle...</option>
+              {CATEGORY_ORDER.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </span>
+        )}
         {line.totals.length > 0 && (
           <span className="qty">{line.totals.map(totalLabel).join(", ")}</span>
         )}
@@ -110,14 +130,14 @@ export default function GroceryPanel({ planId }: { planId: string }) {
       {lines.length === 0 && <p>Pick recipes to build a grocery list.</p>}
       {aisles.length === 1 && aisles[0] === "Other" ? (
         <ul className="grocery-list stack">
-          {byAisle.get("Other")!.map((line) => lineRow(line))}
+          {byAisle.get("Other")!.map((line) => lineRow(line, true))}
         </ul>
       ) : (
         aisles.map((aisle) => (
           <div key={aisle}>
             <h4 className="aisle">{aisle}</h4>
             <ul className="grocery-list stack">
-              {byAisle.get(aisle)!.map((line) => lineRow(line))}
+              {byAisle.get(aisle)!.map((line) => lineRow(line, aisle === "Other"))}
             </ul>
           </div>
         ))
@@ -126,7 +146,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
         <details className="staples">
           <summary>Check you have these ({stapleLines.length})</summary>
           <ul className="grocery-list stack">
-            {stapleLines.map((line) => lineRow(line))}
+            {stapleLines.map((line) => lineRow(line, false))}
           </ul>
         </details>
       )}

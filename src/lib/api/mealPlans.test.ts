@@ -37,6 +37,10 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
     if (table === "pantry_staples") {
       return { select: () => ({ eq: () => ({ order: () => ({ data: [{ id: "s1", key: "flour", label: "Flour" }], error: null }) }) }) };
     }
+    if (table === "ingredient_categories") {
+      // this family taught the app that besan is a pantry item
+      return { select: () => ({ eq: () => ({ data: [{ key: "besan", category: "Pantry & Grains" }], error: null }) }) };
+    }
     if (table === "meal_plan_items") {
       // .is("leftover_of", null) is chained after .eq, so the mock returns the
       // same rows either way: this test is about scaling, not leftovers.

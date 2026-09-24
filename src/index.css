@@ -860,6 +860,12 @@ button[aria-pressed="true"] {
 .editor-row select { min-width: 9rem; }
 .section-namer { display: flex; gap: 6px; align-items: center; }
 
+/* ------------------------------------------------------- aisle setter ---- */
+.aisle-setter select {
+  font-size: 0.74rem; padding: 2px 6px; margin-left: 8px;
+  border-radius: var(--radius-sm);
+}
+
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }

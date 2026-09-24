@@ -1,5 +1,5 @@
 import { normalizeItem } from "./normalizeItem";
-import { inferCategory } from "../catalog";
+import { categoryFor } from "../catalog";
 import { normalizeUnit, unitFamily, toBase, fromBase, type UnitFamily } from "./units";
 import { parseQuantity, formatQuantity } from "./quantity";
 import type { GroceryLine, GroceryContribution } from "./types";
@@ -46,8 +46,11 @@ export function buildGroceryList(
   rows: IngredientRow[],
   manual: { id: string; label: string }[],
   checkedKeys: string[],
-  staples: Set<string> = new Set(),
+  // An options bag rather than more positional arguments: both of these are
+  // family-scoped lookups and callers usually pass neither or both.
+  opts: { staples?: Set<string>; categories?: Map<string, string> } = {},
 ): GroceryLine[] {
+  const staples = opts.staples ?? new Set<string>();
   const checked = new Set(checkedKeys);
   const order: string[] = [];
   const byKey = new Map<string, GroceryLine>();
@@ -60,7 +63,7 @@ export function buildGroceryList(
       line = {
         key, name: r.item, contributions: [], checked: checked.has(key), manual: false,
         totals: [], partial: false, staple: staples.has(key),
-        category: inferCategory(r.item),
+        category: categoryFor(r.item, opts.categories),
       };
       byKey.set(key, line);
       order.push(key);

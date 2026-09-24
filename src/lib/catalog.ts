@@ -218,6 +218,18 @@ export function inferCategory(item: string): string | null {
   return best;
 }
 
+// The aisle for an ingredient, honouring a family's own tag before the shared
+// catalog. One place decides that precedence, so the grocery list and the
+// recipe's category view can never disagree about where something belongs.
+export function categoryFor(item: string, overrides?: Map<string, string>): string | null {
+  const key = normalizeItem(item);
+  if (key && overrides) {
+    const own = overrides.get(key);
+    if (own) return own;
+  }
+  return inferCategory(item);
+}
+
 // Common recipe parts, offered so a new recipe's Section dropdown is never
 // empty. Deliberately parts of a recipe, never food categories: an aisle like
 // "Produce" is a fact about an ingredient and belongs to the By category view,

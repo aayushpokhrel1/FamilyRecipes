@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteRecipe, getRecipe } from "../lib/api/recipes";
 import { listPlans, addRecipe } from "../lib/api/mealPlans";
+import { listCategoryOverrides } from "../lib/api/ingredientCategories";
 import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
@@ -21,6 +22,7 @@ export default function RecipeDetail() {
   const [planId, setPlanId] = useState("");
   const [addMsg, setAddMsg] = useState("");
   const [groupBy, setGroupBy] = useState<"recipe" | "category">("recipe");
+  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!id) return;
@@ -49,6 +51,19 @@ export default function RecipeDetail() {
   useEffect(() => {
     listPlans().then(setPlans).catch(() => setPlans([]));
   }, []);
+
+  // The family's own aisle tags, so the By category view agrees with the
+  // grocery list. A failure here leaves the map empty and the list still works.
+  useEffect(() => {
+    if (!recipe) return;
+    let ignore = false;
+    listCategoryOverrides(recipe.family_id)
+      .then((m) => { if (!ignore) setOverrides(m); })
+      .catch(() => { if (!ignore) setOverrides(new Map()); });
+    return () => {
+      ignore = true;
+    };
+  }, [recipe?.family_id]);
 
   async function handleDelete() {
     if (!id) return;
@@ -147,7 +162,7 @@ export default function RecipeDetail() {
             </button>
           </div>
           {(groupBy === "category"
-            ? groupIngredientsByCategory(ingredients)
+            ? groupIngredientsByCategory(ingredients, overrides)
             : groupIngredientsBySection(ingredients)
           ).map((grp) => (
             <div key={grp.section ?? "_"}>
