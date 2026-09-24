@@ -890,6 +890,8 @@ button[aria-pressed="true"] {
 .hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .staples-strip { margin-top: 26px; }
 .staples-strip h3 { color: var(--on-wall); }
+.forgotten { margin-top: 26px; }
+.forgotten h3 { color: var(--on-wall); }
 /* Unlike .staples, this details sits on the wall rather than on a plate, so the
    summary takes the wall's ink instead of the plate's. */
 .plans { margin-top: 26px; }

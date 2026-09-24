@@ -22,6 +22,9 @@ vi.mock("../lib/api/photos", () => ({
 vi.mock("../lib/api/staples", () => ({
   listStaples: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../lib/api/cookLog", () => ({
+  notCookedLately: vi.fn().mockResolvedValue([]),
+}));
 
 test("renders the My Kitchen heading and a create control", async () => {
   render(<MemoryRouter><MyKitchen /></MemoryRouter>);
@@ -122,4 +125,19 @@ test("links today's empty breakfast slot to the covering plan", async () => {
   expect(await screen.findByRole("link", { name: `Add breakfast on ${dayLabel(today())}` }))
     .toHaveAttribute("href", `/kitchen/p1?day=${today()}&slot=breakfast`);
   (mp.listPlans as any).mockResolvedValue([]);
+});
+
+test("lists recipes not made in a while with their last-cooked labels", async () => {
+  const cl = await import("../lib/api/cookLog");
+  (cl.notCookedLately as any).mockResolvedValue([
+    { recipe: { id: "r1", title: "Dal" }, lastCooked: "2026-03-04T12:00:00Z" },
+    { recipe: { id: "r2", title: "Biryani" }, lastCooked: null },
+  ]);
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  expect(await screen.findByRole("heading", { name: "Not made in a while" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Dal" })).toHaveAttribute("href", "/recipes/r1");
+  expect(screen.getByText("last made March 2026")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Biryani" })).toHaveAttribute("href", "/recipes/r2");
+  expect(screen.getByText("never cooked")).toBeInTheDocument();
+  (cl.notCookedLately as any).mockResolvedValue([]);
 });
