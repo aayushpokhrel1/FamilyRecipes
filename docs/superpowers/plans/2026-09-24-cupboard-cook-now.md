@@ -1089,9 +1089,14 @@ git commit -m "feat: answer what you can cook from the cupboard"
 ### Task 6: The shopping hook, and low/out on the grocery list
 
 **Files:**
-- Modify: `src/components/GroceryPanel.tsx`
+- Modify: `src/lib/api/mealPlans.ts:241` (the staples set, and the ONLY `buildGroceryList` call site)
+- Modify: `src/components/GroceryPanel.tsx` (the cupboard action only)
 - Modify: `src/components/GroceryPanel.test.tsx`
-- Modify: `src/components/UpcomingGroceryPanel.tsx`
+
+> **Corrected after Task 1.** An earlier draft of this task claimed the staples set was built
+> in `GroceryPanel.tsx` and `UpcomingGroceryPanel.tsx`. It is not. `buildGroceryList` is called
+> in exactly one place, `src/lib/api/mealPlans.ts:241`, and the components render what
+> `getGroceryList` returns. Do not go looking for it in the components.
 
 **Interfaces:**
 - Consumes: `listPantry`, `addItem`, `PantryItem` from `../lib/api/pantry`
@@ -1131,19 +1136,36 @@ Expected: FAIL on both new tests.
 
 - [ ] **Step 3: Pass only `have` items as staples**
 
-First rename the local state in both components from `staples` to `pantryItems` and its setter to `setPantryItems` (Task 1 deliberately left the old names in place). The variable now holds both kinds of item, so `staples` would be the same lying name the table rename already fixed.
+In `src/lib/api/mealPlans.ts`, inside `groceryLinesFromItems`, the call currently reads:
 
-Then, wherever the staples set is built for `buildGroceryList`, filter by state:
-
-```tsx
-// An item you are low on or out of is a thing to buy, not a thing to assume.
-// This one filter is the whole "do we need more rice" feature.
-const stapleKeys = new Set(
-  pantryItems.filter((i) => i.kind === "keep" && i.state === "have").map((i) => i.key),
-);
+```ts
+  return buildGroceryList(
+    rows,
+    { staples: new Set(staples.map((s) => s.key)), categories },
 ```
 
-and pass `{ staples: stapleKeys, categories }` to `buildGroceryList` as before.
+Change the set to filter by kind and state, and rename the local `staples` to `pantry` so the name stops claiming everything in it is a staple:
+
+```ts
+  const pantry = familyId ? await listPantry(familyId) : [];
+```
+
+```ts
+  return buildGroceryList(
+    rows,
+    {
+      // An item you are low on or out of is a thing to BUY, not a thing to
+      // assume you have. This one filter is the whole "do we need more rice"
+      // job. A week item is never a staple: it is this week's food, and it
+      // belongs on the list like anything else.
+      staples: new Set(
+        pantry.filter((p) => p.kind === "keep" && p.state === "have").map((p) => p.key),
+      ),
+      categories,
+    },
+```
+
+Leave the comment above the line about family scoping in place, it is still true.
 
 - [ ] **Step 4: Add the cupboard action**
 
