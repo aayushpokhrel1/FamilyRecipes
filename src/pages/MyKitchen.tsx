@@ -7,9 +7,10 @@ import {
 } from "../lib/api/mealPlans";
 import { getCoverPhotoUrl } from "../lib/api/photos";
 import { listStaples, type Staple } from "../lib/api/staples";
+import { notCookedLately } from "../lib/api/cookLog";
 import { addDays, dayLabel, today } from "../lib/dates";
 import UpcomingGroceryPanel from "../components/UpcomingGroceryPanel";
-import type { MealPlan, MealSlot, UpcomingItem } from "../lib/api/types";
+import type { MealPlan, MealSlot, NotCookedLately, UpcomingItem } from "../lib/api/types";
 
 const SLOTS = ["breakfast", "lunch", "dinner"] as const;
 // How far ahead the kitchen looks. One constant: listUpcoming's window and the
@@ -25,6 +26,7 @@ export default function MyKitchen() {
   const [loading, setLoading] = useState(true);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [staples, setStaples] = useState<Staple[]>([]);
+  const [forgotten, setForgotten] = useState<NotCookedLately[]>([]);
 
   async function reload() {
     setLoading(true);
@@ -35,6 +37,12 @@ export default function MyKitchen() {
   useEffect(() => {
     if (!activeFamily) { setStaples([]); return; }
     listStaples(activeFamily.id).then(setStaples).catch(() => setStaples([]));
+  }, [activeFamily?.id]);
+  // Three is a nudge, not a second recipe index. A failed suggestion must never
+  // break the page, so the catch empties the list rather than surfacing.
+  useEffect(() => {
+    if (!activeFamily) { setForgotten([]); return; }
+    notCookedLately(activeFamily.id, 3).then(setForgotten).catch(() => setForgotten([]));
   }, [activeFamily?.id]);
 
   // Keyed on the recipe, and cleared when there is no hero, so a photo can
@@ -91,6 +99,15 @@ export default function MyKitchen() {
     if (day === today()) return "Today";
     if (day === addDays(today(), 1)) return "Tomorrow";
     return dayLabel(day);
+  }
+
+  // A timestamptz is a real instant, so toLocaleDateString is right here; this
+  // is not the plain YYYY-MM-DD plan-date case src/lib/dates.ts protects.
+  function whenLabel(lastCooked: string | null): string {
+    if (lastCooked === null) return "never cooked";
+    return "last made " + new Date(lastCooked).toLocaleDateString(undefined, {
+      month: "long", year: "numeric",
+    });
   }
 
   // upcoming is already sorted by day then slot, so the first one is next up.
@@ -196,6 +213,21 @@ export default function MyKitchen() {
           <h3>Always in</h3>
           <div className="chip-row">{staples.map((s) => <span className="chip" key={s.id}>{s.label}</span>)}</div>
           <p className="vault-note"><Link to="/settings">Manage staples</Link></p>
+        </section>
+      )}
+      {/* A family that cooks everything regularly sees nothing here, not an
+          empty heading. */}
+      {activeFamily && forgotten.length > 0 && (
+        <section className="forgotten">
+          <h3>Not made in a while</h3>
+          <ul className="stack">
+            {forgotten.map((f) => (
+              <li key={f.recipe.id} className="plate plate-row">
+                <Link to={`/recipes/${f.recipe.id}`}>{f.recipe.title}</Link>
+                <span className="stamp">{whenLabel(f.lastCooked)}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       <details className="plans">

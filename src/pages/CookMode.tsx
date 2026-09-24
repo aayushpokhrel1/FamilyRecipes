@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getRecipe } from "../lib/api/recipes";
+import { logCooked } from "../lib/api/cookLog";
 import type { Ingredient, Step } from "../lib/api/types";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
 import { groupIngredientsBySection } from "../lib/groupIngredients";
+import { useFamily } from "../context/FamilyContext";
 
 export default function CookMode() {
   const { id } = useParams();
+  const { activeFamily } = useFamily();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [index, setIndex] = useState(0);
@@ -16,6 +19,9 @@ export default function CookMode() {
   const [error, setError] = useState<string | null>(null);
   const [servings, setServings] = useState<number | null>(null);
   const [factor, setFactor] = useState(1);
+  const [logging, setLogging] = useState(false);
+  const [logged, setLogged] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -80,6 +86,22 @@ export default function CookMode() {
 
   const step = steps[index];
 
+  // The only write to the cook log: an explicit tap. Opening a recipe is
+  // browsing, not cooking, so nothing here logs on mount or on the last step.
+  async function handleMarkCooked() {
+    if (!activeFamily || !id) return;
+    setLogging(true);
+    setLogError(null);
+    try {
+      await logCooked(activeFamily.id, id);
+      setLogged(true);
+    } catch (err) {
+      setLogError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLogging(false);
+    }
+  }
+
   return (
     <div className="cook">
       <div className="cook-bar">
@@ -123,7 +145,19 @@ export default function CookMode() {
             >
               Next
             </button>
+            {logged ? (
+              <p className="vault-note" role="status">Logged. Nice one.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleMarkCooked}
+                disabled={!activeFamily || !id || logging}
+              >
+                Mark as cooked
+              </button>
+            )}
           </div>
+          {logError && <p className="form-error" role="alert">{logError}</p>}
         </>
       ) : (
         <p className="vault-note">No steps yet.</p>
