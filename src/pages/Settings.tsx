@@ -1,5 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { getMyProfile, updateDisplayName, updatePreferences } from "../lib/api/profile";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { getAvatarUrl, getMyProfile, updateDisplayName, updatePreferences, uploadAvatar } from "../lib/api/profile";
+import { deleteAccount } from "../lib/api/account";
 import { changePassword } from "../lib/api/auth";
 import FamilyDataPanel from "../components/FamilyDataPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
@@ -11,6 +13,7 @@ const LENGTHS = [3, 5, 7, 14];
 type Status = { kind: "ok" | "error"; text: string } | null;
 
 export default function Settings() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState("");
   const [current, setCurrent] = useState("");
@@ -20,6 +23,11 @@ export default function Settings() {
   const [nameStatus, setNameStatus] = useState<Status>(null);
   const [passwordStatus, setPasswordStatus] = useState<Status>(null);
   const [prefStatus, setPrefStatus] = useState<Status>(null);
+  const [avatarStatus, setAvatarStatus] = useState<Status>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleteStatus, setDeleteStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -31,6 +39,22 @@ export default function Settings() {
       setLoadError(err instanceof Error ? err.message : String(err));
     });
   }, []);
+
+  // The bucket is private, so the stored path has to be exchanged for a signed URL.
+  useEffect(() => {
+    const path = profile?.avatar_url;
+    if (!path) {
+      setAvatarUrl(null);
+      return;
+    }
+    let live = true;
+    getAvatarUrl(path).then((url) => {
+      if (live) setAvatarUrl(url);
+    }).catch(() => {
+      if (live) setAvatarUrl(null);
+    });
+    return () => { live = false; };
+  }, [profile?.avatar_url]);
 
   // Every form on this page reports the same way: the API layer already writes
   // user-facing messages, so show the thrown message verbatim rather than a generic one.
@@ -58,6 +82,25 @@ export default function Settings() {
     ) : (
       <p className="form-error" role="alert">{status.text}</p>
     );
+  }
+
+  async function handleAvatar(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await run(setAvatarStatus, async () => {
+      const path = await uploadAvatar(file);
+      setProfile((p) => (p ? { ...p, avatar_url: path } : p));
+    }, "Picture updated.");
+    // Let the same file be chosen again after a failure.
+    e.target.value = "";
+  }
+
+  async function handleDeleteAccount() {
+    await run(setDeleteStatus, async () => {
+      await deleteAccount();
+      // replace: the back button must not return to a page of a deleted account.
+      navigate("/signin", { replace: true });
+    }, "Account deleted.");
   }
 
   async function handleSaveName(e: FormEvent) {
@@ -112,6 +155,15 @@ export default function Settings() {
 
       <section className="plate panel">
         <h2>Account</h2>
+        <div className="settings-field">
+          <span className="field-label">Picture</span>
+          {avatarUrl
+            ? <img className="avatar" src={avatarUrl} alt="Your avatar" />
+            : <p className="vault-note">No picture yet.</p>}
+          <input type="file" accept="image/*" aria-label="Choose a picture" onChange={handleAvatar} />
+        </div>
+        {statusLine(avatarStatus)}
+
         <form onSubmit={handleSaveName}>
           <div className="settings-field">
             <label htmlFor="display-name">Display name</label>
@@ -252,7 +304,43 @@ export default function Settings() {
 
       <section className="plate panel">
         <h2>Danger zone</h2>
-        <p className="vault-note">Deleting your account is not built yet.</p>
+        {!confirmingDelete ? (
+          <button type="button" onClick={() => setConfirmingDelete(true)}>Delete my account</button>
+        ) : (
+          <div className="danger-confirm">
+            <p>Your recipes stay with your family, listed as written by a former member. Your meal plans are deleted. This cannot be undone.</p>
+            <div className="settings-field">
+              <label htmlFor="delete-confirm">Type DELETE to confirm</label>
+              <input
+                id="delete-confirm"
+                type="text"
+                value={deleteText}
+                onChange={(e) => setDeleteText(e.target.value)}
+              />
+            </div>
+            <div className="recipe-actions">
+              <button
+                type="button"
+                className="action"
+                disabled={deleteText !== "DELETE" || busy}
+                onClick={handleDeleteAccount}
+              >
+                Delete my account
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  setDeleteText("");
+                  setDeleteStatus(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            {statusLine(deleteStatus)}
+          </div>
+        )}
       </section>
     </div>
   );

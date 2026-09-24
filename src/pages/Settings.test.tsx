@@ -9,6 +9,11 @@ vi.mock("../lib/api/profile", () => ({
   }),
   updateDisplayName: vi.fn().mockResolvedValue(undefined),
   updatePreferences: vi.fn().mockResolvedValue({}),
+  uploadAvatar: vi.fn().mockResolvedValue("u1/new-avatar"),
+  getAvatarUrl: vi.fn().mockResolvedValue("https://example.test/signed"),
+}));
+vi.mock("../lib/api/account", () => ({
+  deleteAccount: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../lib/api/auth", () => ({
   changePassword: vi.fn().mockResolvedValue(undefined),
@@ -62,4 +67,52 @@ test("choosing a theme goes to the theme module, not to preferences", async () =
 
   expect(theme.setTheme).toHaveBeenCalledWith("dark");
   expect(profile.updatePreferences).not.toHaveBeenCalled();
+});
+
+test("the delete confirm button stays disabled until the text is exactly DELETE", async () => {
+  const account = await import("../lib/api/account");
+  (account.deleteAccount as any).mockClear();
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
+  const confirmButton = screen.getByRole("button", { name: "Delete my account" });
+  expect(confirmButton).toBeDisabled();
+
+  fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: "delete" } });
+  expect(confirmButton).toBeDisabled();
+
+  fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: "DELETE " } });
+  expect(confirmButton).toBeDisabled();
+
+  fireEvent.click(confirmButton);
+  expect(account.deleteAccount).not.toHaveBeenCalled();
+});
+
+test("typing DELETE and confirming deletes the account once", async () => {
+  const account = await import("../lib/api/account");
+  (account.deleteAccount as any).mockClear();
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
+  fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), { target: { value: "DELETE" } });
+  fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
+
+  await waitFor(() => expect(account.deleteAccount).toHaveBeenCalledTimes(1));
+});
+
+test("an oversized picture reports the size error and never uploads", async () => {
+  const profile = await import("../lib/api/profile");
+  (profile.uploadAvatar as any).mockClear();
+  // The size check lives in uploadAvatar, so the mock rejects the way the real one does.
+  (profile.uploadAvatar as any).mockRejectedValueOnce(new Error("Images must be under 2 MB."));
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  const big = new File([new ArrayBuffer(3 * 1024 * 1024)], "big.png", { type: "image/png" });
+  fireEvent.change(screen.getByLabelText("Choose a picture"), { target: { files: [big] } });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Images must be under 2 MB.");
+  expect(profile.uploadAvatar).toHaveBeenCalledTimes(1);
 });
