@@ -53,3 +53,27 @@ test("adding an item stores it", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Add" }));
   await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "Salt", "keep"));
 });
+
+test("offers a seed list when the cupboard is empty", async () => {
+  const pantry = await import("../lib/api/pantry");
+  const recipes = await import("../lib/api/recipes");
+  (pantry.listPantry as any).mockResolvedValueOnce([]);
+  (recipes.listRecipeIngredientIndex as any).mockResolvedValueOnce([
+    { recipe_id: "1", title: "A", items: ["Salt", "Rice"] },
+  ]);
+  renderCupboard();
+  await userEvent.click(await screen.findByRole("button", { name: "Salt" }));
+  await userEvent.click(screen.getByRole("button", { name: /Add 1 to the cupboard/ }));
+  await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "Salt", "keep"));
+});
+
+// An empty vault has nothing to suggest from. Saying so beats an empty panel
+// with a dead button.
+test("says so when there is nothing to suggest", async () => {
+  const pantry = await import("../lib/api/pantry");
+  const recipes = await import("../lib/api/recipes");
+  (pantry.listPantry as any).mockResolvedValueOnce([]);
+  (recipes.listRecipeIngredientIndex as any).mockResolvedValueOnce([]);
+  renderCupboard();
+  expect(await screen.findByText(/no recipes to suggest from/i)).toBeInTheDocument();
+});
