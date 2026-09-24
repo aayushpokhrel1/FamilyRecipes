@@ -145,23 +145,28 @@ export default function CookMode() {
             >
               Next
             </button>
-            {logged ? (
-              <p className="vault-note" role="status">Logged. Nice one.</p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleMarkCooked}
-                disabled={!activeFamily || !id || logging}
-              >
-                Mark as cooked
-              </button>
-            )}
           </div>
-          {logError && <p className="form-error" role="alert">{logError}</p>}
         </>
       ) : (
         <p className="vault-note">No steps yet.</p>
       )}
+      {/* Outside the steps block on purpose. Plenty of family recipes are an
+          ingredient list with no method written down, and you can still cook
+          one: keeping this inside made the whole cook log unreachable for them. */}
+      <div className="cook-log">
+        {logged ? (
+          <p className="vault-note" role="status">Logged. Nice one.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={handleMarkCooked}
+            disabled={!activeFamily || !id || logging}
+          >
+            Mark as cooked
+          </button>
+        )}
+        {logError && <p className="form-error" role="alert">{logError}</p>}
+      </div>
     </div>
   );
 }

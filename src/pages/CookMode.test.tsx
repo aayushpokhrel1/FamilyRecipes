@@ -67,3 +67,26 @@ test("marking as cooked is disabled without an active family", async () => {
   expect(await screen.findByRole("button", { name: /mark as cooked/i })).toBeDisabled();
   family.active = { id: "f1", name: "F", invite_code: "x", created_by: "u" };
 });
+
+// A family recipe is often just an ingredient list with no method written down.
+// Mark as cooked used to live inside the steps block, so for those recipes the
+// cook log was unreachable: the button simply did not exist. Found in the
+// browser, not here, because every fixture above happens to have steps.
+test("offers Mark as cooked even when the recipe has no steps", async () => {
+  const recipes = await import("../lib/api/recipes");
+  const base = await (recipes.getRecipe as any).mock.results[0]?.value;
+  (recipes.getRecipe as any).mockResolvedValueOnce({
+    recipe: {
+      id: "r1", family_id: "f1", author_id: "u", title: "Dal",
+      story: null, provenance: null, servings: 2, prep_minutes: null,
+      cook_minutes: null, visibility: "family", source_url: null,
+      created_at: "", updated_at: "",
+    },
+    ingredients: base?.ingredients ?? [],
+    steps: [],
+    photos: [],
+  });
+  renderCookMode();
+  expect(await screen.findByText("No steps yet.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mark as cooked" })).toBeInTheDocument();
+});
