@@ -24,9 +24,9 @@ export async function setCategoryOverride(
   if (error) throw new Error(error.message);
 }
 
-export async function clearCategoryOverride(familyId: string, item: string): Promise<void> {
-  const key = normalizeItem(item);
-  if (!key) return;
+// Takes the NORMALIZED key, not a written ingredient name: the settings list
+// and the grocery list both hand back keys already.
+export async function removeCategoryOverride(familyId: string, key: string): Promise<void> {
   const { error } = await supabase.from("ingredient_categories")
     .delete().eq("family_id", familyId).eq("key", key);
   if (error) throw new Error(error.message);

@@ -1,5 +1,15 @@
 export type Visibility = "private" | "family" | "public";
-export interface Profile { id: string; display_name: string; avatar_url: string | null; }
+export interface Preferences {
+  householdSize?: number;
+  defaultTab?: "recipes" | "kitchen";
+  defaultPlanLength?: number;
+  units?: "metric" | "imperial";
+}
+export interface Profile {
+  id: string; display_name: string; avatar_url: string | null;
+  // every field is optional: a profile created before the column existed reads back as {}
+  preferences: Preferences;
+}
 export interface Family { id: string; name: string; invite_code: string; created_by: string; }
 export interface FamilyMember { family_id: string; user_id: string; role: "owner" | "member"; }
 export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; }
