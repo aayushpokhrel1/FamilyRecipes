@@ -90,6 +90,23 @@ export async function deleteRecipe(id: string) {
   if (error) throw new Error(error.message);
 }
 
+// Every section label this family has used before, so the Section dropdown
+// learns their wording ("For the tadka") instead of only offering a curated
+// list. Same shape and same cost as listFamilyIngredientNames below.
+export async function listFamilySectionNames(familyId: string): Promise<string[]> {
+  const { data: recs, error } = await supabase.from("recipes").select("id").eq("family_id", familyId);
+  if (error) throw new Error(error.message);
+  const ids = (recs ?? []).map((r: any) => r.id);
+  if (!ids.length) return [];
+  const { data, error: e2 } = await supabase.from("recipe_ingredients")
+    .select("section").in("recipe_id", ids).not("section", "is", null);
+  if (e2) throw new Error(e2.message);
+  const names = new Set(
+    (data ?? []).map((r: any) => (r.section as string ?? "").trim()).filter(Boolean),
+  );
+  return Array.from(names).sort();
+}
+
 export async function listFamilyIngredientNames(familyId: string): Promise<string[]> {
   const { data: recs, error } = await supabase.from("recipes").select("id").eq("family_id", familyId);
   if (error) throw new Error(error.message);

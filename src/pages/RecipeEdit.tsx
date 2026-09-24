@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getRecipe, updateRecipe, listFamilyIngredientNames } from "../lib/api/recipes";
+import { getRecipe, updateRecipe, listFamilyIngredientNames, listFamilySectionNames } from "../lib/api/recipes";
 import { getRecipeTagIds, setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
@@ -24,6 +24,7 @@ export default function RecipeEdit() {
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [familyId, setFamilyId] = useState("");
   const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  const [sectionSuggestions, setSectionSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +66,10 @@ export default function RecipeEdit() {
   }, [id]);
 
   useEffect(() => {
-    if (familyId) listFamilyIngredientNames(familyId).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+    if (familyId) {
+      listFamilyIngredientNames(familyId).then(setItemSuggestions).catch(() => setItemSuggestions([]));
+      listFamilySectionNames(familyId).then(setSectionSuggestions).catch(() => setSectionSuggestions([]));
+    }
   }, [familyId]);
 
   async function handleSubmit(e: FormEvent) {
@@ -103,6 +107,7 @@ export default function RecipeEdit() {
           items={draft.ingredients}
           onChange={(ingredients) => setDraft({ ...draft, ingredients })}
           itemSuggestions={itemSuggestions}
+          sectionSuggestions={sectionSuggestions}
         />
         <StepEditor items={draft.steps} onChange={(steps) => setDraft({ ...draft, steps })} />
         <label>

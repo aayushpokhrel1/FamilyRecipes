@@ -217,3 +217,35 @@ export function inferCategory(item: string): string | null {
   }
   return best;
 }
+
+// Common recipe parts, offered so a new recipe's Section dropdown is never
+// empty. Deliberately parts of a recipe, never food categories: an aisle like
+// "Produce" is a fact about an ingredient and belongs to the By category view,
+// not written into a recipe. Curated and short; a family's own sections come
+// from their history and quickly matter more than this list.
+export const SECTION_SUGGESTIONS: string[] = [
+  "For the marinade",
+  "For the sauce",
+  "For the dough",
+  "For the filling",
+  "For the topping",
+  "For the dressing",
+  "For the spice mix",
+  "For serving",
+  "Garnish",
+];
+
+// The family's own past sections first, then the common ones, deduped case
+// insensitively. Mirrors mergeItemSuggestions: what you actually write beats
+// what was guessed for you.
+export function mergeSectionSuggestions(history: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of [...history, ...SECTION_SUGGESTIONS]) {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name.trim());
+  }
+  return out;
+}
