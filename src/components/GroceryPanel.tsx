@@ -21,6 +21,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   const [label, setLabel] = useState("");
   const [staples, setStaples] = useState<PantryItem[]>([]);
   const [stapleLabel, setStapleLabel] = useState("");
+  const [stocking, setStocking] = useState(false);
 
   async function reload() { setLines(await getGroceryList(planId)); }
   useEffect(() => { reload(); }, [planId]);
@@ -61,6 +62,20 @@ export default function GroceryPanel({ planId }: { planId: string }) {
     if (!activeFamily || !category) return;
     await setCategoryOverride(activeFamily.id, line.name, category);
     reload();
+  }
+
+  // Explicit, not automatic. One feature silently writing rows in another is
+  // surprising, and surprise is expensive in the thing a family trusts for
+  // dinner. Checked means bought, but the user still says so.
+  async function handleStock() {
+    if (!activeFamily) return;
+    setStocking(true);
+    try {
+      const checked = lines.filter((l) => l.checked && !l.staple);
+      await Promise.all(checked.map((l) => addItem(activeFamily.id, l.name, "week")));
+      await reloadStaples();
+      reload();
+    } finally { setStocking(false); }
   }
 
   const shopping = lines.filter((l) => !l.staple);
@@ -149,6 +164,12 @@ export default function GroceryPanel({ planId }: { planId: string }) {
             {stapleLines.map((line) => lineRow(line, false))}
           </ul>
         </details>
+      )}
+      {shopping.some((l) => l.checked) && (
+        <button type="button" className="action" onClick={handleStock} disabled={stocking}>
+          Put {shopping.filter((l) => l.checked).length} item
+          {shopping.filter((l) => l.checked).length === 1 ? "" : "s"} in the cupboard
+        </button>
       )}
       {activeFamily && (
         <details className="staples">
