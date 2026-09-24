@@ -3,6 +3,7 @@ import RequireAuth from "./components/RequireAuth";
 import AppLayout from "./components/AppLayout";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import Recover from "./pages/Recover";
 import Families from "./pages/Families";
 import JoinByCode from "./pages/JoinByCode";
 import RecipeList from "./pages/RecipeList";
@@ -19,6 +20,9 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
+      {/* Outside RequireAuth on purpose: a recovery session is not a normal
+          sign-in, and the guard would bounce the reset link to /signin. */}
+      <Route path="/recover" element={<Recover />} />
       <Route
         element={
           <RequireAuth>
