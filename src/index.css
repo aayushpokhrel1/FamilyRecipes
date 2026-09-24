@@ -879,6 +879,17 @@ button[aria-pressed="true"] {
   font-family: var(--sign); text-transform: uppercase; font-size: 0.72rem;
   letter-spacing: 0.06em; color: var(--ink-soft); min-width: 78px;
 }
+
+/* ------------------------------------------------------------- hero ------ */
+/* A .plate, i.e. a bone surface: everything inside takes ink, never an
+   on-wall colour, or it is cream on cream. */
+.hero { display: flex; gap: 18px; align-items: center; padding: 18px; margin-bottom: 22px; flex-wrap: wrap; }
+.hero-photo { width: 132px; height: 132px; object-fit: cover; border-radius: var(--radius-sm); border: 1.5px solid var(--rim); }
+.hero-body { flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px; }
+.hero-meta { color: var(--ink-soft); margin: 0; }
+.hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.staples-strip { margin-top: 26px; }
+.staples-strip h3 { color: var(--on-wall); }
 /* Unlike .staples, this details sits on the wall rather than on a plate, so the
    summary takes the wall's ink instead of the plate's. */
 .plans { margin-top: 26px; }

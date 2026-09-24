@@ -17,3 +17,14 @@ export async function getPhotoUrl(path: string): Promise<string> {
   if (error) throw new Error(error.message);
   return data.signedUrl;
 }
+
+// The one picture a card or hero shows. A recipe with no photo is normal, not
+// an error, so this resolves null rather than throwing.
+export async function getCoverPhotoUrl(recipeId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("recipe_photos")
+    .select("storage_path").eq("recipe_id", recipeId)
+    .order("is_cover", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return getPhotoUrl((data as { storage_path: string }).storage_path);
+}

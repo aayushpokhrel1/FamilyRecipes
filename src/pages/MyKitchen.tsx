@@ -3,7 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import {
   listPlans, createPlan, deletePlan, setShared, listUpcoming, setPlanDates, setViewMode,
+  duplicatePlan,
 } from "../lib/api/mealPlans";
+import { getCoverPhotoUrl } from "../lib/api/photos";
+import { listStaples, type Staple } from "../lib/api/staples";
 import { addDays, dayLabel, today } from "../lib/dates";
 import type { MealPlan, MealSlot, UpcomingItem } from "../lib/api/types";
 
@@ -19,6 +22,8 @@ export default function MyKitchen() {
   const [upcoming, setUpcoming] = useState<UpcomingItem[]>([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [staples, setStaples] = useState<Staple[]>([]);
 
   async function reload() {
     setLoading(true);
@@ -26,6 +31,18 @@ export default function MyKitchen() {
   }
   useEffect(() => { reload(); }, []);
   useEffect(() => { listUpcoming(DAYS).then(setUpcoming).catch(() => setUpcoming([])); }, []);
+  useEffect(() => {
+    if (!activeFamily) { setStaples([]); return; }
+    listStaples(activeFamily.id).then(setStaples).catch(() => setStaples([]));
+  }, [activeFamily?.id]);
+
+  // Keyed on the recipe, and cleared when there is no hero, so a photo can
+  // never survive into a different recipe.
+  const heroRecipeId = upcoming[0]?.recipe.id;
+  useEffect(() => {
+    if (!heroRecipeId) { setCoverUrl(null); return; }
+    getCoverPhotoUrl(heroRecipeId).then(setCoverUrl).catch(() => setCoverUrl(null));
+  }, [heroRecipeId]);
 
   async function handleCreate() {
     if (!activeFamily || !name.trim()) return;
@@ -48,6 +65,11 @@ export default function MyKitchen() {
     await setViewMode(plan.id, "calendar");
     navigate(`/kitchen/${plan.id}`);
   }
+  // Duplicating onto TODAY is the point: it refills the empty week on screen.
+  async function handleRepeatLastWeek(planId: string) {
+    const newId = await duplicatePlan(planId, today());
+    navigate(`/kitchen/${newId}`);
+  }
 
   // The four days the kitchen always shows, whether or not anything is planned.
   const days = Array.from({ length: DAYS }, (_, i) => addDays(today(), i));
@@ -59,11 +81,22 @@ export default function MyKitchen() {
       && p.start_date <= day && day < addDays(p.start_date, p.length_days));
   }
 
+  // The most recent dated plan whose window has already ended: the week to
+  // repeat. plans is newest first, so .find gives the right one.
+  const lastWeek = plans.find((p) => p.start_date !== null
+    && addDays(p.start_date, p.length_days) <= today());
+
   function dayHeading(day: string): string {
     if (day === today()) return "Today";
     if (day === addDays(today(), 1)) return "Tomorrow";
     return dayLabel(day);
   }
+
+  // upcoming is already sorted by day then slot, so the first one is next up.
+  const hero = upcoming[0];
+  const heroWhen = hero
+    ? (hero.meal_slot ? `${dayHeading(hero.day)} · ${hero.meal_slot}` : dayHeading(hero.day))
+    : "";
 
   function itemsFor(day: string, slot: MealSlot | null): UpcomingItem[] {
     return upcoming.filter((u) => u.day === day && u.meal_slot === slot);
@@ -89,11 +122,37 @@ export default function MyKitchen() {
       {!activeFamily && (
         <p>Create or join a family first. <Link to="/families">Families</Link></p>
       )}
+      {/* The hero is a spotlight, not a separate item: the same meal still
+          appears in its day block below. */}
+      {hero && (
+        <section className="plate hero">
+          {coverUrl && <img className="hero-photo" src={coverUrl} alt="" />}
+          <div className="hero-body">
+            <span className="stamp">{heroWhen}</span>
+            <h2>{hero.recipe.title}</h2>
+            <p className="hero-meta">
+              {[hero.servings !== null ? `${hero.servings} servings` : null, hero.plan.name]
+                .filter(Boolean).join(" · ")}
+            </p>
+            <div className="hero-actions">
+              <Link className="action" to={`/recipes/${hero.recipe.id}/cook`}>Cook this</Link>
+              <Link to={`/recipes/${hero.recipe.id}`}>View recipe</Link>
+            </div>
+          </div>
+        </section>
+      )}
       <section className="upnext">
         {!loading && days.every((d) => !coveringPlan(d)) && (
-          <button type="button" className="action" disabled={!activeFamily} onClick={handleStartWeek}>
-            Start this week
-          </button>
+          <>
+            <button type="button" className="action" disabled={!activeFamily} onClick={handleStartWeek}>
+              Start this week
+            </button>
+            {lastWeek && (
+              <button type="button" onClick={() => handleRepeatLastWeek(lastWeek.id)}>
+                Repeat last week
+              </button>
+            )}
+          </>
         )}
         {days.map((day) => {
           const plan = coveringPlan(day);
@@ -120,6 +179,15 @@ export default function MyKitchen() {
           );
         })}
       </section>
+      {/* Read-only on purpose: full management lives in Settings, and a second
+          editor here would be two places to change the same thing. */}
+      {activeFamily && staples.length > 0 && (
+        <section className="staples-strip">
+          <h3>Always in</h3>
+          <div className="chip-row">{staples.map((s) => <span className="chip" key={s.id}>{s.label}</span>)}</div>
+          <p className="vault-note"><Link to="/settings">Manage staples</Link></p>
+        </section>
+      )}
       <details className="plans">
         <summary>Plans</summary>
         <div className="vault-tools">
