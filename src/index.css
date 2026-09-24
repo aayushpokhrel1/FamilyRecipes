@@ -948,3 +948,16 @@ button[aria-pressed="true"] {
 }
 
 .cook-log { margin-top: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+/* The cupboard. Three states need to be tellable apart at a glance and in both
+   themes, so each carries its own text colour as well as its own background:
+   colour alone fails for anyone who cannot distinguish these hues. */
+.cupboard-items { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.cupboard-items li { display: flex; align-items: center; gap: 2px; }
+.cupboard-chip { cursor: pointer; border: 2px solid var(--ink); font: inherit; font-size: 0.85rem; }
+.cupboard-chip.is-have { background: #c8d9cf; color: #1d4a35; }
+.cupboard-chip.is-low { background: #f0d9a8; color: #6b4a10; }
+.cupboard-chip.is-out { background: #e8c0b6; color: #8c2c17; text-decoration: line-through; }
+.cupboard-week { font-size: 0.72rem; opacity: 0.75; }
+.cupboard-remove { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.6; }
+.cupboard-remove:hover { opacity: 1; }

@@ -12,6 +12,7 @@ import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
 import CookMode from "./pages/CookMode";
 import MyKitchen from "./pages/MyKitchen";
+import Cupboard from "./pages/Cupboard";
 import MealPlanDetail from "./pages/MealPlanDetail";
 import Settings from "./pages/Settings";
 
@@ -37,6 +38,10 @@ export default function AppRoutes() {
         <Route path="recipes/:id/edit" element={<RecipeEdit />} />
         <Route path="recipes/:id/cook" element={<CookMode />} />
         <Route path="kitchen" element={<MyKitchen />} />
+        {/* Above kitchen/:id deliberately. React Router ranks a static segment
+            over a dynamic one, so this wins, but the ordering says so out loud
+            rather than relying on the reader knowing that. */}
+        <Route path="kitchen/cupboard" element={<Cupboard />} />
         <Route path="kitchen/:id" element={<MealPlanDetail />} />
         <Route path="settings" element={<Settings />} />
         <Route path="join/:code" element={<JoinByCode />} />
