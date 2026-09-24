@@ -117,3 +117,28 @@ export async function listFamilyIngredientNames(familyId: string): Promise<strin
   const names = new Set((data ?? []).map((r: any) => r.item as string).filter(Boolean));
   return Array.from(names).sort();
 }
+
+// Every family recipe with its ingredient names, for matching against the
+// cupboard. Two queries rather than a join because PostgREST embedding would
+// return the whole ingredient row per recipe; only the names matter here.
+export async function listRecipeIngredientIndex(
+  familyId: string,
+): Promise<{ recipe_id: string; title: string; items: string[] }[]> {
+  const { data: recs, error } = await supabase.from("recipes")
+    .select("id,title").eq("family_id", familyId);
+  if (error) throw new Error(error.message);
+  const ids = (recs ?? []).map((r: any) => r.id);
+  if (!ids.length) return [];
+  const { data, error: e2 } = await supabase.from("recipe_ingredients")
+    .select("recipe_id,item").in("recipe_id", ids);
+  if (e2) throw new Error(e2.message);
+  const byRecipe = new Map<string, string[]>();
+  for (const row of data ?? []) {
+    const list = byRecipe.get((row as any).recipe_id) ?? [];
+    list.push((row as any).item as string);
+    byRecipe.set((row as any).recipe_id, list);
+  }
+  return (recs ?? []).map((r: any) => ({
+    recipe_id: r.id, title: r.title, items: byRecipe.get(r.id) ?? [],
+  }));
+}
