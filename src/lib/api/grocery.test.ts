@@ -78,20 +78,20 @@ test("a manual line has no totals and is not partial", () => {
 
 test("a staple line is flagged, not dropped", () => {
   const rows = [{ recipeTitle: "Dal", quantity: "1", unit: "teaspoon", item: "salt", scaled: false }];
-  const lines = buildGroceryList(rows, [], [], new Set(["salt"]));
+  const lines = buildGroceryList(rows, [], [], { staples: new Set(["salt"]) });
   expect(lines).toHaveLength(1);
   expect(lines[0].staple).toBe(true);
 });
 
 test("a line that is not a staple is untouched", () => {
   const rows = [{ recipeTitle: "Dal", quantity: "2", unit: "cup", item: "lentils", scaled: false }];
-  expect(buildGroceryList(rows, [], [], new Set(["salt"]))[0].staple).toBe(false);
+  expect(buildGroceryList(rows, [], [], { staples: new Set(["salt"]) })[0].staple).toBe(false);
 });
 
 test("a staple matches through the normalizer, not by raw text", () => {
   const rows = [{ recipeTitle: "Cake", quantity: "2", unit: "cup", item: "all-purpose flour", scaled: false }];
   // normalizeItem("all-purpose flour") is "flour", which is what addStaple stores
-  expect(buildGroceryList(rows, [], [], new Set(["flour"]))[0].staple).toBe(true);
+  expect(buildGroceryList(rows, [], [], { staples: new Set(["flour"]) })[0].staple).toBe(true);
 });
 
 test("a grocery line carries the aisle it belongs to", () => {
@@ -110,4 +110,23 @@ test("a grocery line carries the aisle it belongs to", () => {
 test("a manual line has no aisle", () => {
   const lines = buildGroceryList([], [{ id: "m1", label: "birthday candles" }], []);
   expect(lines[0].category).toBeNull();
+});
+
+test("a family's own aisle tag beats the catalog", () => {
+  const rows = [
+    { recipeTitle: "Chila", quantity: "1", unit: "cup", item: "besan", scaled: false },
+    { recipeTitle: "Chila", quantity: "1", unit: null, item: "onion", scaled: false },
+  ];
+  const categories = new Map([["besan", "Pantry & Grains"]]);
+  const lines = buildGroceryList(rows, [], [], { categories });
+  // the catalog has never heard of besan, the family has
+  expect(lines.find((l) => l.key === "besan")!.category).toBe("Pantry & Grains");
+  // and an ingredient the catalog does know is unaffected
+  expect(lines.find((l) => l.key === "onion")!.category).toBe("Produce");
+});
+
+test("an override can correct the catalog, not only extend it", () => {
+  const rows = [{ recipeTitle: "X", quantity: "1", unit: null, item: "tomato", scaled: false }];
+  const lines = buildGroceryList(rows, [], [], { categories: new Map([["tomato", "Canned"]]) });
+  expect(lines[0].category).toBe("Canned");
 });

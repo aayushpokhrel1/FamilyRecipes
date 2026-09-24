@@ -30,3 +30,19 @@ test("every ingredient survives grouping", () => {
   const items = [ing("onion"), ing("cumin"), ing("mystery powder"), ing("butter")];
   expect(groupIngredientsByCategory(items).flatMap((g) => g.items)).toHaveLength(items.length);
 });
+
+test("category grouping honours a family's overrides too", () => {
+  const groups = groupIngredientsByCategory(
+    [ing("besan"), ing("onion")],
+    new Map([["besan", "Pantry & Grains"]]),
+  );
+  expect(groups.map((g) => g.section)).toEqual(["Produce", "Pantry & Grains"]);
+});
+
+test("an aisle a family invented sorts after the known ones but before Other", () => {
+  const groups = groupIngredientsByCategory(
+    [ing("mystery item"), ing("patis"), ing("onion")],
+    new Map([["pati", "Filipino pantry"]]),
+  );
+  expect(groups.map((g) => g.section)).toEqual(["Produce", "Filipino pantry", "Other"]);
+});
