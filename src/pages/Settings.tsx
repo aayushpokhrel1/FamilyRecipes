@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getMyProfile, updateDisplayName, updatePreferences } from "../lib/api/profile";
 import { changePassword } from "../lib/api/auth";
+import FamilyDataPanel from "../components/FamilyDataPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
 import type { Preferences, Profile } from "../lib/api/types";
 
@@ -242,6 +243,11 @@ export default function Settings() {
         </div>
 
         {statusLine(prefStatus)}
+      </section>
+
+      <section className="plate panel">
+        <h2>Family data</h2>
+        <FamilyDataPanel />
       </section>
 
       <section className="plate panel">
