@@ -5,7 +5,7 @@ vi.mock("../supabaseClient", () => ({ supabase: {
   from: (...a: any[]) => from(...a),
   auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "me" } } }) },
 }}));
-import { createPlan, toggleChecked, getGroceryList } from "./mealPlans";
+import { createPlan, toggleChecked, toggleCheckedAcross, getGroceryList } from "./mealPlans";
 
 test("createPlan inserts with owner_id from the session", async () => {
   let payload: any;
@@ -25,6 +25,16 @@ test("toggleChecked adds a key to checked_items", async () => {
   }));
   await toggleChecked("p1", "flour", true);
   expect(updated.checked_items).toEqual(["flour"]);
+});
+
+test("toggleCheckedAcross calls through once per plan id", async () => {
+  const touched: string[] = [];
+  from.mockImplementation(() => ({
+    select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [] }, error: null }) }) }),
+    update: () => ({ eq: (_col: string, id: string) => { touched.push(id); return { error: null }; } }),
+  }));
+  await toggleCheckedAcross(["p1", "p2"], "flour", true);
+  expect(touched).toEqual(["p1", "p2"]);
 });
 
 test("getGroceryList scales each (recipe, servings) pair separately", async () => {
