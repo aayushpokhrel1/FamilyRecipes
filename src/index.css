@@ -414,6 +414,9 @@ button.action:hover { background: var(--action-deep); }
   color: var(--on-wall-soft);
   font-size: 1.05rem;
 }
+/* On a plate the wall's ink is cream on cream, i.e. invisible. Anything set in
+   an on-wall colour has to flip when it sits on a bone surface. */
+.plate .vault-note { color: var(--ink-soft); }
 
 /* --------------------------------------------------------- recipe page ---- */
 
@@ -633,7 +636,7 @@ button[aria-pressed="true"] {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--on-wall-soft);
+  color: var(--ink-soft);
 }
 .radio-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .form-error { color: var(--action); }
