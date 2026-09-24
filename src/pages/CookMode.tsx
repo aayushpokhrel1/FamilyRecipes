@@ -7,6 +7,8 @@ import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
 import { groupIngredientsBySection } from "../lib/groupIngredients";
 import { useFamily } from "../context/FamilyContext";
+import { listPantry, setState as setItemState, type PantryItem } from "../lib/api/pantry";
+import { normalizeItem } from "../lib/api/normalizeItem";
 
 export default function CookMode() {
   const { id } = useParams();
@@ -22,6 +24,7 @@ export default function CookMode() {
   const [logging, setLogging] = useState(false);
   const [logged, setLogged] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
+  const [used, setUsed] = useState<PantryItem[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -95,6 +98,12 @@ export default function CookMode() {
     try {
       await logCooked(activeFamily.id, id);
       setLogged(true);
+      // Only what this recipe actually touched. Offering the whole cupboard
+      // here would be a chore rather than a prompt. The log has already
+      // succeeded, so a cupboard that will not load costs nothing.
+      const keys = new Set(ingredients.map((i) => normalizeItem(i.item)));
+      const pantry = await listPantry(activeFamily.id);
+      setUsed(pantry.filter((p) => keys.has(p.key)));
     } catch (err) {
       setLogError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -166,6 +175,27 @@ export default function CookMode() {
           </button>
         )}
         {logError && <p className="form-error" role="alert">{logError}</p>}
+        {/* Optional extra, never a gate: the cook is already logged by the time
+            this appears, and it stays out of the steps block with the button. */}
+        {logged && used.length > 0 && (
+          <div className="cook-used">
+            <p className="vault-note">Used anything up?</p>
+            {used.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="chip"
+                aria-label={`${item.label}, mark out`}
+                onClick={async () => {
+                  await setItemState(item.id, "out");
+                  setUsed((list) => list.filter((i) => i.id !== item.id));
+                }}
+              >
+                {item.label} &rarr; out
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

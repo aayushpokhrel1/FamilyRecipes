@@ -34,6 +34,11 @@ vi.mock("../lib/api/cookLog", () => ({
   logCooked: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock("../lib/api/pantry", () => ({
+  listPantry: vi.fn().mockResolvedValue([]),
+  setState: vi.fn().mockResolvedValue(undefined),
+}));
+
 function renderCookMode() {
   render(
     <MemoryRouter initialEntries={["/recipes/r1/cook"]}>
@@ -89,4 +94,40 @@ test("offers Mark as cooked even when the recipe has no steps", async () => {
   renderCookMode();
   expect(await screen.findByText("No steps yet.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Mark as cooked" })).toBeInTheDocument();
+});
+
+test("after marking cooked, offers only the cupboard items that recipe used", async () => {
+  const pantry = await import("../lib/api/pantry");
+  (pantry.listPantry as any).mockResolvedValue([
+    { id: "p1", key: "rice", label: "Rice", kind: "keep", state: "have", expires_on: null },
+    { id: "p2", key: "saffron", label: "Saffron", kind: "keep", state: "have", expires_on: null },
+  ]);
+  const recipes = await import("../lib/api/recipes");
+  (recipes.getRecipe as any).mockResolvedValueOnce({
+    recipe: {
+      id: "r1", family_id: "f1", author_id: "u", title: "Dal",
+      story: null, provenance: null, servings: 2, prep_minutes: null,
+      cook_minutes: null, visibility: "family", source_url: null,
+      created_at: "", updated_at: "",
+    },
+    ingredients: [{ position: 0, quantity: "1", unit: "cup", item: "Rice" }],
+    steps: [{ position: 0, text: "mix well" }],
+    photos: [],
+  });
+  renderCookMode();
+  await userEvent.click(await screen.findByRole("button", { name: "Mark as cooked" }));
+  expect(await screen.findByRole("button", { name: /Rice.*out/i })).toBeInTheDocument();
+  // Saffron is in the cupboard but not in this recipe, so it is not offered.
+  expect(screen.queryByRole("button", { name: /Saffron/i })).not.toBeInTheDocument();
+});
+
+// A recipe whose ingredients are all unknown to the cupboard must not render
+// an empty prompt with nothing in it.
+test("skips the prompt when the recipe used nothing in the cupboard", async () => {
+  const pantry = await import("../lib/api/pantry");
+  (pantry.listPantry as any).mockResolvedValue([]);
+  renderCookMode();
+  await userEvent.click(await screen.findByRole("button", { name: "Mark as cooked" }));
+  expect(await screen.findByText(/Logged/i)).toBeInTheDocument();
+  expect(screen.queryByText(/Used anything up/i)).not.toBeInTheDocument();
 });
