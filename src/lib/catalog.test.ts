@@ -1,4 +1,4 @@
-import { inferCategory, CATEGORY_ORDER, mergeSectionSuggestions, SECTION_SUGGESTIONS } from "./catalog";
+import { inferCategory, CATEGORY_ORDER, CATALOG_ITEMS, mergeSectionSuggestions, SECTION_SUGGESTIONS } from "./catalog";
 
 test("finds the aisle for a plain catalog item", () => {
   expect(inferCategory("onion")).toBe("Produce");
@@ -70,4 +70,11 @@ test("a family section that matches a common one is not offered twice", () => {
 
 test("blank history entries are ignored", () => {
   expect(mergeSectionSuggestions(["", "   "])).toEqual(SECTION_SUGGESTIONS);
+});
+
+// A repeated item renders two <option>s with the same React key in any datalist
+// built from this list. Found in the browser on the cupboard page, where salt
+// was curated into both Spices and Baking.
+test("the flat catalog list has no duplicates", () => {
+  expect(CATALOG_ITEMS.length).toBe(new Set(CATALOG_ITEMS).size);
 });

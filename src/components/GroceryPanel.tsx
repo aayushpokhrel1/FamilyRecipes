@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getGroceryList, toggleChecked, addManualItem, removeManualItem } from "../lib/api/mealPlans";
-import { listPantry, addItem, removeItem, type PantryItem } from "../lib/api/pantry";
+import { addItem } from "../lib/api/pantry";
 import { setCategoryOverride } from "../lib/api/ingredientCategories";
 import { useFamily } from "../context/FamilyContext";
 import type { GroceryLine } from "../lib/api/types";
@@ -19,18 +20,10 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   const { activeFamily } = useFamily();
   const [lines, setLines] = useState<GroceryLine[]>([]);
   const [label, setLabel] = useState("");
-  const [staples, setStaples] = useState<PantryItem[]>([]);
-  const [stapleLabel, setStapleLabel] = useState("");
   const [stocking, setStocking] = useState(false);
 
   async function reload() { setLines(await getGroceryList(planId)); }
   useEffect(() => { reload(); }, [planId]);
-
-  async function reloadStaples() {
-    if (!activeFamily) { setStaples([]); return; }
-    setStaples(await listPantry(activeFamily.id));
-  }
-  useEffect(() => { reloadStaples(); }, [activeFamily?.id]);
 
   async function handleToggle(line: GroceryLine) {
     await toggleChecked(planId, line.key, !line.checked);
@@ -44,18 +37,6 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   }
   async function handleRemoveManual(line: GroceryLine) {
     await removeManualItem(line.key.replace(/^manual:/, ""));
-    reload();
-  }
-  async function handleAddStaple() {
-    if (!activeFamily || !stapleLabel.trim()) return;
-    await addItem(activeFamily.id, stapleLabel.trim());
-    setStapleLabel("");
-    await reloadStaples();
-    reload();
-  }
-  async function handleRemoveStaple(id: string) {
-    await removeItem(id);
-    await reloadStaples();
     reload();
   }
   async function handleSetAisle(line: GroceryLine, category: string) {
@@ -73,7 +54,8 @@ export default function GroceryPanel({ planId }: { planId: string }) {
     try {
       const checked = lines.filter((l) => l.checked && !l.staple);
       await Promise.all(checked.map((l) => addItem(activeFamily.id, l.name, "week")));
-      await reloadStaples();
+      // getGroceryList recomputes staple flags from the cupboard server side,
+      // so reloading the list is enough to reflect what just went in.
       reload();
     } finally { setStocking(false); }
   }
@@ -171,32 +153,13 @@ export default function GroceryPanel({ planId }: { planId: string }) {
           {shopping.filter((l) => l.checked).length === 1 ? "" : "s"} in the cupboard
         </button>
       )}
+      {/* The cupboard is edited in ONE place, at /kitchen/cupboard. This panel
+          used to carry its own staples editor, which made three screens that
+          could change the same list. */}
       {activeFamily && (
-        <details className="staples">
-          <summary>Pantry staples</summary>
-          <div className="chip-row">
-            {staples.map((s) => (
-              <span key={s.id} className="chip">
-                {s.label}
-                <button
-                  type="button"
-                  aria-label={`Remove ${s.label}`}
-                  onClick={() => handleRemoveStaple(s.id)}
-                >
-                  x
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
-            <input
-              value={stapleLabel}
-              onChange={(e) => setStapleLabel(e.target.value)}
-              placeholder="Add a staple"
-            />
-            <button type="button" onClick={handleAddStaple}>Add</button>
-          </div>
-        </details>
+        <p className="vault-note">
+          <Link to="/kitchen/cupboard">Manage the cupboard</Link>
+        </p>
       )}
       <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Add your own item" />

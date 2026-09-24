@@ -133,7 +133,6 @@ export const CATALOG: CatalogCategory[] = [
       "chocolate chips",
       "powdered sugar",
       "cornstarch",
-      "salt",
     ],
   },
   {
@@ -157,7 +156,12 @@ export const CATALOG: CatalogCategory[] = [
   },
 ];
 
-export const CATALOG_ITEMS: string[] = CATALOG.flatMap((c) => c.items);
+// Deduped: an item may legitimately be curated into more than one category
+// (the FIRST wins for categorisation, which is why the order is hand-curated),
+// but the flat list is used for datalists where a repeat renders two options
+// with the same React key. Salt sat in both Spices and Baking and did exactly
+// that.
+export const CATALOG_ITEMS: string[] = [...new Set(CATALOG.flatMap((c) => c.items))];
 
 // Catalog items first, then the family's own past names, deduped case-insensitively.
 export function mergeItemSuggestions(history: string[]): string[] {
