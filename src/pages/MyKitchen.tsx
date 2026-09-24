@@ -13,9 +13,12 @@ import UpcomingGroceryPanel from "../components/UpcomingGroceryPanel";
 import type { MealPlan, MealSlot, NotCookedLately, UpcomingItem } from "../lib/api/types";
 
 const SLOTS = ["breakfast", "lunch", "dinner"] as const;
-// How far ahead the kitchen looks. One constant: listUpcoming's window and the
-// rendered day list are the same window, and drifting apart drops items.
+// The FETCH window stays 4 days: the grocery list and the hero both need to see
+// that far ahead, so listUpcoming and UpcomingGroceryPanel keep receiving DAYS.
+// Only the RENDERED day list is shortened, to PEEK_DAYS, and the control below
+// the days reveals the rest on demand.
 const DAYS = 4;
+const PEEK_DAYS = 2;
 
 export default function MyKitchen() {
   const { activeFamily } = useFamily();
@@ -27,6 +30,7 @@ export default function MyKitchen() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [forgotten, setForgotten] = useState<NotCookedLately[]>([]);
+  const [showAllDays, setShowAllDays] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -82,6 +86,12 @@ export default function MyKitchen() {
 
   // The four days the kitchen always shows, whether or not anything is planned.
   const days = Array.from({ length: DAYS }, (_, i) => addDays(today(), i));
+  const visibleDays = showAllDays ? days : days.slice(0, PEEK_DAYS);
+  const hiddenDays = days.slice(PEEK_DAYS);
+  // Never hide planned meals without saying so: the show-more label counts them.
+  const hiddenMeals = hiddenDays.reduce(
+    (n, d) => n + upcoming.filter((u) => u.day === d).length, 0,
+  );
 
   // listPlans returns newest-created first, so .find prefers the most recently
   // made plan when two overlap.
@@ -172,30 +182,41 @@ export default function MyKitchen() {
             )}
           </>
         )}
-        {days.map((day) => {
+        {visibleDays.map((day) => {
           const plan = coveringPlan(day);
+          const dayItems = upcoming.filter((u) => u.day === day);
+          // No covering plan and nothing planned: the "Start this week" button
+          // above is the call to action, so this day renders nothing at all.
+          if (!plan && dayItems.length === 0) return null;
+          // A day with items but no covering plan (a shared plan) still renders.
+          const addHref = plan ? `/kitchen/${plan.id}?day=${day}&slot=dinner` : null;
           return (
             <div key={day}>
               <h3>{dayHeading(day)}</h3>
               <ul className="stack">
-                {SLOTS.map((slot) => {
-                  const items = itemsFor(day, slot);
-                  if (items.length > 0) return items.map((item) => itemRow(item));
-                  return (
-                    <li key={`${day}-${slot}`} className="plate plate-row empty-slot">
-                      <span className="slot">{slot}</span>
-                      {plan ? (
-                        <Link to={`/kitchen/${plan.id}?day=${day}&slot=${slot}`}
-                              aria-label={`Add ${slot} on ${dayLabel(day)}`}>+</Link>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                {SLOTS.map((slot) => itemsFor(day, slot).map((item) => itemRow(item)))}
                 {itemsFor(day, null).map((item) => itemRow(item))}
+                {addHref && (
+                  <li className="plate plate-row empty-slot">
+                    <Link to={addHref} aria-label={`Add something on ${dayLabel(day)}`}>+</Link>
+                  </li>
+                )}
               </ul>
             </div>
           );
         })}
+        {!showAllDays && hiddenDays.length > 0 && (
+          <button type="button" onClick={() => setShowAllDays(true)}>
+            {hiddenMeals > 0
+              ? `Show ${hiddenDays.length} more days (${hiddenMeals} meals planned)`
+              : `Show ${hiddenDays.length} more days`}
+          </button>
+        )}
+        {showAllDays && (
+          <button type="button" onClick={() => setShowAllDays(false)}>
+            Show fewer days
+          </button>
+        )}
       </section>
       {/* Not a plate: the day rows above are individual plates, and a
           full-width one here would fight them. On-wall text colours are
@@ -207,18 +228,28 @@ export default function MyKitchen() {
         </section>
       )}
       {/* Actionable on purpose: a neutral count gives no reason to tap. The
-          cupboard lives a tap away, so this line has to earn the trip. */}
-      {activeFamily && pantry.length > 0 && (
+          cupboard lives a tap away, so this line has to earn the trip. It
+          always renders: this is the only link to /kitchen/cupboard on the
+          page, so hiding it when empty makes the setup flow unreachable. */}
+      {activeFamily && (
         <section className="staples-strip">
           <h3>The cupboard</h3>
           <p className="vault-note">
-            {pantry.filter((i) => i.state !== "have").length > 0
-              ? `${pantry.filter((i) => i.state !== "have").length} to restock`
-              : "All stocked"}
-            {" · "}
-            {pantry.filter((i) => i.kind === "week").length} in this week
+            {pantry.length === 0
+              ? "Nothing in yet."
+              : <>
+                  {pantry.filter((i) => i.state !== "have").length > 0
+                    ? `${pantry.filter((i) => i.state !== "have").length} to restock`
+                    : "All stocked"}
+                  {" · "}
+                  {pantry.filter((i) => i.kind === "week").length} in this week
+                </>}
           </p>
-          <p className="vault-note"><Link to="/kitchen/cupboard">Open the cupboard</Link></p>
+          <p className="vault-note">
+            <Link to="/kitchen/cupboard">
+              {pantry.length === 0 ? "Set up the cupboard" : "Open the cupboard"}
+            </Link>
+          </p>
         </section>
       )}
       {/* A family that cooks everything regularly sees nothing here, not an
