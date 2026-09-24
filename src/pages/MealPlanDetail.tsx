@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { addDays, dayLabel } from "../lib/dates";
 import {
@@ -17,6 +17,7 @@ const LENGTHS = [3, 5, 7, 14];
 export default function MealPlanDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { activeFamily } = useFamily();
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [items, setItems] = useState<MealPlanItem[]>([]);
@@ -34,6 +35,13 @@ export default function MealPlanDetail() {
   useEffect(() => {
     if (activeFamily) listRecipes(activeFamily.id).then(setRecipes).catch(() => setRecipes([]));
   }, [activeFamily]);
+  // A link from My Kitchen arrives pre-aimed at a day and slot. Read once on
+  // mount only, so a later Cancel is not undone by a re-render.
+  useEffect(() => {
+    const day = searchParams.get("day");
+    const slot = searchParams.get("slot");
+    if (day && SLOTS.includes(slot as MealSlot)) setCell({ day, slot: slot as MealSlot });
+  }, []);
 
   const titleById = new Map(recipes.map((r) => [r.id, r.title]));
   const recipeById = new Map(recipes.map((r) => [r.id, r]));
