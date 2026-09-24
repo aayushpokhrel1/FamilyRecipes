@@ -20,6 +20,7 @@ export default function AppLayout() {
           </NavLink>
           <NavLink to="/kitchen">My Kitchen</NavLink>
           <NavLink to="/families">Families</NavLink>
+          <NavLink to="/settings">Settings</NavLink>
         </nav>
         <FamilySwitcher />
         <button type="button" onClick={handleSignOut}>

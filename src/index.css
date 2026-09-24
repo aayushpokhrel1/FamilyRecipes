@@ -52,7 +52,7 @@
 
   font: 17px/1.5 var(--sans);
   letter-spacing: 0.1px;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--on-wall);
   background: var(--wall);
   font-synthesis: none;
@@ -66,33 +66,35 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --wall: #0f1c19;
-    --wall-deep: #0a1512;
-    --wall-edge: #060e0c;
+/* The theme is driven by data-theme on <html>, set by an inline script in index.html
+   before first paint. There is deliberately no prefers-color-scheme fallback here:
+   the attribute is always present, and a media query would fight the user's choice. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --wall: #0f1c19;
+  --wall-deep: #0a1512;
+  --wall-edge: #060e0c;
 
-    --plate: #1f2d28;
-    --plate-2: #26352f;
-    --rim: #0a1512;
-    --rim-hi: rgba(255, 255, 255, 0.08);
+  --plate: #1f2d28;
+  --plate-2: #26352f;
+  --rim: #0a1512;
+  --rim-hi: rgba(255, 255, 255, 0.08);
 
-    --ink: #efe7d7;
-    --ink-soft: #a3b4ab;
+  --ink: #efe7d7;
+  --ink-soft: #a3b4ab;
 
-    --on-wall: #ece4d3;
-    --on-wall-soft: rgba(236, 228, 211, 0.62);
+  --on-wall: #ece4d3;
+  --on-wall-soft: rgba(236, 228, 211, 0.62);
 
-    --action: #f0603f;
-    --action-deep: #d1481f;
-    --on-action: #1a0e08;
+  --action: #f0603f;
+  --action-deep: #d1481f;
+  --on-action: #1a0e08;
 
-    --chip: #34453f;
-    --chip-ink: #ddd2bb;
+  --chip: #34453f;
+  --chip-ink: #ddd2bb;
 
-    --lift: 0 16px 30px -14px rgba(0, 0, 0, 0.7);
-    --lift-sm: 0 5px 12px -5px rgba(0, 0, 0, 0.55);
-  }
+  --lift: 0 16px 30px -14px rgba(0, 0, 0, 0.7);
+  --lift-sm: 0 5px 12px -5px rgba(0, 0, 0, 0.55);
 }
 
 /* ---------------------------------------------------------------- base ---- */
@@ -614,6 +616,27 @@ button[aria-pressed="true"] {
 .auth-card label { color: var(--ink-soft); }
 .auth-card p { color: var(--ink); }
 .auth-card > button[type="submit"] { width: 100%; }
+
+/* ---------------------------------------------------------- settings ----- */
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  max-width: 420px;
+}
+.settings-field > label,
+.settings-field > .field-label {
+  font-family: var(--sign);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--on-wall-soft);
+}
+.radio-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.form-error { color: var(--action); }
 
 /* ---------------------------------------------------- lists as plates ----- */
 

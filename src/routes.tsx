@@ -12,6 +12,7 @@ import RecipeEdit from "./pages/RecipeEdit";
 import CookMode from "./pages/CookMode";
 import MyKitchen from "./pages/MyKitchen";
 import MealPlanDetail from "./pages/MealPlanDetail";
+import Settings from "./pages/Settings";
 
 export default function AppRoutes() {
   return (
@@ -33,6 +34,7 @@ export default function AppRoutes() {
         <Route path="recipes/:id/cook" element={<CookMode />} />
         <Route path="kitchen" element={<MyKitchen />} />
         <Route path="kitchen/:id" element={<MealPlanDetail />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="join/:code" element={<JoinByCode />} />
       </Route>
     </Routes>
