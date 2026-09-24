@@ -118,4 +118,7 @@ A set of recipe-side enhancements plus a My Kitchen entry point:
   de-dupes by `(recipe_id, servings)`.
 - ~~My Kitchen "Up next" landing / week calendar (separate spec, design session).~~ **Done**,
   see `docs/superpowers/specs/2026-09-23-my-kitchen-week-design.md` (migration `0012`).
-- Server-side user-managed ingredient catalog.
+- Server-side user-managed ingredient catalog. **Partly addressed 2026-09-23:** migration `0013`
+  lets a family tag an ingredient's aisle (`ingredient_categories`), which covers the case that
+  actually hurt (unrecognised ingredients piling up under "Other"). Editing the catalog's item
+  list itself is still not possible from the UI.
