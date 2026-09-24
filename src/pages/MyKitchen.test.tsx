@@ -13,6 +13,8 @@ vi.mock("../lib/api/mealPlans", () => ({
   listUpcoming: vi.fn().mockResolvedValue([]),
   setPlanDates: vi.fn(), setViewMode: vi.fn(),
   duplicatePlan: vi.fn(),
+  getUpcomingGroceryList: vi.fn().mockResolvedValue({ lines: [], planIds: [] }),
+  toggleCheckedAcross: vi.fn(),
 }));
 vi.mock("../lib/api/photos", () => ({
   getCoverPhotoUrl: vi.fn().mockResolvedValue(null),

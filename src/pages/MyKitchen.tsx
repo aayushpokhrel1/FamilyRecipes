@@ -8,6 +8,7 @@ import {
 import { getCoverPhotoUrl } from "../lib/api/photos";
 import { listStaples, type Staple } from "../lib/api/staples";
 import { addDays, dayLabel, today } from "../lib/dates";
+import UpcomingGroceryPanel from "../components/UpcomingGroceryPanel";
 import type { MealPlan, MealSlot, UpcomingItem } from "../lib/api/types";
 
 const SLOTS = ["breakfast", "lunch", "dinner"] as const;
@@ -179,6 +180,15 @@ export default function MyKitchen() {
           );
         })}
       </section>
+      {/* Not a plate: the day rows above are individual plates, and a
+          full-width one here would fight them. On-wall text colours are
+          therefore correct inside it. */}
+      {activeFamily && (
+        <section className="panel">
+          <h2>This week's shopping</h2>
+          <UpcomingGroceryPanel days={DAYS} />
+        </section>
+      )}
       {/* Read-only on purpose: full management lives in Settings, and a second
           editor here would be two places to change the same thing. */}
       {activeFamily && staples.length > 0 && (
