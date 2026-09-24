@@ -946,3 +946,5 @@ button[aria-pressed="true"] {
   .catalog-fields { grid-template-columns: 1fr; }
   .week-grid { font-size: 0.82rem; }
 }
+
+.cook-log { margin-top: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
