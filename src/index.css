@@ -638,6 +638,22 @@ button[aria-pressed="true"] {
 .radio-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .form-error { color: var(--action); }
 
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--rim);
+  box-shadow: var(--lift-sm);
+}
+
+.danger-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+}
+
 /* Family data in Settings: one row per aisle tag. */
 .data-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .data-row .key { font-family: var(--mono); font-size: 0.85rem; }
