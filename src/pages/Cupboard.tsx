@@ -6,6 +6,8 @@ import {
   type PantryItem, type PantryState,
 } from "../lib/api/pantry";
 import { categoryFor, CATEGORY_ORDER, CATALOG_ITEMS } from "../lib/catalog";
+import { listRecipeIngredientIndex } from "../lib/api/recipes";
+import { seedSuggestions } from "../lib/seedSuggestions";
 
 // Tap to cycle. Three states in a ring is the cheapest upkeep gesture there
 // is, and upkeep is the whole risk with a cupboard.
@@ -17,11 +19,19 @@ export default function Cupboard() {
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [seeds, setSeeds] = useState<string[]>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!activeFamily) { setLoading(false); return; }
     listPantry(activeFamily.id)
-      .then(setItems)
+      .then(async (list) => {
+        setItems(list);
+        if (list.length === 0) {
+          const index = await listRecipeIngredientIndex(activeFamily.id);
+          setSeeds(seedSuggestions(index));
+        }
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [activeFamily]);
@@ -47,6 +57,17 @@ export default function Cupboard() {
     try { await removeItem(id); } catch (e: any) { setError(e.message); }
   }
 
+  async function handleSeed() {
+    if (!activeFamily) return;
+    try {
+      const added = await Promise.all(
+        [...picked].map((l) => addItem(activeFamily.id, l, "keep")));
+      setItems(added.sort((a, b) => a.label.localeCompare(b.label)));
+      setSeeds([]);
+      setPicked(new Set());
+    } catch (e: any) { setError(e.message); }
+  }
+
   // The aisle is a fact about the ingredient, so it is derived on render and
   // never stored. Same rule the grocery list already follows.
   const groups = new Map<string, PantryItem[]>();
@@ -66,8 +87,40 @@ export default function Cupboard() {
       {error && <p className="form-error" role="alert">{error}</p>}
       {loading && <p className="vault-note">Loading...</p>}
 
-      {!loading && items.length === 0 && (
-        <p className="vault-note">Nothing in the cupboard yet.</p>
+      {!loading && items.length === 0 && seeds.length > 0 && (
+        <section className="panel">
+          <h2>Start with what you usually keep</h2>
+          <p className="vault-note">
+            Taken from the ingredients your own recipes use most. Tick the ones you keep in.
+          </p>
+          <ul className="chip-row cupboard-items">
+            {seeds.map((s) => (
+              <li key={s}>
+                <button
+                  type="button"
+                  className={`chip cupboard-chip ${picked.has(s) ? "is-have" : ""}`}
+                  aria-pressed={picked.has(s)}
+                  onClick={() => setPicked((p) => {
+                    const next = new Set(p);
+                    if (next.has(s)) next.delete(s); else next.add(s);
+                    return next;
+                  })}
+                >
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="action" disabled={picked.size === 0} onClick={handleSeed}>
+            Add {picked.size} to the cupboard
+          </button>
+        </section>
+      )}
+
+      {!loading && items.length === 0 && seeds.length === 0 && (
+        <p className="vault-note">
+          Nothing in the cupboard yet, and no recipes to suggest from. Add something below.
+        </p>
       )}
 
       {order.map((cat) => (
