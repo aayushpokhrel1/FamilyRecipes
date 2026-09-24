@@ -13,9 +13,9 @@ vi.mock("../lib/api/ingredientCategories", () => ({
   listCategoryOverrides: vi.fn().mockResolvedValue(new Map()),
   setCategoryOverride: vi.fn(), removeCategoryOverride: vi.fn(),
 }));
-vi.mock("../lib/api/staples", () => ({
-  listStaples: vi.fn().mockResolvedValue([]),
-  addStaple: vi.fn(), removeStaple: vi.fn(),
+vi.mock("../lib/api/pantry", () => ({
+  listPantry: vi.fn().mockResolvedValue([]),
+  addItem: vi.fn(), removeItem: vi.fn(),
 }));
 vi.mock("../lib/api/recipes", () => ({
   listFamilySectionNames: vi.fn().mockResolvedValue([]),
@@ -34,14 +34,14 @@ test("with no active family it asks you to join one and calls nothing", async ()
   const { useFamily } = await import("../context/FamilyContext");
   (useFamily as any).mockReturnValue({ activeFamily: null });
   const cats = await import("../lib/api/ingredientCategories");
-  const staples = await import("../lib/api/staples");
+  const pantry = await import("../lib/api/pantry");
   const recipes = await import("../lib/api/recipes");
 
   render(<FamilyDataPanel />);
 
   expect(screen.getByText("Join a family to manage its shopping data.")).toBeInTheDocument();
   expect(cats.listCategoryOverrides).not.toHaveBeenCalled();
-  expect(staples.listStaples).not.toHaveBeenCalled();
+  expect(pantry.listPantry).not.toHaveBeenCalled();
   expect(recipes.listFamilySectionNames).not.toHaveBeenCalled();
 });
 
@@ -57,16 +57,16 @@ test("an aisle tag shows its key and Remove untags it", async () => {
 });
 
 test("adding a staple trims the label, and an empty input calls nothing", async () => {
-  const staples = await import("../lib/api/staples");
-  (staples.addStaple as any).mockResolvedValue({ id: "s1", key: "salt", label: "salt" });
+  const pantry = await import("../lib/api/pantry");
+  (pantry.addItem as any).mockResolvedValue({ id: "s1", key: "salt", label: "salt" });
 
   render(<FamilyDataPanel />);
   const input = await screen.findByPlaceholderText("Add a staple");
 
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
-  expect(staples.addStaple).not.toHaveBeenCalled();
+  expect(pantry.addItem).not.toHaveBeenCalled();
 
   fireEvent.change(input, { target: { value: "  salt  " } });
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
-  await waitFor(() => expect(staples.addStaple).toHaveBeenCalledWith("f1", "salt"));
+  await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "salt"));
 });

@@ -1,6 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { buildGroceryList, type IngredientRow } from "./grocery";
-import { listStaples } from "./staples";
+import { listPantry } from "./pantry";
 import { listCategoryOverrides } from "./ingredientCategories";
 import { parseQuantity, scaleIngredientQty } from "./quantity";
 import { addDays, today } from "../dates";
@@ -232,7 +232,7 @@ async function groceryLinesFromItems(
   }
   // Staples are family-scoped, so a plan with no family (or a family with none
   // recorded) simply flags nothing.
-  const staples = familyId ? await listStaples(familyId) : [];
+  const staples = familyId ? await listPantry(familyId) : [];
   // A family's own aisle tags beat the shared catalog, so an ingredient the
   // catalog has never heard of stops falling into Other once they tag it.
   const categories = familyId ? await listCategoryOverrides(familyId) : new Map<string, string>();

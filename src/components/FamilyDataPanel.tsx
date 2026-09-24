@@ -3,14 +3,14 @@ import { useFamily } from "../context/FamilyContext";
 import {
   listCategoryOverrides, setCategoryOverride, removeCategoryOverride,
 } from "../lib/api/ingredientCategories";
-import { listStaples, addStaple, removeStaple, type Staple } from "../lib/api/staples";
+import { listPantry, addItem, removeItem, type PantryItem } from "../lib/api/pantry";
 import { listFamilySectionNames } from "../lib/api/recipes";
 import { CATEGORY_ORDER } from "../lib/catalog";
 
 export default function FamilyDataPanel() {
   const { activeFamily } = useFamily();
   const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
-  const [staples, setStaples] = useState<Staple[]>([]);
+  const [staples, setStaples] = useState<PantryItem[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [stapleLabel, setStapleLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export default function FamilyDataPanel() {
     if (!familyId) return;
     const [tags, pantry, used] = await Promise.all([
       listCategoryOverrides(familyId),
-      listStaples(familyId),
+      listPantry(familyId),
       listFamilySectionNames(familyId),
     ]);
     setOverrides(tags);
@@ -65,13 +65,13 @@ export default function FamilyDataPanel() {
     const label = stapleLabel.trim();
     if (!familyId || !label) return;
     await run(async () => {
-      await addStaple(familyId, label);
+      await addItem(familyId, label);
       setStapleLabel("");
     });
   }
 
   async function handleRemoveStaple(id: string) {
-    await run(() => removeStaple(id));
+    await run(() => removeItem(id));
   }
 
   if (!activeFamily) {

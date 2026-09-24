@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Covers migration 0012: pantry_staples RLS, and duplicate_plan cloning items,
+// Covers migration 0012: pantry_items RLS, and duplicate_plan cloning items,
 // shifting their days, and repointing leftovers at the clones.
 import { expect, test } from "vitest";
 import { admin, makeUser } from "./helpers";
@@ -16,24 +16,24 @@ async function familyWith(prefix: string) {
 test("staples are family-scoped and a non-member is denied", async () => {
   const { user, family } = await familyWith("staple");
 
-  const { error: mine } = await user.client.from("pantry_staples")
+  const { error: mine } = await user.client.from("pantry_items")
     .insert({ family_id: family.id, key: "salt", label: "Salt" });
   expect(mine).toBeNull();
 
   const outsider = await makeUser(`outsider${Date.now()}@t.dev`);
-  const { data: visible } = await outsider.client.from("pantry_staples").select("id");
+  const { data: visible } = await outsider.client.from("pantry_items").select("id");
   expect(visible).toEqual([]);
 
-  const { error: denied } = await outsider.client.from("pantry_staples")
+  const { error: denied } = await outsider.client.from("pantry_items")
     .insert({ family_id: family.id, key: "pepper", label: "Pepper" });
   expect(denied).not.toBeNull();
 });
 
 test("the same staple cannot be added twice to one family", async () => {
   const { user, family } = await familyWith("dupstaple");
-  await user.client.from("pantry_staples")
+  await user.client.from("pantry_items")
     .insert({ family_id: family.id, key: "olive oil", label: "Olive oil" });
-  const { error } = await user.client.from("pantry_staples")
+  const { error } = await user.client.from("pantry_items")
     .insert({ family_id: family.id, key: "olive oil", label: "Olive Oil" });
   expect(error).not.toBeNull();
 });

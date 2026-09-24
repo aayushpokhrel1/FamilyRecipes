@@ -90,7 +90,7 @@ test("a line that is not a staple is untouched", () => {
 
 test("a staple matches through the normalizer, not by raw text", () => {
   const rows = [{ recipeTitle: "Cake", quantity: "2", unit: "cup", item: "all-purpose flour", scaled: false }];
-  // normalizeItem("all-purpose flour") is "flour", which is what addStaple stores
+  // normalizeItem("all-purpose flour") is "flour", which is what addItem stores
   expect(buildGroceryList(rows, [], [], { staples: new Set(["flour"]) })[0].staple).toBe(true);
 });
 

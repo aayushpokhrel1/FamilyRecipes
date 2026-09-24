@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getGroceryList, toggleChecked, addManualItem, removeManualItem } from "../lib/api/mealPlans";
-import { listStaples, addStaple, removeStaple, type Staple } from "../lib/api/staples";
+import { listPantry, addItem, removeItem, type PantryItem } from "../lib/api/pantry";
 import { setCategoryOverride } from "../lib/api/ingredientCategories";
 import { useFamily } from "../context/FamilyContext";
 import type { GroceryLine } from "../lib/api/types";
@@ -19,7 +19,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   const { activeFamily } = useFamily();
   const [lines, setLines] = useState<GroceryLine[]>([]);
   const [label, setLabel] = useState("");
-  const [staples, setStaples] = useState<Staple[]>([]);
+  const [staples, setStaples] = useState<PantryItem[]>([]);
   const [stapleLabel, setStapleLabel] = useState("");
 
   async function reload() { setLines(await getGroceryList(planId)); }
@@ -27,7 +27,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
 
   async function reloadStaples() {
     if (!activeFamily) { setStaples([]); return; }
-    setStaples(await listStaples(activeFamily.id));
+    setStaples(await listPantry(activeFamily.id));
   }
   useEffect(() => { reloadStaples(); }, [activeFamily?.id]);
 
@@ -47,13 +47,13 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   }
   async function handleAddStaple() {
     if (!activeFamily || !stapleLabel.trim()) return;
-    await addStaple(activeFamily.id, stapleLabel.trim());
+    await addItem(activeFamily.id, stapleLabel.trim());
     setStapleLabel("");
     await reloadStaples();
     reload();
   }
   async function handleRemoveStaple(id: string) {
-    await removeStaple(id);
+    await removeItem(id);
     await reloadStaples();
     reload();
   }

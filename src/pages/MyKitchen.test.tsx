@@ -19,8 +19,8 @@ vi.mock("../lib/api/mealPlans", () => ({
 vi.mock("../lib/api/photos", () => ({
   getCoverPhotoUrl: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("../lib/api/staples", () => ({
-  listStaples: vi.fn().mockResolvedValue([]),
+vi.mock("../lib/api/pantry", () => ({
+  listPantry: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../lib/api/cookLog", () => ({
   notCookedLately: vi.fn().mockResolvedValue([]),

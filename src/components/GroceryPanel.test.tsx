@@ -5,10 +5,10 @@ import GroceryPanel from "./GroceryPanel";
 vi.mock("../context/FamilyContext", () => ({
   useFamily: () => ({ activeFamily: { id: "f1", name: "F", invite_code: "x", created_by: "u" } }),
 }));
-vi.mock("../lib/api/staples", () => ({
-  listStaples: vi.fn().mockResolvedValue([]),
-  addStaple: vi.fn(),
-  removeStaple: vi.fn(),
+vi.mock("../lib/api/pantry", () => ({
+  listPantry: vi.fn().mockResolvedValue([]),
+  addItem: vi.fn(),
+  removeItem: vi.fn(),
 }));
 vi.mock("../lib/api/mealPlans", () => ({
   getGroceryList: vi.fn().mockResolvedValue([
@@ -79,8 +79,8 @@ test("staple lines sit behind the check-you-have-these group", async () => {
 });
 
 test("lists the family's staples as removable chips", async () => {
-  const st = await import("../lib/api/staples");
-  (st.listStaples as any).mockResolvedValue([{ id: "s1", key: "salt", label: "Salt" }]);
+  const st = await import("../lib/api/pantry");
+  (st.listPantry as any).mockResolvedValue([{ id: "s1", key: "salt", label: "Salt" }]);
   render(<GroceryPanel planId="p1" />);
   expect(await screen.findByText("Pantry staples")).toBeInTheDocument();
   expect(await screen.findByRole("button", { name: "Remove Salt" })).toBeInTheDocument();
