@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import GroceryPanel from "./GroceryPanel";
 
@@ -84,4 +85,15 @@ test("lists the family's staples as removable chips", async () => {
   render(<GroceryPanel planId="p1" />);
   expect(await screen.findByText("Pantry staples")).toBeInTheDocument();
   expect(await screen.findByRole("button", { name: "Remove Salt" })).toBeInTheDocument();
+});
+
+test("offers to put checked items in the cupboard", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  const pantry = await import("../lib/api/pantry");
+  (mp.getGroceryList as any).mockResolvedValue([
+    { key: "rice", name: "Rice", contributions: [{ quantity: "2", unit: "cups", recipeTitle: "Pilaf", scaled: false }], checked: true, manual: false, totals: [{ quantity: "2", unit: "cup" }], partial: false, staple: false },
+  ]);
+  render(<GroceryPanel planId="p1" />);
+  await userEvent.click(await screen.findByRole("button", { name: /Put 1 item in the cupboard/i }));
+  await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "Rice", "week"));
 });

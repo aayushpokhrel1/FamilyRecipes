@@ -230,15 +230,24 @@ async function groceryLinesFromItems(
       }
     }
   }
-  // Staples are family-scoped, so a plan with no family (or a family with none
-  // recorded) simply flags nothing.
-  const staples = familyId ? await listPantry(familyId) : [];
+  // The cupboard is family-scoped, so a plan with no family (or a family with
+  // none recorded) simply flags nothing.
+  const pantry = familyId ? await listPantry(familyId) : [];
   // A family's own aisle tags beat the shared catalog, so an ingredient the
   // catalog has never heard of stops falling into Other once they tag it.
   const categories = familyId ? await listCategoryOverrides(familyId) : new Map<string, string>();
   return buildGroceryList(
     rows, manualList, checkedKeys,
-    { staples: new Set(staples.map((s) => s.key)), categories },
+    {
+      // An item you are low on or out of is a thing to BUY, not a thing to
+      // assume you have. This one filter is the whole "do we need more rice"
+      // job. A week item is never a staple: it is this week's food, and it
+      // belongs on the list like anything else.
+      staples: new Set(
+        pantry.filter((p) => p.kind === "keep" && p.state === "have").map((p) => p.key),
+      ),
+      categories,
+    },
   );
 }
 

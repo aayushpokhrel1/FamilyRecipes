@@ -47,7 +47,7 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
     if (table === "pantry_items") {
       // listPantry chains .eq().or().order(); the mock returns the same rows
       // at every step because this test is about scaling, not expiry.
-      const rows = { data: [{ id: "s1", key: "flour", label: "Flour" }], error: null };
+      const rows = { data: [{ id: "s1", key: "flour", label: "Flour", kind: "keep", state: "have" }], error: null };
       return { select: () => ({ eq: () => ({ or: () => ({ order: () => rows }) }) }) };
     }
     if (table === "ingredient_categories") {
@@ -85,4 +85,52 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
   expect(flour.totals).toEqual([{ quantity: "6", unit: "cup" }]);
   // the family's staples reach buildGroceryList, so flour is flagged not dropped
   expect(flour.staple).toBe(true);
+});
+
+// The whole "do we need more rice" job: a staple you have is a quiet reminder,
+// a staple you are low on or out of is a thing to buy, and a week item is this
+// week's food rather than something you always keep.
+test("only keep items you actually have are treated as staples", async () => {
+  from.mockImplementation((table: string) => {
+    if (table === "meal_plans") {
+      return { select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [], family_id: "f1" }, error: null }) }) }) };
+    }
+    if (table === "pantry_items") {
+      const rows = { data: [
+        { id: "p1", key: "rice", label: "Rice", kind: "keep", state: "have" },
+        { id: "p2", key: "cumin", label: "Cumin", kind: "keep", state: "out" },
+        { id: "p3", key: "chicken", label: "Chicken", kind: "week", state: "have" },
+      ], error: null };
+      return { select: () => ({ eq: () => ({ or: () => ({ order: () => rows }) }) }) };
+    }
+    if (table === "ingredient_categories") {
+      return { select: () => ({ eq: () => ({ data: [], error: null }) }) };
+    }
+    if (table === "meal_plan_items") {
+      const rows = { data: [{ recipe_id: "r1", servings: null }], error: null };
+      return { select: () => ({ eq: () => ({ ...rows, is: () => rows }) }) };
+    }
+    if (table === "meal_plan_manual_items") {
+      return { select: () => ({ eq: () => ({ order: () => ({ data: [], error: null }) }) }) };
+    }
+    if (table === "recipes") {
+      return { select: () => ({ in: () => ({ data: [{ id: "r1", title: "Pilaf", servings: 4 }], error: null }) }) };
+    }
+    if (table === "recipe_ingredients") {
+      return { select: () => ({ in: () => ({ data: [
+        { recipe_id: "r1", quantity: "1", unit: "cup", item: "rice" },
+        { recipe_id: "r1", quantity: "1", unit: "teaspoon", item: "cumin" },
+        { recipe_id: "r1", quantity: "2", unit: null, item: "chicken" },
+      ], error: null }) }) };
+    }
+    throw new Error(`unexpected table ${table}`);
+  });
+
+  const lines = await getGroceryList("p1");
+  // Rice is had, so it is suppressed into the staples group.
+  expect(lines.find((l) => l.key === "rice")!.staple).toBe(true);
+  // Cumin is out, so it is a real line to buy.
+  expect(lines.find((l) => l.key === "cumin")!.staple).toBe(false);
+  // Chicken is this week's food, not a staple.
+  expect(lines.find((l) => l.key === "chicken")!.staple).toBe(false);
 });
