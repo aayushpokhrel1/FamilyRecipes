@@ -77,3 +77,24 @@ test("says so when there is nothing to suggest", async () => {
   renderCupboard();
   expect(await screen.findByText(/no recipes to suggest from/i)).toBeInTheDocument();
 });
+
+test("shows what you can cook, and what is missing", async () => {
+  const recipes = await import("../lib/api/recipes");
+  (recipes.listRecipeIngredientIndex as any).mockResolvedValueOnce([
+    { recipe_id: "r1", title: "Rice bowl", items: ["Rice"] },
+    { recipe_id: "r2", title: "Pilaf", items: ["Rice", "Cumin"] },
+  ]);
+  renderCupboard();
+  await userEvent.click(await screen.findByRole("button", { name: /What can I cook/i }));
+  expect(await screen.findByText("Rice bowl")).toBeInTheDocument();
+  expect(screen.getByText(/Missing Cumin/i)).toBeInTheDocument();
+});
+
+// An empty result must explain itself rather than render nothing at all.
+test("explains an empty result", async () => {
+  const recipes = await import("../lib/api/recipes");
+  (recipes.listRecipeIngredientIndex as any).mockResolvedValueOnce([]);
+  renderCupboard();
+  await userEvent.click(await screen.findByRole("button", { name: /What can I cook/i }));
+  expect(await screen.findByText(/No recipes in the vault yet/i)).toBeInTheDocument();
+});
