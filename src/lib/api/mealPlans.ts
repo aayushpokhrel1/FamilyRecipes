@@ -180,31 +180,26 @@ export async function toggleChecked(planId: string, key: string, checked: boolea
   if (uErr) throw new Error(uErr.message);
 }
 
-// Derived at read time: gather ingredients from the plan's DISTINCT
-// (recipe, servings) pairs, scale each pair's rows to its target, then group by
-// normalized name. Never stored.
-export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
-  const [{ data: plan, error: pErr }, { data: items, error: iErr }, { data: manual, error: mErr }] = await Promise.all([
-    supabase.from("meal_plans").select("checked_items,family_id").eq("id", planId).single(),
-    // A leftover is the same pot eaten again, so it buys nothing. This is the
-    // ONLY place leftovers are filtered out: buildGroceryList never needs to
-    // know the concept exists.
-    supabase.from("meal_plan_items").select("recipe_id,servings").eq("plan_id", planId).is("leftover_of", null),
-    supabase.from("meal_plan_manual_items").select("id,label").eq("plan_id", planId).order("position"),
-  ]);
-  if (pErr) throw new Error(pErr.message);
-  if (iErr) throw new Error(iErr.message);
-  if (mErr) throw new Error(mErr.message);
-
+// The shared half of every grocery list: turn a set of meal_plan_items rows
+// into scaled ingredient rows, then hand them to buildGroceryList with the
+// family's staples and aisle tags. Both getGroceryList and
+// getUpcomingGroceryList call this; only the query that produced `items` and
+// the checked/manual inputs differ between them.
+async function groceryLinesFromItems(
+  items: { recipe_id: string; servings: number | null }[],
+  manualList: { id: string; label: string }[],
+  checkedKeys: string[],
+  familyId: string | null | undefined,
+): Promise<GroceryLine[]> {
   // De-dupe by the (recipe_id, servings) pair, not by recipe alone: the same
   // recipe planned for 8 and for 2 must contribute twice, scaled differently.
   // The same recipe at the same servings still contributes once.
   const pairs = new Map<string, { recipeId: string; servings: number | null }>();
-  for (const r of (items ?? []) as any[]) {
+  for (const r of items) {
     pairs.set(`${r.recipe_id}:${r.servings ?? ""}`, { recipeId: r.recipe_id, servings: r.servings ?? null });
   }
   const recipeIds = Array.from(new Set(Array.from(pairs.values()).map((p) => p.recipeId)));
-  let rows: IngredientRow[] = [];
+  const rows: IngredientRow[] = [];
   if (recipeIds.length) {
     const [{ data: recipes }, { data: ings }] = await Promise.all([
       supabase.from("recipes").select("id,title,servings").in("id", recipeIds),
@@ -235,16 +230,87 @@ export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
       }
     }
   }
-  const manualList = ((manual ?? []) as any[]).map((m) => ({ id: m.id, label: m.label }));
   // Staples are family-scoped, so a plan with no family (or a family with none
   // recorded) simply flags nothing.
-  const familyId = (plan as { family_id?: string } | null)?.family_id;
   const staples = familyId ? await listStaples(familyId) : [];
   // A family's own aisle tags beat the shared catalog, so an ingredient the
   // catalog has never heard of stops falling into Other once they tag it.
   const categories = familyId ? await listCategoryOverrides(familyId) : new Map<string, string>();
   return buildGroceryList(
-    rows, manualList, ((plan?.checked_items ?? []) as string[]),
+    rows, manualList, checkedKeys,
     { staples: new Set(staples.map((s) => s.key)), categories },
   );
+}
+
+// Derived at read time: gather ingredients from the plan's DISTINCT
+// (recipe, servings) pairs, scale each pair's rows to its target, then group by
+// normalized name. Never stored.
+export async function getGroceryList(planId: string): Promise<GroceryLine[]> {
+  const [{ data: plan, error: pErr }, { data: items, error: iErr }, { data: manual, error: mErr }] = await Promise.all([
+    supabase.from("meal_plans").select("checked_items,family_id").eq("id", planId).single(),
+    // A leftover is the same pot eaten again, so it buys nothing. This is the
+    // ONLY place leftovers are filtered out: buildGroceryList never needs to
+    // know the concept exists.
+    supabase.from("meal_plan_items").select("recipe_id,servings").eq("plan_id", planId).is("leftover_of", null),
+    supabase.from("meal_plan_manual_items").select("id,label").eq("plan_id", planId).order("position"),
+  ]);
+  if (pErr) throw new Error(pErr.message);
+  if (iErr) throw new Error(iErr.message);
+  if (mErr) throw new Error(mErr.message);
+
+  const manualList = ((manual ?? []) as any[]).map((m) => ({ id: m.id, label: m.label }));
+  return groceryLinesFromItems(
+    (items ?? []) as any[], manualList, ((plan?.checked_items ?? []) as string[]),
+    (plan as { family_id?: string } | null)?.family_id,
+  );
+}
+
+// The same list, but merged across every plan the caller can read in the next
+// `days` days: what My Kitchen shows, so the shopping list matches the window
+// on screen. The window is worked out exactly as listUpcoming does it.
+export async function getUpcomingGroceryList(days: number): Promise<{
+  lines: GroceryLine[];
+  planIds: string[];
+}> {
+  const from = today();
+  const to = addDays(from, days);
+  // RLS already limits these rows to plans the caller can read, so asking for
+  // the window IS asking the right question; no ownership filter needed.
+  const { data: items, error } = await supabase.from("meal_plan_items")
+    .select("plan_id,recipe_id,servings")
+    .gte("day", from).lt("day", to)
+    .is("leftover_of", null);
+  if (error) throw new Error(error.message);
+
+  const rows = (items ?? []) as { plan_id: string; recipe_id: string; servings: number | null }[];
+  const planIds = Array.from(new Set(rows.map((r) => r.plan_id)));
+  if (!planIds.length) return { lines: [], planIds };
+
+  const { data: plans, error: pErr } = await supabase.from("meal_plans")
+    .select("id,checked_items,family_id").in("id", planIds);
+  if (pErr) throw new Error(pErr.message);
+
+  // A merged line can be ticked in any of the plans it came from, so the
+  // checked set is the union of theirs.
+  const checked = new Set<string>();
+  for (const p of (plans ?? []) as any[]) {
+    for (const key of (p.checked_items ?? []) as string[]) checked.add(key);
+  }
+  // Staples are family-scoped and every plan in a merged view belongs to the
+  // same family, so the first plan that has one answers for all of them.
+  const familyId = ((plans ?? []) as any[]).find((p) => p.family_id)?.family_id ?? null;
+  // Manual items belong to one plan and have no meaning in a merged view.
+  const lines = await groceryLinesFromItems(rows, [], Array.from(checked), familyId);
+  return { lines, planIds };
+}
+
+// A merged line can come from two plans at once, so ticking it has to tick it
+// in both or the merged view and the per-plan view would disagree the next time
+// you opened either. Sequential, not Promise.all: toggleChecked is a
+// read-modify-write of an array, and concurrent writes to the same row would
+// lose one.
+export async function toggleCheckedAcross(planIds: string[], key: string, checked: boolean): Promise<void> {
+  for (const planId of planIds) {
+    await toggleChecked(planId, key, checked);
+  }
 }

@@ -52,6 +52,8 @@ export interface UpcomingItem {
   isLeftover: boolean; readOnly: boolean;
 }
 export interface ManualItem { id: string; label: string; position: number; }
+export interface CookEntry { id: string; recipe_id: string; cooked_by: string; cooked_at: string; }
+export interface NotCookedLately { recipe: { id: string; title: string }; lastCooked: string | null; }
 export interface GroceryContribution {
   quantity: string | null; unit: string | null; recipeTitle: string; scaled: boolean;
 }
