@@ -833,10 +833,22 @@ button[aria-pressed="true"] {
   font-family: var(--sign); text-transform: uppercase; font-size: 0.72rem;
   letter-spacing: 0.06em; color: var(--ink-soft); min-width: 78px;
 }
+/* Unlike .staples, this details sits on the wall rather than on a plate, so the
+   summary takes the wall's ink instead of the plate's. */
+.plans { margin-top: 26px; }
+.plans summary { color: var(--on-wall); }
+.upnext .empty-slot {
+  background: transparent; border-style: dashed; box-shadow: none;
+  color: var(--on-wall-soft);
+}
+.upnext .empty-slot a {
+  margin-left: auto; font-family: var(--sign); font-size: 1.1rem;
+  text-decoration: none; padding: 0 10px;
+}
 
 /* --------------------------------------------------------- staples ------- */
 .staples { margin-top: 18px; }
-.staples summary {
+.staples summary, .plans summary {
   cursor: pointer; font-family: var(--sign); color: var(--ink);
   text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em;
 }
