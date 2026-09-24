@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, vi } from "vitest";
 import FamilyDataPanel from "./FamilyDataPanel";
 
@@ -13,15 +14,16 @@ vi.mock("../lib/api/ingredientCategories", () => ({
   listCategoryOverrides: vi.fn().mockResolvedValue(new Map()),
   setCategoryOverride: vi.fn(), removeCategoryOverride: vi.fn(),
 }));
-vi.mock("../lib/api/pantry", () => ({
-  listPantry: vi.fn().mockResolvedValue([]),
-  addItem: vi.fn(), removeItem: vi.fn(),
-}));
 vi.mock("../lib/api/recipes", () => ({
   listFamilySectionNames: vi.fn().mockResolvedValue([]),
 }));
 
 const FAMILY = { id: "f1", name: "F", invite_code: "x", created_by: "u" };
+
+// The panel now links to the cupboard, so it needs a router around it.
+function renderPanel() {
+  return render(<MemoryRouter><FamilyDataPanel /></MemoryRouter>);
+}
 
 // Each test starts with a family again: the no-family test below swaps the return
 // value, and without this reset that null leaks into every test after it.
@@ -34,14 +36,12 @@ test("with no active family it asks you to join one and calls nothing", async ()
   const { useFamily } = await import("../context/FamilyContext");
   (useFamily as any).mockReturnValue({ activeFamily: null });
   const cats = await import("../lib/api/ingredientCategories");
-  const pantry = await import("../lib/api/pantry");
   const recipes = await import("../lib/api/recipes");
 
-  render(<FamilyDataPanel />);
+  renderPanel();
 
   expect(screen.getByText("Join a family to manage its shopping data.")).toBeInTheDocument();
   expect(cats.listCategoryOverrides).not.toHaveBeenCalled();
-  expect(pantry.listPantry).not.toHaveBeenCalled();
   expect(recipes.listFamilySectionNames).not.toHaveBeenCalled();
 });
 
@@ -49,24 +49,20 @@ test("an aisle tag shows its key and Remove untags it", async () => {
   const cats = await import("../lib/api/ingredientCategories");
   (cats.listCategoryOverrides as any).mockResolvedValue(new Map([["besan", "Baking"]]));
 
-  render(<FamilyDataPanel />);
+  renderPanel();
 
   expect(await screen.findByText("besan")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(cats.removeCategoryOverride).toHaveBeenCalledWith("f1", "besan"));
 });
 
-test("adding a staple trims the label, and an empty input calls nothing", async () => {
-  const pantry = await import("../lib/api/pantry");
-  (pantry.addItem as any).mockResolvedValue({ id: "s1", key: "salt", label: "salt" });
+// The staples editor deliberately moved to /kitchen/cupboard, so Settings links
+// there rather than offering a second place to change the same thing.
+test("points at the cupboard instead of editing it", async () => {
+  renderPanel();
 
-  render(<FamilyDataPanel />);
-  const input = await screen.findByPlaceholderText("Add a staple");
-
-  fireEvent.click(screen.getByRole("button", { name: "Add" }));
-  expect(pantry.addItem).not.toHaveBeenCalled();
-
-  fireEvent.change(input, { target: { value: "  salt  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Add" }));
-  await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "salt"));
+  expect(await screen.findByRole("heading", { name: "The cupboard" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "the cupboard" }))
+    .toHaveAttribute("href", "/kitchen/cupboard");
+  expect(screen.queryByPlaceholderText("Add a staple")).not.toBeInTheDocument();
 });

@@ -12,6 +12,12 @@ vi.mock("../lib/api/mealPlans", () => ({
   }),
   toggleCheckedAcross: vi.fn(),
 }));
+// MyKitchen renders this panel inside a family, so the context has to resolve.
+vi.mock("../context/FamilyContext", () => ({
+  useFamily: () => ({
+    activeFamily: { id: "f1", name: "F", invite_code: "x", created_by: "u" },
+  }),
+}));
 
 test("groups lines under their aisle, with a null category under Other", async () => {
   render(<UpcomingGroceryPanel days={4} />);

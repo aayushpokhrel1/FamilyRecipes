@@ -25,7 +25,7 @@ export default function MyKitchen() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [staples, setStaples] = useState<PantryItem[]>([]);
+  const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [forgotten, setForgotten] = useState<NotCookedLately[]>([]);
 
   async function reload() {
@@ -35,8 +35,8 @@ export default function MyKitchen() {
   useEffect(() => { reload(); }, []);
   useEffect(() => { listUpcoming(DAYS).then(setUpcoming).catch(() => setUpcoming([])); }, []);
   useEffect(() => {
-    if (!activeFamily) { setStaples([]); return; }
-    listPantry(activeFamily.id).then(setStaples).catch(() => setStaples([]));
+    if (!activeFamily) { setPantry([]); return; }
+    listPantry(activeFamily.id).then(setPantry).catch(() => setPantry([]));
   }, [activeFamily?.id]);
   // Three is a nudge, not a second recipe index. A failed suggestion must never
   // break the page, so the catch empties the list rather than surfacing.
@@ -206,13 +206,19 @@ export default function MyKitchen() {
           <UpcomingGroceryPanel days={DAYS} />
         </section>
       )}
-      {/* Read-only on purpose: full management lives in Settings, and a second
-          editor here would be two places to change the same thing. */}
-      {activeFamily && staples.length > 0 && (
+      {/* Actionable on purpose: a neutral count gives no reason to tap. The
+          cupboard lives a tap away, so this line has to earn the trip. */}
+      {activeFamily && pantry.length > 0 && (
         <section className="staples-strip">
-          <h3>Always in</h3>
-          <div className="chip-row">{staples.map((s) => <span className="chip" key={s.id}>{s.label}</span>)}</div>
-          <p className="vault-note"><Link to="/settings">Manage staples</Link></p>
+          <h3>The cupboard</h3>
+          <p className="vault-note">
+            {pantry.filter((i) => i.state !== "have").length > 0
+              ? `${pantry.filter((i) => i.state !== "have").length} to restock`
+              : "All stocked"}
+            {" · "}
+            {pantry.filter((i) => i.kind === "week").length} in this week
+          </p>
+          <p className="vault-note"><Link to="/kitchen/cupboard">Open the cupboard</Link></p>
         </section>
       )}
       {/* A family that cooks everything regularly sees nothing here, not an

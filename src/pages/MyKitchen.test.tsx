@@ -26,6 +26,13 @@ vi.mock("../lib/api/cookLog", () => ({
   notCookedLately: vi.fn().mockResolvedValue([]),
 }));
 
+// The pantry mock is shared across tests, so a test that queues a one-shot
+// value has to hand the default back or it leaks into the next one.
+async function resetPantry() {
+  const pantry = await import("../lib/api/pantry");
+  (pantry.listPantry as any).mockResolvedValue([]);
+}
+
 test("renders the My Kitchen heading and a create control", async () => {
   render(<MemoryRouter><MyKitchen /></MemoryRouter>);
   expect(await screen.findByRole("heading", { name: /my kitchen/i })).toBeInTheDocument();
@@ -140,4 +147,28 @@ test("lists recipes not made in a while with their last-cooked labels", async ()
   expect(screen.getByRole("link", { name: "Biryani" })).toHaveAttribute("href", "/recipes/r2");
   expect(screen.getByText("never cooked")).toBeInTheDocument();
   (cl.notCookedLately as any).mockResolvedValue([]);
+});
+
+test("summarises the cupboard with something worth acting on", async () => {
+  const pantry = await import("../lib/api/pantry");
+  (pantry.listPantry as any).mockResolvedValueOnce([
+    { id: "1", key: "rice", label: "Rice", kind: "keep", state: "have", expires_on: null },
+    { id: "2", key: "oil", label: "Oil", kind: "keep", state: "low", expires_on: null },
+    { id: "3", key: "cumin", label: "Cumin", kind: "keep", state: "out", expires_on: null },
+  ]);
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  expect(await screen.findByText(/2 to restock/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /cupboard/i })).toHaveAttribute("href", "/kitchen/cupboard");
+  await resetPantry();
+});
+
+// A cupboard nobody is short of anything in still has to say something, and
+// "All stocked" is the thing worth saying.
+test("says all stocked when nothing needs buying", async () => {
+  const pantry = await import("../lib/api/pantry");
+  (pantry.listPantry as any).mockResolvedValueOnce([
+    { id: "1", key: "rice", label: "Rice", kind: "keep", state: "have", expires_on: null },
+  ]);
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  expect(await screen.findByText(/All stocked/i)).toBeInTheDocument();
 });
