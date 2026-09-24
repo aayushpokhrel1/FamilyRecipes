@@ -35,13 +35,27 @@ export async function listPantry(familyId: string): Promise<PantryItem[]> {
 export async function addItem(
   familyId: string, label: string, kind: PantryKind = "keep",
 ): Promise<PantryItem> {
+  const key = normalizeItem(label);
+
+  // Restocking must never DEMOTE a staple to a week item. Buying salt off the
+  // grocery list used to overwrite kind with 'week', so something the family
+  // always keeps would quietly expire out of the cupboard seven days later.
+  // The guard lives here, not in the caller, because every route into the
+  // cupboard goes through this function.
+  let finalKind = kind;
+  if (kind === "week") {
+    const { data: existing } = await supabase.from("pantry_items")
+      .select("kind").eq("family_id", familyId).eq("key", key).maybeSingle();
+    if (existing?.kind === "keep") finalKind = "keep";
+  }
+
   const row = {
     family_id: familyId,
-    key: normalizeItem(label),
+    key,
     label: label.trim(),
-    kind,
+    kind: finalKind,
     state: "have" as PantryState,
-    expires_on: kind === "week" ? addDays(today(), WEEK_ITEM_DAYS) : null,
+    expires_on: finalKind === "week" ? addDays(today(), WEEK_ITEM_DAYS) : null,
   };
   const { data, error } = await supabase.from("pantry_items")
     .upsert(row, { onConflict: "family_id,key" }).select(COLS).single();

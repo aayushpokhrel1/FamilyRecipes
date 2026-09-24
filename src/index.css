@@ -964,5 +964,16 @@ button[aria-pressed="true"] {
 .cupboard-chip.is-low { background: #f0d9a8; color: #6b4a10; }
 .cupboard-chip.is-out { background: #e8c0b6; color: #8c2c17; text-decoration: line-through; }
 .cupboard-week { font-size: 0.72rem; opacity: 0.75; }
-.cupboard-remove { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.6; }
-.cupboard-remove:hover { opacity: 1; }
+/* These chips sit on the WALL, not on a plate, so the remove control needs the
+   wall's own text colour. With no colour of its own it inherited --ink and
+   rendered near-black on dark green, about 1.2:1: present in the DOM, in the
+   accessibility tree, and passing every test, while being invisible on screen.
+   Same failure as the cream-on-cream settings labels, just inverted. */
+.cupboard-remove {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1rem; line-height: 1;
+  color: var(--on-wall-soft);
+}
+.cupboard-remove:hover { color: var(--on-wall); }
+/* If a chip row is ever moved onto a plate, the control follows the plate. */
+.plate .cupboard-remove { color: var(--ink-soft); }
