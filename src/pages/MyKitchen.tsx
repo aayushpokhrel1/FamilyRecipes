@@ -196,8 +196,15 @@ export default function MyKitchen() {
               <ul className="stack">
                 {SLOTS.map((slot) => itemsFor(day, slot).map((item) => itemRow(item)))}
                 {itemsFor(day, null).map((item) => itemRow(item))}
+                {/* The row needs words on the left. The + is pushed right by
+                    .empty-slot, which was written when a slot label sat beside
+                    it; without one the row reads as a blank dashed bar that
+                    does not look tappable or say what it would do. */}
                 {addHref && (
                   <li className="plate plate-row empty-slot">
+                    <span className="slot">
+                      {dayItems.length > 0 ? "add another" : "nothing planned"}
+                    </span>
                     <Link to={addHref} aria-label={`Add something on ${dayLabel(day)}`}>+</Link>
                   </li>
                 )}
@@ -205,7 +212,12 @@ export default function MyKitchen() {
             </div>
           );
         })}
-        {!showAllDays && hiddenDays.length > 0 && (
+        {/* Offer the control only when expanding would actually reveal a day.
+            A day with no covering plan and nothing planned renders nothing, so
+            with no plan at all "Show 2 more days" was a button that visibly did
+            nothing when pressed. */}
+        {!showAllDays && hiddenDays.some(
+          (d) => coveringPlan(d) || upcoming.some((u) => u.day === d)) && (
           <button type="button" onClick={() => setShowAllDays(true)}>
             {hiddenMeals > 0
               ? `Show ${hiddenDays.length} more days (${hiddenMeals} meals planned)`

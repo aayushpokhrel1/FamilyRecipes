@@ -212,3 +212,11 @@ test("peeks at two days and reveals the rest on demand", async () => {
   expect(screen.getByRole("heading", { name: dayLabel(addDays(today(), 3)) })).toBeInTheDocument();
   (mp.listPlans as any).mockResolvedValue([]);
 });
+
+// With no plan at all, every day renders nothing, so "Show 2 more days" was a
+// button that visibly did nothing. Found by pressing it.
+test("does not offer to show more days when there is nothing to show", async () => {
+  render(<MemoryRouter><MyKitchen /></MemoryRouter>);
+  await screen.findByRole("button", { name: "Start this week" });
+  expect(screen.queryByRole("button", { name: /Show \d+ more days/ })).not.toBeInTheDocument();
+});
