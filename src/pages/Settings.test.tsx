@@ -22,6 +22,12 @@ vi.mock("../lib/theme", () => ({
   getTheme: vi.fn().mockReturnValue("system"),
   setTheme: vi.fn(),
 }));
+// FamilyDataPanel is rendered inside Settings, and it reads the active family.
+vi.mock("../context/FamilyContext", () => ({
+  useFamily: () => ({
+    activeFamily: { id: "f1", name: "F", invite_code: "x", created_by: "u" },
+  }),
+}));
 
 test("refuses a mismatched confirmation without calling changePassword", async () => {
   const auth = await import("../lib/api/auth");

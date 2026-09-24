@@ -1,33 +1,29 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import {
   listCategoryOverrides, setCategoryOverride, removeCategoryOverride,
 } from "../lib/api/ingredientCategories";
-import { listPantry, addItem, removeItem, type PantryItem } from "../lib/api/pantry";
 import { listFamilySectionNames } from "../lib/api/recipes";
 import { CATEGORY_ORDER } from "../lib/catalog";
 
 export default function FamilyDataPanel() {
   const { activeFamily } = useFamily();
   const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
-  const [staples, setStaples] = useState<PantryItem[]>([]);
   const [sections, setSections] = useState<string[]>([]);
-  const [stapleLabel, setStapleLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const familyId = activeFamily?.id;
 
-  // One load for all three groups, and one reload the mutations call, so the
-  // panel can never show a tag or staple that was just removed.
+  // One load for both groups, and one reload the mutations call, so the panel
+  // can never show a tag that was just removed.
   async function reload() {
     if (!familyId) return;
-    const [tags, pantry, used] = await Promise.all([
+    const [tags, used] = await Promise.all([
       listCategoryOverrides(familyId),
-      listPantry(familyId),
       listFamilySectionNames(familyId),
     ]);
     setOverrides(tags);
-    setStaples(pantry);
     setSections(used);
   }
 
@@ -59,19 +55,6 @@ export default function FamilyDataPanel() {
   async function handleRemoveCategory(key: string) {
     if (!familyId) return;
     await run(() => removeCategoryOverride(familyId, key));
-  }
-
-  async function handleAddStaple() {
-    const label = stapleLabel.trim();
-    if (!familyId || !label) return;
-    await run(async () => {
-      await addItem(familyId, label);
-      setStapleLabel("");
-    });
-  }
-
-  async function handleRemoveStaple(id: string) {
-    await run(() => removeItem(id));
   }
 
   if (!activeFamily) {
@@ -108,29 +91,11 @@ export default function FamilyDataPanel() {
         ))
       )}
 
-      <h3>Pantry staples</h3>
-      <div className="chip-row">
-        {staples.map((s) => (
-          <span key={s.id} className="chip">
-            {s.label}
-            <button
-              type="button"
-              aria-label={`Remove ${s.label}`}
-              onClick={() => handleRemoveStaple(s.id)}
-            >
-              x
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
-        <input
-          value={stapleLabel}
-          onChange={(e) => setStapleLabel(e.target.value)}
-          placeholder="Add a staple"
-        />
-        <button type="button" onClick={handleAddStaple}>Add</button>
-      </div>
+      <h3>The cupboard</h3>
+      <p className="vault-note">
+        What your family keeps in, and what is in right now, is managed in{" "}
+        <Link to="/kitchen/cupboard">the cupboard</Link>.
+      </p>
 
       <h3>Recipe sections in use</h3>
       <p className="vault-note">
