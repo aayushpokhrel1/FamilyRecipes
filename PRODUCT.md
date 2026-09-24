@@ -79,9 +79,22 @@ future design should protect each of them, not trade one for another.
   lines are moved into a separate "check you have these" group. They are FLAGGED, never hidden,
   because silently dropping a line would hide a real shortage.
 
+- Ingredient aisles: which aisle an ingredient belongs to is DERIVED from its name against a
+  curated catalog of about 115 items, never stored on the recipe, because it is a fact about the
+  ingredient rather than about the recipe. The grocery list groups by aisle by default; the recipe
+  page offers it as a view toggle that defaults to the author's own order. Anything the catalog
+  does not recognise groups under "Other", and a family can tag it once (stored per family, and it
+  may override the catalog as well as extend it), after which both views agree.
+- Ingredient sections are a separate concept from aisles: a section is a part of a recipe ("For
+  the marinade") and is the cook's judgement, so it is never auto-filled. The editor offers the
+  sections used in that recipe, then the family's own past sections, then a short curated list.
+
 Explicitly undecided or deferred (future work must not present these as done):
 
 - The **public community feed** (follow / save / fork with link-back) is designed, not built.
+- A **family-editable ingredient catalog** is not built. A family can tag an ingredient's aisle,
+  which is enough to empty the "Other" group over time, but they cannot add, rename or remove
+  catalog entries or invent an aisle from the UI.
 - **Ingredient normalization** for grocery lists now adds a curated synonym map on top of the
   cheap key-based grouping, so "all-purpose flour" and "flour" become one line. **LLM / entity
   canonicalization is still deferred** and remains the unbuilt half: anything the map has never
