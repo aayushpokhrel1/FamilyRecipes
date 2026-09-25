@@ -28,8 +28,11 @@ export default function SignUp() {
         <h1>Check your email</h1>
         <p>
           We sent a confirmation link to <strong>{email}</strong>. Click it to finish setting up
-          your account, then sign in.
+          your account.
         </p>
+        {/* Deliberately does NOT say "then sign in": Supabase's confirmation link verifies and
+            redirects with a session, so the usual landing is already signed in. Telling someone
+            to do a thing that has already happened reads as a broken flow. */}
         <p>
           <Link to="/signin">Back to sign in</Link>
         </p>
