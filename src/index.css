@@ -977,3 +977,9 @@ button[aria-pressed="true"] {
 .cupboard-remove:hover { color: var(--on-wall); }
 /* If a chip row is ever moved onto a plate, the control follows the plate. */
 .plate .cupboard-remove { color: var(--ink-soft); }
+
+/* The method box: one full-width block of text, tall enough to see a whole
+   recipe at once. It sits on the wall (the recipe form is not a .plate), so it
+   keeps the plate's own ink from the base control rule rather than an on-wall
+   colour, which would be cream on cream. */
+.step-text { display: block; width: 100%; margin-top: 6px; }
