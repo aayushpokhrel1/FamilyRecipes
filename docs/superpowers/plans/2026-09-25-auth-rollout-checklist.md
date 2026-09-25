@@ -128,6 +128,23 @@ and type what is left. **Never paste a name ending in `.enamelvault.com` into Cl
 you get `...enamelvault.com.enamelvault.com`. That is the most common failure here, and it
 presents as a Resend check that simply never goes green, with no error explaining why.
 
+### 1B-bis. You do NOT "add the subdomain" first
+
+Cloudflare has no create-a-subdomain action. A subdomain exists the moment a record exists at
+that name inside the zone, so adding the records in 1C IS creating it. There is no prior step
+and nothing is missing if `mail.enamelvault.com` does not appear anywhere yet.
+
+`mail.enamelvault.com` itself needs no record of its own either. Nothing connects to it; it is
+only the label the mail is FROM. Resend verifies against its children (`send.mail` and
+`resend._domainkey.mail`).
+
+Contrast with `recipes.enamelvault.com`, which DID need an `AAAA`, because something has to
+answer HTTP there. A sending domain answers nothing and only has to be findable for the DKIM
+and SPF lookups.
+
+If Resend's table does include a row named for the bare domain (shown as `@` or
+`mail.enamelvault.com`), that one goes into Cloudflare as just `mail`. Same rule as 1B.
+
 ### 1C. Add the records in Cloudflare
 
 `https://dash.cloudflare.com` -> `enamelvault.com` -> **DNS** -> **Records** -> **Add record**,
