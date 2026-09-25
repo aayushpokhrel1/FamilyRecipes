@@ -27,7 +27,45 @@ Read live from `https://ghcclshgdtbystosfzjl.supabase.co/auth/v1/settings`, and 
 
 ---
 
-## Stage 0: check the spec's premise before trusting the rest of it
+## Stage 0: RESOLVED 2026-09-25. The premise was wrong; the ordering is dissolved.
+
+`select email, email_confirmed_at, created_at from auth.users` on cloud returned **4 users, all
+with `email_confirmed_at` set, each within ~50ms of its own `created_at`**. That is
+`mailer_autoconfirm` stamping them at signup, not anyone confirming anything.
+
+```
+x1789698549531@t.dev     confirmed 2026-09-18   (test junk)
+e2e-live@test.dev        confirmed 2026-09-18   (test junk)
+aayus.pok@gmail.com      confirmed 2026-09-19
+megan.r.dodds@gmail.com  confirmed 2026-09-20
+```
+
+**Consequences, in order of how much they change:**
+
+1. **Google is no longer blocked by email verification.** The spec's whole rollout order exists
+   to stop Supabase refusing to link an OAuth identity to an unconfirmed account. These accounts
+   are confirmed, so linking should work today. Stage 5 can be done first, or alone.
+2. **The "all our recipes are gone" failure the spec was written to prevent cannot happen the
+   way it describes it.** Signing in with Google as `aayus.pok@gmail.com` should land in the
+   existing account, family and recipes intact.
+3. **The takeover risk the confirmation flag normally guards is real but currently empty.** Both
+   real accounts are Gmail addresses whose owners plausibly typed them in themselves. The risk
+   is about FUTURE signups, not the present four.
+4. **Stage 4, the gate, is now trivial.** Existing users stay confirmed even after confirmation
+   is switched on; `email_confirmed_at` is already set and nothing clears it. There is nobody to
+   confirm retroactively.
+
+**What is still worth doing, and why, now that it is not a blocker:** real verification means a
+password reset reaches a real person, and that "who is in this family" is a claim someone
+proved. That is worth an evening on its own merits. It is no longer a prerequisite for anything.
+
+- [ ] Delete `x1789698549531@t.dev` and `e2e-live@test.dev`. Test junk in the production auth
+      table, and two fewer rows to reason about next time.
+
+**This is now a two-track plan, not one ordered chain.** Track A (stages 1 to 4) and track B
+(stage 5 plus my code) are independent. Pick either, or both.
+
+## Stage 0 (original): check the spec's premise before trusting the rest of it
 
 The spec says "confirmation is off, so **every existing account has an unconfirmed email**", and
 builds the forced ordering on top of that. **That premise may be wrong**, and it is worth two
@@ -127,16 +165,14 @@ Authentication -> URL Configuration:
 - [ ] The link lands on `recipes.enamelvault.com` and signs you in
 - [ ] Delete that throwaway user afterwards
 
-## Stage 4: the gate
+## Stage 4: the gate — now a formality, see stage 0
 
-**Nothing about Google happens until this passes.**
+Stage 0 found every existing account already carries `email_confirmed_at`, and switching
+confirmation on does not clear it. So there is nobody to confirm retroactively and nothing here
+blocks Google.
 
-- [ ] Every existing account shows confirmed under Authentication -> Users
-- [ ] Specifically your own account, the one holding the real family vault
-
-If stage 0 found them unconfirmed, confirm each one directly here. There is a handful of them,
-and nothing confirms them retroactively. If stage 0 found them already confirmed, just re-check
-the list and move on.
+- [ ] Re-run the stage 0 query and confirm it still returns no nulls
+- [ ] Delete the two test accounts if you have not already
 
 ## Stage 5: Google
 
