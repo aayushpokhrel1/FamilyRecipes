@@ -100,31 +100,74 @@ Tell me which it is. It changes what I write in stage 4 and nothing else.
 Using a subdomain rather than the apex, so app mail cannot damage the reputation of
 `enamelvault.com` itself, and so a future mailbox on the apex does not collide with this.
 
-- [ ] Create a Resend account, free tier (3,000/month, 100/day) is far beyond this app's needs
-- [ ] Add domain **`mail.enamelvault.com`**, region EU or US, it does not matter here
-- [ ] Resend shows 3 records. Add each in Cloudflare DNS **exactly as given**:
-  - [ ] `MX` on `send.mail` (for bounce handling)
-  - [ ] `TXT` on `send.mail` (SPF, the `v=spf1 include:amazonses.com ~all` one)
-  - [ ] `TXT` on `resend._domainkey.mail` (DKIM, a long key, paste the whole thing)
-- [ ] Add DMARC yourself, Resend does not: `TXT` on `_dmarc` with
+### 1A. Resend account and domain
+
+- [ ] Sign up at `https://resend.com`. Free tier is 3,000/month and 100/day, far beyond this
+      app's needs. No card required.
+- [ ] Verify your own Resend login email (ordinary signup, unrelated to everything below)
+- [ ] **Domains** -> **Add Domain**
+- [ ] Name: **`mail.enamelvault.com`** — type the subdomain, NOT `enamelvault.com`
+- [ ] Region: whichever is nearest you. It only sets where sending is served, but it DOES
+      change the values in the records below, so do not mix regions between attempts.
+- [ ] Click Add. Resend now shows a **table of DNS records**. Leave that tab open.
+
+### 1B. The name translation that catches everyone
+
+Resend prints record names **relative to the domain you added** (`mail.enamelvault.com`), but
+Cloudflare's zone is **`enamelvault.com`** and appends the zone to whatever you type.
+
+**So every name Resend shows you gains `.mail` when you type it into Cloudflare:**
+
+| Resend shows | You type in Cloudflare | Which really means |
+|---|---|---|
+| `send` | `send.mail` | `send.mail.enamelvault.com` |
+| `resend._domainkey` | `resend._domainkey.mail` | `resend._domainkey.mail.enamelvault.com` |
+
+If Resend shows a name already ending in `.mail.enamelvault.com`, strip the `.enamelvault.com`
+and type what is left. **Never paste a name ending in `.enamelvault.com` into Cloudflare**, or
+you get `...enamelvault.com.enamelvault.com`. That is the most common failure here, and it
+presents as a Resend check that simply never goes green, with no error explaining why.
+
+### 1C. Add the records in Cloudflare
+
+`https://dash.cloudflare.com` -> `enamelvault.com` -> **DNS** -> **Records** -> **Add record**,
+once per row. Typically three rows:
+
+- [ ] **MX**, name `send.mail`, content the `feedback-smtp.<region>.amazonses.com` value Resend
+      gives, **Priority 10**. This is bounce handling.
+- [ ] **TXT**, name `send.mail`, content `v=spf1 include:amazonses.com ~all` (SPF)
+- [ ] **TXT**, name `resend._domainkey.mail`, content the long `p=MIGfMA0...` DKIM key
+
+- [ ] **DMARC, which Resend does not give you.** TXT, name `_dmarc`, content
       `v=DMARC1; p=none; rua=mailto:aayus.pok@gmail.com`
-      (`p=none` is monitor-only and is the correct place to start; tighten later if you care)
-- [ ] Click Verify in Resend, wait for green
+      Put it at `_dmarc` (the org domain), **not** `_dmarc.mail`, so it covers the whole zone:
+      a subdomain with no DMARC of its own inherits the org domain's. `p=none` is monitor-only
+      and is the correct place to start. Tighten later only if you care.
 
-**Cloudflare gotchas that will waste your time:**
+**Gotchas that will waste your time:**
 
-- **Every one of these must be DNS-only (grey cloud), never proxied.** MX and TXT cannot be
-  proxied at all, so this only bites if Resend gives you a CNAME.
-- **Only one SPF TXT record per name, ever.** If `send.mail` somehow ends up with two, mail
-  silently starts failing. Merge, do not stack.
-- Cloudflare appends the zone automatically. Type `resend._domainkey.mail`, not
-  `resend._domainkey.mail.enamelvault.com`, or you get
-  `resend._domainkey.mail.enamelvault.com.enamelvault.com`.
+- **Paste the DKIM key whole, as one line.** It is long and wraps in the browser; a line break
+  or a dropped character fails silently and looks identical to a typo you cannot see.
+- **Do not include the outer quotes** on TXT values. Cloudflare adds them.
+- **Only one SPF TXT per name, ever.** Two SPF records on `send.mail` is worse than none: it is
+  a permanent error, not a merge. If you retry the setup, EDIT the existing one.
+- **Everything here stays DNS-only (grey cloud).** MX and TXT have no proxy toggle at all, so
+  this only bites if Resend hands you a CNAME.
+- Leave TTL on Auto.
 
-- [ ] Create a Resend **API key** (Sending access is enough) and keep it for stage 2
+### 1D. Verify
 
-**Verify:** all three go green in Resend, and send yourself a test from the Resend dashboard.
-Ping me and I can confirm the records resolve from outside your machine.
+- [ ] Back in Resend, click **Verify DNS Records**. Usually green within a minute or two on
+      Cloudflare. If not, re-click; do not re-add the records.
+- [ ] Send yourself a test from Resend's dashboard, confirm it arrives, **and check spam**
+
+### 1E. The API key for stage 2
+
+- [ ] Resend -> **API Keys** -> **Create API Key**
+- [ ] **Sending access** is enough. Do not grant full access.
+- [ ] **Copy it now.** Resend shows the value once and never again.
+- [ ] It becomes the SMTP password in stage 2. It is a credential: do not paste it into chat,
+      a commit, or this file.
 
 ## Stage 2: point Supabase at it
 
