@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { extractRecipe } from "../lib/api/extract";
 import type { Step } from "../lib/api/types";
 import { useRecorder } from "../lib/useRecorder";
@@ -21,6 +21,13 @@ export default function StepEditor({
   const [text, setText] = useState(() => items.map((s) => s.text).join("\n"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The recorder's callback is captured when recording STARTS, so reading
+  // `text` inside it would append to whatever was in the box back then and
+  // silently drop anything typed while talking. The ref always holds the
+  // current text.
+  const textRef = useRef(text);
+  textRef.current = text;
 
   // Re-sync only when items change from OUTSIDE (the AI prefill panel replacing
   // the draft, or the edit page loading a recipe). Comparing against what this
@@ -50,7 +57,7 @@ export default function StepEditor({
       // Append, never replace: someone may dictate in more than one go, and
       // silently destroying what is already in the box is unforgivable.
       const spoken = draft.steps.map((s) => s.text).join("\n");
-      const combined = [text.trim(), spoken].filter(Boolean).join("\n");
+      const combined = [textRef.current.trim(), spoken].filter(Boolean).join("\n");
       setText(combined);
       onChange(toSteps(combined));
     } catch (err) {
