@@ -109,7 +109,18 @@ export default function RecipeEdit() {
           itemSuggestions={itemSuggestions}
           sectionSuggestions={sectionSuggestions}
         />
-        <StepEditor items={draft.steps} onChange={(steps) => setDraft({ ...draft, steps })} />
+        <StepEditor
+          items={draft.steps}
+          onChange={(steps) => setDraft({ ...draft, steps })}
+          // Only when the cook has not written any ingredients themselves. Tidy and the mic
+          // extract a whole recipe, and dropping what they found was silent data loss; but
+          // overwriting ingredients someone typed would be worse than the bug being fixed.
+          onIngredientsFound={(found) => {
+            if (draft.ingredients.some((i) => i.item.trim())) return 0;
+            setDraft({ ...draft, ingredients: found });
+            return found.length;
+          }}
+        />
         <label>
           Title
           <input

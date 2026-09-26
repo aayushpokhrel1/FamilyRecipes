@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { extractRecipe } from "../lib/api/extract";
-import type { Step } from "../lib/api/types";
+import type { Ingredient, Step } from "../lib/api/types";
 import { useRecorder } from "../lib/useRecorder";
 
 function toSteps(text: string): Step[] {
@@ -11,9 +11,15 @@ function toSteps(text: string): Step[] {
 export default function StepEditor({
   items,
   onChange,
+  onIngredientsFound,
 }: {
   items: Step[];
   onChange: (items: Step[]) => void;
+  // Tidy and the mic extract a WHOLE recipe and this box only ever wanted the steps, so
+  // any ingredients the model read were thrown away without a word. Paste a full recipe
+  // here and eight ingredients it correctly found would vanish. The parent decides whether
+  // it can use them (it knows if the form already has some) and returns how many it took.
+  onIngredientsFound?: (ingredients: Ingredient[]) => number;
 }) {
   // The box owns its own string. Deriving the value from `items` on every
   // keystroke would delete a blank line the moment Enter is pressed, so a new
@@ -21,6 +27,7 @@ export default function StepEditor({
   const [text, setText] = useState(() => items.map((s) => s.text).join("\n"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   // The recorder's callback is captured when recording STARTS, so reading
   // `text` inside it would append to whatever was in the box back then and
@@ -28,6 +35,17 @@ export default function StepEditor({
   // current text.
   const textRef = useRef(text);
   textRef.current = text;
+
+  // Same hazard as textRef above: the recorder captures its callback at the moment
+  // recording STARTS, so calling the prop directly from in there would use whatever the
+  // parent passed back then. Always go through the ref.
+  const onIngredientsFoundRef = useRef(onIngredientsFound);
+  onIngredientsFoundRef.current = onIngredientsFound;
+
+  function offerIngredients(found: Ingredient[]) {
+    const added = found.length > 0 ? (onIngredientsFoundRef.current?.(found) ?? 0) : 0;
+    setNote(added > 0 ? `Also filled in ${added} ingredient${added === 1 ? "" : "s"}.` : null);
+  }
 
   // Re-sync only when items change from OUTSIDE (the AI prefill panel replacing
   // the draft, or the edit page loading a recipe). Comparing against what this
@@ -51,6 +69,7 @@ export default function StepEditor({
     error: recorderError,
   } = useRecorder(async (base64) => {
     setError(null);
+    setNote(null);
     setLoading(true);
     try {
       const draft = await extractRecipe("audio", base64);
@@ -60,6 +79,7 @@ export default function StepEditor({
       const combined = [textRef.current.trim(), spoken].filter(Boolean).join("\n");
       setText(combined);
       onChange(toSteps(combined));
+      offerIngredients(draft.ingredients);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -69,12 +89,14 @@ export default function StepEditor({
 
   async function handleTidy() {
     setError(null);
+    setNote(null);
     setLoading(true);
     try {
       const draft = await extractRecipe("text", text);
       const tidied = draft.steps.map((s) => s.text).join("\n");
       setText(tidied);
       onChange(toSteps(tidied));
+      offerIngredients(draft.ingredients);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -112,6 +134,10 @@ export default function StepEditor({
         )}
       </div>
       {recording && <p className="vault-note">Recording… tap Stop when done.</p>}
+      {/* role="status" so it is announced: something changed elsewhere on the form, above
+          where the cook is looking, and silently filling a field they did not ask about is
+          worse than not filling it. */}
+      {note && <p role="status" className="vault-note">{note}</p>}
       {(error ?? recorderError) && <p role="alert" className="form-error">{error ?? recorderError}</p>}
     </div>
   );

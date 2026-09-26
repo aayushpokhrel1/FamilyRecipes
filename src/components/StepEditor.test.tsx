@@ -75,3 +75,55 @@ test("no mic button when recording is unsupported", () => {
   render(<StepEditor items={[step("Boil the water")]} onChange={() => {}} />);
   expect(screen.queryByRole("button", { name: /speak|record|mic/i })).toBeNull();
 });
+
+// The bug: Tidy and the mic extract a WHOLE recipe but this box only kept draft.steps, so
+// ingredients the model correctly read were discarded without a word. Paste a full recipe
+// into the method box and eight ingredients would silently vanish.
+const draftWithIngredients = {
+  title: "",
+  story: "",
+  provenance: "",
+  servings: null,
+  prep_minutes: null,
+  cook_minutes: null,
+  ingredients: [
+    { position: 0, quantity: "2", unit: null, item: "eggs" },
+    { position: 1, quantity: "1", unit: "cup", item: "flour" },
+  ],
+  steps: [step("Whisk", 0)],
+  source_url: null,
+};
+
+test("Tidy hands any ingredients it found to the parent, and says so", async () => {
+  const { extractRecipe } = await import("../lib/api/extract");
+  (extractRecipe as ReturnType<typeof vi.fn>).mockResolvedValueOnce(draftWithIngredients);
+  const onIngredientsFound = vi.fn().mockReturnValue(2);
+  render(
+    <StepEditor items={[step("a paragraph")]} onChange={() => {}} onIngredientsFound={onIngredientsFound} />
+  );
+  await userEvent.click(screen.getByRole("button", { name: /tidy into steps/i }));
+  await waitFor(() => expect(onIngredientsFound).toHaveBeenCalledWith(draftWithIngredients.ingredients));
+  expect(await screen.findByText(/also filled in 2 ingredients/i)).toBeTruthy();
+});
+
+// The parent refuses when the cook has already written ingredients of their own.
+// Overwriting those would be worse than the bug being fixed, so it must stay silent.
+test("says nothing when the parent takes none", async () => {
+  const { extractRecipe } = await import("../lib/api/extract");
+  (extractRecipe as ReturnType<typeof vi.fn>).mockResolvedValueOnce(draftWithIngredients);
+  render(
+    <StepEditor items={[step("a paragraph")]} onChange={() => {}} onIngredientsFound={() => 0} />
+  );
+  await userEvent.click(screen.getByRole("button", { name: /tidy into steps/i }));
+  await waitFor(() => expect(box().value).toBe("Whisk"));
+  expect(screen.queryByText(/also filled in/i)).toBeNull();
+});
+
+test("works with no onIngredientsFound prop at all", async () => {
+  const { extractRecipe } = await import("../lib/api/extract");
+  (extractRecipe as ReturnType<typeof vi.fn>).mockResolvedValueOnce(draftWithIngredients);
+  render(<StepEditor items={[step("a paragraph")]} onChange={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: /tidy into steps/i }));
+  await waitFor(() => expect(box().value).toBe("Whisk"));
+  expect(screen.queryByText(/also filled in/i)).toBeNull();
+});
