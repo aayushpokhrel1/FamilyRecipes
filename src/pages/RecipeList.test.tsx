@@ -29,6 +29,10 @@ vi.mock("../lib/api/recipes", () => ({
   ]),
 }));
 
+vi.mock("../lib/api/photos", () => ({
+  listCoverPhotoUrls: vi.fn().mockResolvedValue(new Map()),
+}));
+
 test("lists recipes for the active family", async () => {
   render(
     <MemoryRouter>

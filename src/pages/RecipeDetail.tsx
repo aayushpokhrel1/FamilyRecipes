@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteRecipe, getRecipe } from "../lib/api/recipes";
+import { getCoverPhotoUrl } from "../lib/api/photos";
 import { listPlans, addRecipe } from "../lib/api/mealPlans";
 import { listCategoryOverrides } from "../lib/api/ingredientCategories";
 import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
@@ -13,6 +14,7 @@ export default function RecipeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,19 @@ export default function RecipeDetail() {
   useEffect(() => {
     listPlans().then(setPlans).catch(() => setPlans([]));
   }, []);
+
+  // A recipe with no photo is normal, and a failed signing call is not a page
+  // error: both resolve to null and the page renders without the image.
+  useEffect(() => {
+    if (!id) { setPhotoUrl(null); return; }
+    let ignore = false;
+    getCoverPhotoUrl(id)
+      .then((url) => { if (!ignore) setPhotoUrl(url); })
+      .catch(() => { if (!ignore) setPhotoUrl(null); });
+    return () => {
+      ignore = true;
+    };
+  }, [id]);
 
   // The family's own aisle tags, so the By category view agrees with the
   // grocery list. A failure here leaves the map empty and the list still works.
@@ -140,6 +155,8 @@ export default function RecipeDetail() {
         </p>
       )}
       {addMsg && <p className="vault-note">{addMsg}</p>}
+
+      {photoUrl && <img className="recipe-photo" src={photoUrl} alt={recipe.title} />}
 
       <div className="recipe-body">
         <section className="plate panel">

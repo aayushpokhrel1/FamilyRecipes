@@ -25,6 +25,10 @@ vi.mock("../lib/api/mealPlans", () => ({
   addRecipe: vi.fn(),
 }));
 
+vi.mock("../lib/api/photos", () => ({
+  getCoverPhotoUrl: vi.fn().mockResolvedValue(null),
+}));
+
 test("renders the recipe title, ingredients and steps", async () => {
   render(
     <MemoryRouter initialEntries={["/recipes/r1"]}>

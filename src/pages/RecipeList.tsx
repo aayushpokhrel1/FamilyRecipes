@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { listRecipes } from "../lib/api/recipes";
+import { listCoverPhotoUrls } from "../lib/api/photos";
 import { listTags } from "../lib/api/tags";
 import type { Recipe, Tag } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
@@ -13,6 +14,7 @@ export default function RecipeList() {
   const [tagId, setTagId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -34,6 +36,19 @@ export default function RecipeList() {
       .then(setRecipes)
       .finally(() => setLoading(false));
   }, [activeFamily, debouncedSearch, tagId]);
+
+  // One select and one batch signing call for the whole list. Photos are
+  // decoration: a failed signing call must never stop the vault rendering, so
+  // the catch leaves the monograms in place.
+  useEffect(() => {
+    let ignore = false;
+    listCoverPhotoUrls(recipes.map((r) => r.id))
+      .then((urls) => { if (!ignore) setPhotoUrls(urls); })
+      .catch(() => { if (!ignore) setPhotoUrls(new Map()); });
+    return () => {
+      ignore = true;
+    };
+  }, [recipes]);
 
   return (
     <div>
@@ -67,7 +82,7 @@ export default function RecipeList() {
       )}
       <ul className="plate-grid">
         {recipes.map((r) => (
-          <RecipeCard key={r.id} recipe={r} />
+          <RecipeCard key={r.id} recipe={r} photoUrl={photoUrls.get(r.id) ?? null} />
         ))}
       </ul>
     </div>
