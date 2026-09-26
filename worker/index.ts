@@ -96,8 +96,18 @@ async function serveOgImage(env: Env, id: string): Promise<Response> {
   }
 }
 
-function rewriteTags(asset: Response, tags: Tags): Response {
+function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean): Response {
+  // The width and height in index.html describe the static 1200x630 card. A proxied recipe
+  // photo is whatever shape the cook's camera produced, so keeping them would state a size
+  // that is simply wrong and invite a bad crop. Dropping them lets the crawler measure.
+  const dropFixedSize = {
+    element(element: Element): void {
+      if (hasPhoto) element.remove();
+    },
+  };
   return new HTMLRewriter()
+    .on('meta[property="og:image:width"]', dropFixedSize)
+    .on('meta[property="og:image:height"]', dropFixedSize)
     .on("title", {
       element(element) {
         // setInnerContent escapes text by default, which is what we want for a title.
@@ -159,7 +169,7 @@ async function enrichRecipePage(request: Request, env: Env, id: string): Promise
       hasPhoto,
       origin: new URL(request.url).origin,
     });
-    return rewriteTags(asset, tags);
+    return rewriteTags(asset, tags, hasPhoto);
   } catch {
     // A preview is a nice-to-have; the page load is not. Any Supabase or parsing failure
     // degrades to the untouched asset.
