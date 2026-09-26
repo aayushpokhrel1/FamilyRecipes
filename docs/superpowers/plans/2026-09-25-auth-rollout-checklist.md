@@ -240,6 +240,28 @@ otherwise they get re-added constantly. **Remove them when this project goes qui
 **Nothing is switched on at the end of stage 2.** No email is sent yet. That is stage 3, on
 purpose, so a typo here is cheap.
 
+## STATUS: stages 1, 2 and 3 are DONE and verified (2026-09-25)
+
+Email verification is LIVE on production. `mailer_autoconfirm` reads `false` from
+`https://ghcclshgdtbystosfzjl.supabase.co/auth/v1/settings`, checked independently of the
+dashboard.
+
+**Proved end to end by a real signup** on `aayus.pok+test1@gmail.com` (Gmail plus-addressing:
+a separate user to Supabase, same inbox to you). The mail arrived, and its headers are the
+receipt for stage 1:
+
+- `mailed-by: rsend.mail.enamelvault.com` — the return-path CNAME resolving
+- `signed-by: mail.enamelvault.com` — DKIM verifying against the TXT record
+
+**It landed in the inbox, not spam**, on a domain registered the same day. Better than typical.
+
+**Account deletion was exercised against production for the first time** while cleaning the
+test user up, via Settings -> Danger zone rather than the dashboard. The previous handover
+recorded that flow as tested only up to the confirmation step and never actually confirmed on
+cloud. That gap is now closed, on an account where failure would not have mattered.
+
+**Still open:** stage 5 (Google) and the localhost redirect cleanup noted in stage 2.
+
 ## Stage 3: turn confirmation on
 
 - [ ] Authentication -> Sign In / Providers -> Email -> **Confirm email: ON**
