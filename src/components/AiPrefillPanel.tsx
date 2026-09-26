@@ -87,8 +87,14 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
       )}
       {mode === "image" && (
         <label>
-          Photo
+          Photo of a recipe card
           <input type="file" accept="image/*" onChange={handleFile} disabled={loading} />
+          {/* Says "recipe card" because the model READS, it does not recognise. A photo of
+              the finished dish has no words in it and comes back invented. */}
+          <span className="vault-note">
+            A recipe card, a cookbook page, a handwritten note. Not the finished dish: this
+            reads the writing, it cannot tell what a plate of food contains.
+          </span>
         </label>
       )}
       {mode === "audio" && (
