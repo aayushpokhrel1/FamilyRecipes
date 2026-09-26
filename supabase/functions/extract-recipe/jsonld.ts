@@ -23,6 +23,50 @@ const SCRIPT_RE = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>(
 // ISO-8601 duration, e.g. PT1H30M -> 90, PT20M -> 20, P1DT2H -> 1560.
 const DURATION_RE = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i;
 
+// Named HTML entities we care about. Keys are lowercase; lookups are
+// case-insensitive on the name.
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  rsquo: "\u2019",
+  lsquo: "\u2018",
+  rdquo: "\u201D",
+  ldquo: "\u201C",
+  ndash: "\u2013",
+  mdash: "\u2014",
+  hellip: "\u2026",
+  deg: "\u00B0",
+  ordm: "\u00BA",
+  frac12: "\u00BD",
+  frac14: "\u00BC",
+  frac34: "\u00BE",
+};
+
+// Matches a named entity, a decimal numeric entity, or a hex numeric entity.
+const ENTITY_RE = /&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([a-zA-Z][a-zA-Z0-9]*));/g;
+
+// Non-breaking and other space-like characters that must become ordinary spaces.
+const SPACE_LIKE_RE = /[\u00A0\u2007\u202F]/g;
+
+// Decode HTML entities (named and numeric) in a single pass, fold non-breaking
+// spaces into ordinary ones, then trim. Unknown entities are left verbatim.
+export function cleanText(raw: string): string {
+  const decoded = raw.replace(ENTITY_RE, (match, dec: string | undefined, hex: string | undefined, name: string | undefined) => {
+    if (dec !== undefined || hex !== undefined) {
+      const code = dec !== undefined ? Number(dec) : parseInt(hex as string, 16);
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return match;
+      return String.fromCodePoint(code);
+    }
+    const value = NAMED_ENTITIES[(name as string).toLowerCase()];
+    return value !== undefined ? value : match;
+  });
+  return decoded.replace(SPACE_LIKE_RE, " ").trim();
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -147,7 +191,7 @@ function parseIngredients(value: unknown): Ingredient[] {
   const out: Ingredient[] = [];
   for (const raw of value) {
     if (typeof raw !== "string") continue;
-    const line = raw.trim();
+    const line = cleanText(raw);
     if (!line) continue;
     out.push({ position: out.length, ...splitIngredient(line) });
   }
@@ -158,7 +202,7 @@ function parseSteps(value: unknown): Step[] {
   const texts: string[] = [];
   const push = (raw: unknown) => {
     if (typeof raw !== "string") return;
-    const text = raw.trim();
+    const text = cleanText(raw);
     if (text) texts.push(text);
   };
   if (typeof value === "string") {
@@ -188,8 +232,8 @@ export function parseRecipeJsonLd(html: string): RecipeDraft | null {
   if (!node) return null;
 
   return {
-    title: typeof node.name === "string" ? node.name : "",
-    story: typeof node.description === "string" ? node.description : "",
+    title: typeof node.name === "string" ? cleanText(node.name) : "",
+    story: typeof node.description === "string" ? cleanText(node.description) : "",
     provenance: "",
     servings: parseServings(node.recipeYield),
     prep_minutes: parseDuration(node.prepTime),
