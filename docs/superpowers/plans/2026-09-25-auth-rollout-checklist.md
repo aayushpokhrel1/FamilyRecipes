@@ -240,7 +240,36 @@ otherwise they get re-added constantly. **Remove them when this project goes qui
 **Nothing is switched on at the end of stage 2.** No email is sent yet. That is stage 3, on
 purpose, so a typo here is cheap.
 
-## STATUS: stages 1, 2 and 3 are DONE and verified (2026-09-25)
+## STATUS: COMPLETE. All stages done and verified (2026-09-26)
+
+**Google sign-in is live and proven against the real account.** Provider reads `google: true`
+from the settings endpoint, the deployed bundle carries `/auth/callback` and the panel, and the
+database shows the outcome that matters:
+
+```
+aayus.pok@gmail.com  a91a650d-1c06-47ac-a419-7cda0d275f63  email
+aayus.pok@gmail.com  a91a650d-1c06-47ac-a419-7cda0d275f63  google   <- SAME id
+```
+
+**One account, two ways in.** No duplicate was created, which was the failure the whole
+ordering existed to prevent. Stage 0 predicted this from `email_confirmed_at` being set; it is
+now evidence rather than inference.
+
+**The walkthrough was done in a SAFER order than the spec gives, and the order should stand if
+this is ever repeated.** The spec says test Google sign-in first. Instead: sign in with the
+password, then **Connect from Settings**, which attaches Google to the account you are already
+inside. There is no matching and no chance of landing in a second account, so the risky step
+becomes a formality. Only then sign out and sign in with Google.
+
+**The Settings panel rendered correctly on its first ever render**, including the contrast check
+(`.plate .vault-note`). The cream-on-cream failure that shipped on that page before did not
+repeat.
+
+Both leftover test accounts (`x1789698549531@t.dev`, `e2e-live@test.dev`) were deleted.
+
+**Still open, both minor:** the localhost redirect entries (stage 2), and nothing else.
+
+## STATUS (earlier): stages 1, 2 and 3 done and verified (2026-09-25)
 
 Email verification is LIVE on production. `mailer_autoconfirm` reads `false` from
 `https://ghcclshgdtbystosfzjl.supabase.co/auth/v1/settings`, checked independently of the
