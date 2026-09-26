@@ -145,32 +145,39 @@ and SPF lookups.
 If Resend's table does include a row named for the bare domain (shown as `@` or
 `mail.enamelvault.com`), that one goes into Cloudflare as just `mail`. Same rule as 1B.
 
-### 1C. Add the records in Cloudflare
+### 1C. The records, as actually issued on 2026-09-25
 
-`https://dash.cloudflare.com` -> `enamelvault.com` -> **DNS** -> **Records** -> **Add record**,
-once per row. Typically three rows:
+**DONE. All four were added via the Cloudflare API and verified.** Kept here because the shape
+is not what most Resend guides (or my first draft of this file) describe.
 
-- [ ] **MX**, name `send.mail`, content the `feedback-smtp.<region>.amazonses.com` value Resend
-      gives, **Priority 10**. This is bounce handling.
-- [ ] **TXT**, name `send.mail`, content `v=spf1 include:amazonses.com ~all` (SPF)
-- [ ] **TXT**, name `resend._domainkey.mail`, content the long `p=MIGfMA0...` DKIM key
+**Resend has moved off Amazon SES to its own MTA (`forge.rmta.net`).** So SPF/return-path is
+**two CNAMEs**, not an `MX` plus a `v=spf1` TXT. Anything you read describing
+`feedback-smtp.<region>.amazonses.com` is the older setup.
 
-- [ ] **DMARC, which Resend does not give you.** TXT, name `_dmarc`, content
-      `v=DMARC1; p=none; rua=mailto:aayus.pok@gmail.com`
-      Put it at `_dmarc` (the org domain), **not** `_dmarc.mail`, so it covers the whole zone:
-      a subdomain with no DMARC of its own inherits the org domain's. `p=none` is monitor-only
-      and is the correct place to start. Tighten later only if you care.
+| Type | Name (as typed in Cloudflare) | Content | Proxy |
+|---|---|---|---|
+| TXT | `resend._domainkey.mail` | `p=MIGfMA0GCSq...` (DKIM) | n/a |
+| CNAME | `rsend.mail` | `rsend.forge.rmta.net` | **DNS only** |
+| CNAME | `send.mail` | `send.forge.rmta.net` | **DNS only** |
+| TXT | `_dmarc` | `v=DMARC1; p=none;` | n/a |
 
-**Gotchas that will waste your time:**
+**Two things that would have broken this, both avoided:**
 
-- **Paste the DKIM key whole, as one line.** It is long and wraps in the browser; a line break
-  or a dropped character fails silently and looks identical to a typo you cannot see.
-- **Do not include the outer quotes** on TXT values. Cloudflare adds them.
-- **Only one SPF TXT per name, ever.** Two SPF records on `send.mail` is worse than none: it is
-  a permanent error, not a merge. If you retry the setup, EDIT the existing one.
-- **Everything here stays DNS-only (grey cloud).** MX and TXT have no proxy toggle at all, so
-  this only bites if Resend hands you a CNAME.
-- Leave TTL on Auto.
+- **Cloudflare defaults a new CNAME to Proxied (orange cloud), and a proxied CNAME breaks
+  mail.** It resolves to Cloudflare's anycast IPs instead of the MTA, so verification fails and
+  later so does delivery. Both were created with `proxied: false` explicitly. **If anyone ever
+  toggles these orange, mail stops.** That is what the record comments in Cloudflare say.
+- **Resend printed the names already carrying `.mail`** (`resend._domainkey.mail`, not
+  `resend._domainkey`). So the 1B translation did NOT apply, and appending `.mail` a second
+  time would have produced `resend._domainkey.mail.mail.enamelvault.com`. **Read the names
+  Resend actually gives you rather than applying the rule blindly.**
+
+**DMARC carries no `rua=`, deliberately.** An earlier draft of this file suggested
+`rua=mailto:aayus.pok@gmail.com`. **That would not have worked.** When the reporting address is
+on a different domain than the DMARC record, the receiving domain must publish an authorisation
+record (`enamelvault.com._report._dmarc.gmail.com`) and Gmail does not do that for arbitrary
+domains. Reports would have been silently discarded. Resend's plain `p=none;` is correct: it
+sets the policy to monitor-only without pretending to collect anything.
 
 ### 1D. Verify
 
