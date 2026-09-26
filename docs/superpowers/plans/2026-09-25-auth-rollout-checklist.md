@@ -229,6 +229,14 @@ serves the same worker. Leave it out and password reset fails for exactly those 
 redirect-not-allowed error, while working perfectly for you. Both dev ports are listed because
 `.claude/launch.json` pins 5174 while a bare `npm run dev` uses Vite's default 5173.
 
+**The two localhost entries are dev convenience and should not live there forever.** The risk
+is small but real: the allow list exists to stop a crafted link redirecting an auth token to a
+host someone else controls, and exploiting a localhost entry needs something already listening
+on that port on the victim's machine. That means malware or a hostile project already present,
+so it is a low-severity item, not an urgent one. Keep them while actively developing, since
+otherwise they get re-added constantly. **Remove them when this project goes quiet.**
+`workers.dev` is different and stays: family are using links already sent to that host.
+
 **Nothing is switched on at the end of stage 2.** No email is sent yet. That is stage 3, on
 purpose, so a typo here is cheap.
 
