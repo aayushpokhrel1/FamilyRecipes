@@ -5,6 +5,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { parseRecipeJsonLd } from "./jsonld.ts";
 import { SYSTEM_PROMPT, DRAFT_SCHEMA } from "./prompt.ts";
+import { callModelWithRetry } from "./retry.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -126,25 +127,23 @@ Deno.serve(async (req) => {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (key) headers.authorization = `Bearer ${key}`; // omit for keyless gateways
 
+  const body = JSON.stringify({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT + "\nSchema: " + JSON.stringify(DRAFT_SCHEMA) },
+      // Image mode sends the photo as a multimodal message (needs a vision
+      // model); text/url send the plain text extracted above.
+      mode === "image"
+        ? { role: "user", content: [
+            { type: "text", text: "Extract the recipe shown in this image." },
+            { type: "image_url", image_url: { url: payload } },
+          ] }
+        : { role: "user", content: inputText },
+    ],
+  });
+
   try {
-    const res = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + "\nSchema: " + JSON.stringify(DRAFT_SCHEMA) },
-          // Image mode sends the photo as a multimodal message (needs a vision
-          // model); text/url send the plain text extracted above.
-          mode === "image"
-            ? { role: "user", content: [
-                { type: "text", text: "Extract the recipe shown in this image." },
-                { type: "image_url", image_url: { url: payload } },
-              ] }
-            : { role: "user", content: inputText },
-        ],
-      }),
-    });
+    const res = await callModelWithRetry(`${base}/chat/completions`, headers, body);
     if (!res.ok) {
       return json({ error: `model error ${res.status}: ${await res.text()}` }, 502);
     }
