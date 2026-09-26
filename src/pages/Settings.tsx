@@ -4,6 +4,7 @@ import { getAvatarUrl, getMyProfile, updateDisplayName, updatePreferences, uploa
 import { deleteAccount } from "../lib/api/account";
 import { changePassword } from "../lib/api/auth";
 import FamilyDataPanel from "../components/FamilyDataPanel";
+import IdentitiesPanel from "../components/IdentitiesPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
 import type { Preferences, Profile } from "../lib/api/types";
 
@@ -295,6 +296,11 @@ export default function Settings() {
         </div>
 
         {statusLine(prefStatus)}
+      </section>
+
+      <section className="plate panel">
+        <h2>Sign-in methods</h2>
+        <IdentitiesPanel />
       </section>
 
       <section className="plate panel">

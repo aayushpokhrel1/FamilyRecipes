@@ -4,6 +4,7 @@ import AppLayout from "./components/AppLayout";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Recover from "./pages/Recover";
+import AuthCallback from "./pages/AuthCallback";
 import Families from "./pages/Families";
 import JoinByCode from "./pages/JoinByCode";
 import RecipeList from "./pages/RecipeList";
@@ -24,6 +25,10 @@ export default function AppRoutes() {
       {/* Outside RequireAuth on purpose: a recovery session is not a normal
           sign-in, and the guard would bounce the reset link to /signin. */}
       <Route path="/recover" element={<Recover />} />
+      {/* Outside RequireAuth for a different reason than /recover: a FAILED Google
+          sign-in comes back here with no session at all, and the guard would bounce
+          it to /signin, throwing away the only explanation of what went wrong. */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route
         element={
           <RequireAuth>
