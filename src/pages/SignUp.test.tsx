@@ -15,7 +15,8 @@ import SignUp from "./SignUp";
 function submit() {
   render(<MemoryRouter><SignUp /></MemoryRouter>);
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.dev" } });
-  fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
+  // Exact, not /sign up/i: "Sign up with Google" sits beside it and would match too.
+  fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
 }
 
 test("tells the user to check their inbox when there is no session yet", async () => {

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signIn, requestPasswordReset } from "../lib/api/auth";
+import GoogleButton from "../components/GoogleButton";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -53,6 +54,7 @@ export default function SignIn() {
       {resetSent && (
         <p role="status">If that address has an account, a reset link is on its way.</p>
       )}
+      <GoogleButton label="Sign in with Google" />
       <p>
         Need an account? <Link to="/signup">Sign up</Link>
       </p>

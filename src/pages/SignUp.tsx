@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signUp } from "../lib/api/auth";
+import GoogleButton from "../components/GoogleButton";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ export default function SignUp() {
       </label>
       {error && <p role="alert">{error}</p>}
       <button type="submit">Sign up</button>
+      <GoogleButton label="Sign up with Google" />
       <p>
         Already have an account? <Link to="/signin">Sign in</Link>
       </p>

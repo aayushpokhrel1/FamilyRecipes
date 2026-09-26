@@ -54,3 +54,25 @@ export async function setNewPassword(newPassword: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw new Error(error.message);
 }
+
+// Redirects the browser to Google, so nothing after this runs on the success path.
+// It comes back to /auth/callback, which exists to show a failure rather than dump
+// the person on /signin with no explanation. See routes.tsx.
+export async function signInWithGoogle(): Promise<void> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) throw new Error(error.message);
+}
+
+// For an account that signed up with Google and so has NO password to prove.
+// It deliberately skips the re-auth that changePassword performs, and that is NOT
+// the hole changePassword was written to close: there is no existing password whose
+// knowledge could be proven, so there is nothing to bypass. The caller is already
+// holding a valid session, exactly as in setNewPassword above.
+// Only ever offer this when the account has no email/password identity.
+export async function setFirstPassword(newPassword: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(error.message);
+}
