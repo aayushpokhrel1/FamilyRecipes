@@ -469,11 +469,16 @@ button.action:hover { background: var(--action-deep); }
 
 /* The page's main image, in an enamel frame. max-height keeps a portrait phone
    photo from pushing the ingredients and steps off screen. */
+/* Deliberately NOT object-fit: cover, unlike .card-photo. A card is a tile in a grid and
+   has to be uniform, so cropping is right there. This is the one picture of the dish the
+   cook actually made: cropping it to a fixed band cut the top and bottom off every portrait
+   phone photo, which is how most of them are taken. Sized by its own aspect ratio instead,
+   capped so a tall photo cannot push the recipe off the screen. */
 .recipe-photo {
   display: block;
-  width: 100%;
-  max-height: 360px;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 420px;
+  width: auto;
   border: 1.5px solid var(--rim);
   border-radius: var(--radius);
   box-shadow: var(--lift-sm);

@@ -1,9 +1,48 @@
 import { supabase } from "../supabaseClient";
 import type { RecipePhoto } from "./types";
 
+// A phone camera produces 3-4 MB of pixels nobody can see: the biggest this is ever drawn
+// is a few hundred CSS pixels. Uploading the original made the recipe page visibly wait on
+// a multi-megabyte download every time it was opened. Shrinking once, here, fixes it for
+// every later read instead of paying for it on each one.
+//
+// createImageBitmap with imageOrientation "from-image" applies the EXIF rotation. Without
+// it, photos taken in portrait upload on their side, which is the classic version of this
+// bug. Anything that fails (an odd format, a browser without the API) falls back to the
+// original file: a large photo is worse than a small one, but far better than no photo.
+const MAX_EDGE = 1600;
+const JPEG_QUALITY = 0.82;
+
+async function shrink(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || typeof createImageBitmap !== "function") return file;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.type === "image/jpeg") {
+      bitmap.close();
+      return file;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY)
+    );
+    if (!blob || blob.size >= file.size) return file; // never make it bigger
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 export async function uploadRecipePhoto(recipeId: string, file: File, isCover: boolean): Promise<RecipePhoto> {
   const path = recipeId + "/" + crypto.randomUUID();
-  const { error: upErr } = await supabase.storage.from("recipe-photos").upload(path, file);
+  const { error: upErr } = await supabase.storage.from("recipe-photos").upload(path, await shrink(file));
   if (upErr) throw new Error(upErr.message);
   const { data, error } = await supabase.from("recipe_photos")
     .insert({ recipe_id: recipeId, storage_path: path, is_cover: isCover }).select().single();

@@ -35,6 +35,9 @@ beforeEach(() => {
   upload.mockResolvedValue({ data: { path: "p" }, error: null });
 });
 
+// Note this also pins the shrink fallback: jsdom has no createImageBitmap, so the resize is
+// skipped and the ORIGINAL file object must reach storage. A photo that is too big beats a
+// photo that never uploaded, so every failure inside shrink() has to degrade to this.
 test("uploadRecipePhoto uploads the file then inserts a recipe_photos row", async () => {
   const { inserted } = mockTable();
   const file = new File(["x"], "cover.png", { type: "image/png" });
