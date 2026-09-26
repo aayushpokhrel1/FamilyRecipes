@@ -46,3 +46,6 @@ graphify-out/
 
 # session scratch briefs
 brief.md
+
+# wrangler dev writes local miniflare state and temp bundles here.
+.wrangler/
