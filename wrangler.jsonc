@@ -1,6 +1,15 @@
 {
   "name": "familyrecipes",
   "main": "worker/index.ts",
+  // Not secrets. The anon/publishable key is already served inside the JS bundle to every
+  // visitor, and the Worker's whole security model is that it holds NOTHING more privileged
+  // than a browser does: RLS decides what an anonymous caller may read.
+  // They live here rather than in the dashboard on purpose: disconnecting the repo in Workers
+  // Builds deletes the build configuration, vars included, and has done so on this project.
+  "vars": {
+    "SUPABASE_URL": "https://ghcclshgdtbystosfzjl.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_bViGBaGpqpV0tGKnghkgZQ_p-raLjKb"
+  },
   "compatibility_date": "2026-09-18",
   "assets": {
     "directory": "./dist",
