@@ -195,28 +195,42 @@ sets the policy to monitor-only without pretending to collect anything.
 
 ## Stage 2: point Supabase at it
 
-Dashboard -> Project Settings -> Authentication -> SMTP Settings.
+Dashboard -> **Project Settings -> Authentication -> SMTP Settings** (on some dashboard
+versions: Authentication -> Emails -> SMTP).
 
 - [ ] Enable Custom SMTP
-- [ ] Host `smtp.resend.com`, Port `465`
-- [ ] Username `resend` (literally that word, it is not your email)
-- [ ] Password: the Resend API key from stage 1
-- [ ] Sender email: `recipes@mail.enamelvault.com` (must be on the verified domain, or
-      everything bounces)
-- [ ] Sender name: `The Enamel Vault`
+- [ ] Host `smtp.resend.com`
+- [ ] Port `465`
+- [ ] Username `resend` — literally that word, it is not an email address
+- [ ] Password: the Resend API key from 1E
+- [ ] Sender email `recipes@mail.enamelvault.com` — **must be on the verified subdomain**.
+      `recipes@enamelvault.com` is NOT verified and everything bounces.
+- [ ] Sender name `The Enamel Vault`
 
 - [ ] **Raise the email rate limit.** Authentication -> Rate Limits -> emails per hour.
-      **Enabling custom SMTP silently drops this to 30/hour.** It will not bite you in testing
-      and will bite you the evening you tell the whole family at once. Set it to 100+.
+      **Turning on custom SMTP silently drops this to 30/hour.** It never bites during testing
+      and bites the evening the whole family signs up at once. Set 100+.
 
-Authentication -> URL Configuration:
+Authentication -> **URL Configuration**:
 
 - [ ] Site URL: `https://recipes.enamelvault.com`
-      (**if this is wrong, every confirmation link points at localhost** and the whole thing
-      looks broken to everyone but you)
-- [ ] Redirect URLs, add both:
+      **If this is wrong every confirmation link points at localhost**, which works perfectly on
+      your machine and is broken for everyone else alive.
+- [ ] Redirect URLs — **all four**, and the workers.dev one is not optional:
   - [ ] `https://recipes.enamelvault.com/**`
-  - [ ] `http://localhost:5173/**` (so local dev keeps working)
+  - [ ] `https://familyrecipes.aayus-pok.workers.dev/**`
+  - [ ] `http://localhost:5174/**`
+  - [ ] `http://localhost:5173/**`
+
+**Why workers.dev must be listed.** `requestPasswordReset` in `src/lib/api/auth.ts:46` builds
+its redirect as `` `${window.location.origin}/recover` ``, so the origin is whichever host the
+person is actually on. Links already sent to family point at `workers.dev`, and that host still
+serves the same worker. Leave it out and password reset fails for exactly those people, with a
+redirect-not-allowed error, while working perfectly for you. Both dev ports are listed because
+`.claude/launch.json` pins 5174 while a bare `npm run dev` uses Vite's default 5173.
+
+**Nothing is switched on at the end of stage 2.** No email is sent yet. That is stage 3, on
+purpose, so a typo here is cheap.
 
 ## Stage 3: turn confirmation on
 
