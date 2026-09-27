@@ -27,3 +27,36 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
+
+  # The DB-layer guards (RLS, the replace_recipe_children column list, the search
+  # RPC) only ever ran when someone remembered to type `npm run test:int` with a
+  # local Supabase up. A guard nobody runs is not a guard: migration 0009 exists
+  # because 0006 silently dropped a column, and that class of bug is invisible to
+  # the unit suite by construction.
+  #
+  # Separate job, not extra steps on build-and-test: this one needs Docker and
+  # takes minutes to boot Postgres, and it must not hold up lint/build/test.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Applies every migration on a fresh Postgres, so a migration that does not
+      # apply cleanly fails here rather than on the cloud.
+      - run: supabase start
+      - name: Run integration tests
+        run: |
+          set -a
+          eval "$(supabase status -o env)"
+          set +a
+          SB_URL="$API_URL" \
+          SB_ANON_KEY="$ANON_KEY" \
+          SB_SERVICE_KEY="$SERVICE_ROLE_KEY" \
+          npm run test:int
