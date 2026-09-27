@@ -68,7 +68,10 @@ Reset the module between tests (the cap and the guard are module state) with
   - `src/pages/RecipeEdit.tsx` submit -> `save:recipe-edit`
   - `src/components/AiPrefillPanel.tsx` run() -> `extract:${mode}`
   - `src/components/StepEditor.tsx` the recorder callback -> `extract:audio`, handleTidy -> `extract:text`
-  - photo upload failures on create/edit -> `photo:upload`
+  - ~~photo upload failures on create/edit -> `photo:upload`~~ **SUPERSEDED during execution:**
+    the photo upload sits inside the SAME try as `createRecipe` on both pages, so a separate
+    context would have meant restructuring the try/catch for a label. Those failures report as
+    `save:recipe-create` / `save:recipe-edit`.
   - `src/pages/SignIn.tsx` (and the sign-up/reset paths in the same area) -> `auth:<action>`
 - **Do not add it to every catch block in the app.** The list above is the whole scope.
 
