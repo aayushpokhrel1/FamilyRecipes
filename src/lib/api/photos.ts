@@ -54,15 +54,32 @@ export async function uploadRecipePhoto(recipeId: string, file: File, isCover: b
   const inserted = data as RecipePhoto;
 
   // Editing a recipe and picking a photo used to ADD a second cover rather than replace the
-  // first, so covers accumulated and which one showed was down to row order. Demote the old
+  // first, so covers accumulated and which one showed was down to row order. Clean up the old
   // ones AFTER the new row exists, so a failure here leaves two covers rather than none.
-  // ponytail: demotes rather than deletes, so a replaced photo still occupies storage.
-  // Add a cleanup when someone actually swaps photos often enough for that to matter.
+  //
+  // Replaced covers are DELETED, not demoted. Demoting kept a row nothing would ever show and
+  // a storage object nobody would ever fetch: invisible, permanent, and paid for. Only rows
+  // that are currently `is_cover` are touched, so a photo deliberately uploaded as a non-cover
+  // is left alone if this ever grows a gallery.
   if (isCover) {
-    const { error: demoteErr } = await supabase.from("recipe_photos")
-      .update({ is_cover: false })
+    const { data: replaced, error: findErr } = await supabase.from("recipe_photos")
+      .select("id,storage_path")
       .eq("recipe_id", recipeId).eq("is_cover", true).neq("id", inserted.id);
-    if (demoteErr) throw new Error(demoteErr.message);
+    if (findErr) throw new Error(findErr.message);
+    const old = (replaced ?? []) as { id: string; storage_path: string }[];
+    if (old.length > 0) {
+      // Rows first, objects second, and that order is deliberate. A failure after the rows are
+      // gone leaves an unreferenced object: wasted bytes nobody sees. The other order would
+      // leave a row pointing at a deleted file, which renders as a broken image on the card.
+      const { error: delErr } = await supabase.from("recipe_photos")
+        .delete().in("id", old.map((p) => p.id));
+      if (delErr) throw new Error(delErr.message);
+      const { error: rmErr } = await supabase.storage.from("recipe-photos")
+        .remove(old.map((p) => p.storage_path));
+      // Deliberately not thrown: the photo IS replaced as far as the cook can tell, and failing
+      // the whole save over leftover bytes would report a problem that is not theirs to fix.
+      if (rmErr) console.warn("replaced photo left in storage:", rmErr.message);
+    }
   }
   return inserted;
 }
