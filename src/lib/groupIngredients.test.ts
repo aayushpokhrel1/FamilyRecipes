@@ -1,4 +1,4 @@
-import { groupIngredientsBySection, groupIngredientsByCategory } from "./groupIngredients";
+import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "./groupIngredients";
 import type { Ingredient } from "./api/types";
 
 const ing = (item: string, section: string | null = null): Ingredient =>
@@ -45,4 +45,43 @@ test("an aisle a family invented sorts after the known ones but before Other", (
     new Map([["pati", "Filipino pantry"]]),
   );
   expect(groups.map((g) => g.section)).toEqual(["Produce", "Filipino pantry", "Other"]);
+});
+
+// The bug this pins: deciding alternatives inside a RENDERED group meant the "By category"
+// view, which can split one alt_group across two aisles, showed that fragment's first row as a
+// normal required ingredient. A substitute reading as a thing you must buy is the wrong way for
+// this to fail, so the decision is made across the whole list, once.
+const alt = (item: string, alt_group?: string): Ingredient =>
+  ({ position: 0, quantity: null, unit: null, item, alt_group });
+
+test("every member of a group except the first is an alternative", () => {
+  const cream = alt("cream", "g1");
+  const yogurt = alt("yogurt", "g1");
+  const creme = alt("creme fraiche", "g1");
+  const alts = alternativesOf([cream, yogurt, creme]);
+  expect(alts.has(cream)).toBe(false);
+  expect(alts.has(yogurt)).toBe(true);
+  expect(alts.has(creme)).toBe(true);
+});
+
+test("ingredients with no group are never alternatives", () => {
+  const onion = alt("onion");
+  expect(alternativesOf([onion, alt("garlic")]).has(onion)).toBe(false);
+});
+
+test("two groups each keep their own first member", () => {
+  const cream = alt("cream", "g1");
+  const yogurt = alt("yogurt", "g1");
+  const basil = alt("basil", "g2");
+  const parsley = alt("parsley", "g2");
+  const alts = alternativesOf([cream, yogurt, basil, parsley]);
+  expect([...alts]).toEqual([yogurt, parsley]);
+});
+
+// The category view splits the list; the answer must not change because of it.
+test("membership does not depend on how the list is later grouped", () => {
+  const cream = alt("cream", "g1");
+  const coconut = alt("coconut milk", "g1");
+  const all = [cream, alt("onion"), coconut];
+  expect(alternativesOf(all).has(coconut)).toBe(true);
 });

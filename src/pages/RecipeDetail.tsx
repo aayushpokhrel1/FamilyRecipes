@@ -8,7 +8,9 @@ import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
-import { groupIngredientsBySection, groupIngredientsByCategory } from "../lib/groupIngredients";
+import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "../lib/groupIngredients";
+
+
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -16,6 +18,7 @@ export default function RecipeDetail() {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const isAlternative = alternativesOf(ingredients);
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,13 +189,7 @@ export default function RecipeDetail() {
               {grp.section && <h3 className="ing-section">{grp.section}</h3>}
               <ul className="ing-list">
                 {grp.items.map((g, i) => {
-                  // Alternatives are decided inside this rendered list, by array
-                  // order: the first member of an alt_group is the primary, and
-                  // every later member hangs off it instead of taking a line.
-                  const primaryIndex = g.alt_group
-                    ? grp.items.findIndex((x) => x.alt_group === g.alt_group)
-                    : -1;
-                  if (primaryIndex !== -1 && primaryIndex < i) {
+                  if (isAlternative.has(g)) {
                     return (
                       <li key={i} className="alt-line">
                         <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>

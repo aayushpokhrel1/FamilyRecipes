@@ -5,15 +5,18 @@ import { logCooked } from "../lib/api/cookLog";
 import type { Ingredient, Step } from "../lib/api/types";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
-import { groupIngredientsBySection } from "../lib/groupIngredients";
+import { groupIngredientsBySection, alternativesOf } from "../lib/groupIngredients";
 import { useFamily } from "../context/FamilyContext";
 import { listPantry, setState as setItemState, type PantryItem } from "../lib/api/pantry";
 import { normalizeItem } from "../lib/api/normalizeItem";
+
+
 
 export default function CookMode() {
   const { id } = useParams();
   const { activeFamily } = useFamily();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const isAlternative = alternativesOf(ingredients);
   const [steps, setSteps] = useState<Step[]>([]);
   const [index, setIndex] = useState(0);
   const [showIngredients, setShowIngredients] = useState(false);
@@ -127,13 +130,7 @@ export default function CookMode() {
               {grp.section && <h3 className="ing-section">{grp.section}</h3>}
               <ul className="cook-ings">
                 {grp.items.map((g, i) => {
-                  // Same rule as the recipe page: within this rendered list, the
-                  // first ingredient of an alt_group is the primary and the rest
-                  // are alternatives indented beneath it.
-                  const primaryIndex = g.alt_group
-                    ? grp.items.findIndex((x) => x.alt_group === g.alt_group)
-                    : -1;
-                  const isAlt = primaryIndex !== -1 && primaryIndex < i;
+                  const isAlt = isAlternative.has(g);
                   return (
                     <li key={i} className={isAlt ? "alt-line" : undefined}>
                       {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}{" "}
