@@ -40,6 +40,13 @@ function singularizeWord(w: string): string {
 
 export function normalizeItem(item: string): string {
   let s = item.toLowerCase().split(",")[0];
+  // A parenthesised group CONTAINING A DIGIT is a quantity that leaked into the
+  // item name ("(2 mL) salt"), which extraction does often enough to matter: the
+  // key became "(2 ml) salt" and could never match the cupboard's "salt".
+  // Only with a digit, deliberately. A parenthetical without one is usually a
+  // real distinction ("chicken (thighs)"), and merging that into "chicken" would
+  // silently drop an ingredient, which this file holds is worse than not merging.
+  s = s.replace(/\([^)]*\d[^)]*\)/g, " ");
   s = s.replace(/-/g, " ").replace(/\s+/g, " ").trim();
   const words = s.split(" ").filter((w) => w && !PREP_WORDS.has(w));
   if (words.length) words[words.length - 1] = singularizeWord(words[words.length - 1]);

@@ -39,3 +39,18 @@ test("synonyms apply after prep words and plurals are stripped", () => {
 test("an unknown item is left alone", () => {
   expect(normalizeItem("tamarind paste")).toBe("tamarind paste");
 });
+
+// Aayush had salt in the cupboard and the grocery list kept telling him to buy
+// it. The row read "(2 mL) salt": extraction had put the quantity in the item
+// field, so the key was "(2 ml) salt" and no cupboard entry could ever match it.
+test("a quantity that leaked into the item name does not break the match", () => {
+  expect(normalizeItem("(2 mL) salt")).toBe("salt");
+  expect(normalizeItem("salt (2 mL)")).toBe("salt");
+  expect(normalizeItem("(400 g) chopped tomatoes")).toBe("tomato");
+});
+
+// A parenthetical WITHOUT a digit is usually a real distinction, and merging it
+// away would silently drop an ingredient. That is the worse failure, so it stays.
+test("a parenthetical with no number is left alone", () => {
+  expect(normalizeItem("chicken (thighs)")).toBe("chicken (thighs)");
+});
