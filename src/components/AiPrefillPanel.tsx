@@ -56,7 +56,9 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
       const base64 = await blobToBase64(file);
       await run("image", base64);
     } catch (err) {
-      reportError("extract:image-file", err);
+      // Reading the file, not extracting from it: run() swallows its own failures, so this catch
+      // only ever sees blobToBase64 rejecting.
+      reportError("extract:image-read", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }

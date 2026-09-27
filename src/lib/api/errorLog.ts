@@ -8,9 +8,10 @@ const MAX_MESSAGE = 2000;
 const MAX_STACK = 4000;
 
 let sent = 0;
-// Set while a report is in flight. Without it, a throw from inside the reporting path (a
-// broken client, a getter that throws) would be reported, and that report could fail the
-// same way, forever.
+// Guards SYNCHRONOUS re-entry only: it is cleared in the finally, and the insert is never
+// awaited, so it covers the window in which a report is being assembled and handed off, not
+// the round trip. That window is the one that can recurse, because anything reporting from
+// inside this path would fail the same way and report again, forever.
 let reporting = false;
 
 function truncate(value: string, max: number): string {

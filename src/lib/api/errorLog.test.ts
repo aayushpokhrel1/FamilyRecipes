@@ -72,21 +72,25 @@ test("the 21st call on a page inserts nothing", async () => {
 
 // A failure raised from inside the reporting path must not be reported, or a broken reporter
 // recurses until the tab dies.
-test("a failure inside the reporter is not itself reported", async () => {
-  const { inserted } = mockInsert();
+// A report raised from INSIDE a report must not start another one, or a reporter that fails
+// the same way every time loops. Written so it genuinely fails without the guard: the inner
+// call reaches a WORKING insert, so an unguarded module records two rows instead of one.
+// The earlier version of this test had the insert throw before recording anything, which made
+// the assertion hold whether the guard existed or not.
+test("a report raised from inside a report does not start a second one", async () => {
+  const inserted: any[] = [];
   const reportError = await load();
-
-  // Throwing from the insert call is the failure the guard exists for: it happens while a
-  // report is in flight, so the catch must swallow it rather than report it.
   from.mockImplementation(() => ({
-    insert: () => {
-      reportError("reporter:insert", new Error("inner"));
-      throw new Error("insert exploded");
+    insert: (payload: any) => {
+      inserted.push(payload);
+      if (inserted.length === 1) reportError("reporter:insert", new Error("inner"));
+      return { then: () => {} };
     },
   }));
 
   expect(() => reportError("save:recipe-create", new Error("boom"))).not.toThrow();
-  expect(inserted).toHaveLength(0);
+  expect(inserted).toHaveLength(1);
+  expect(inserted[0].context).toBe("save:recipe-create");
 });
 
 // On /recipes/:id a full href IS a recipe id, and a query string or hash can carry anything
