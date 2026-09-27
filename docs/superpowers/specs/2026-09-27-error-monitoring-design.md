@@ -33,9 +33,12 @@ remaining gap. It is named here so nobody later mistakes monitoring for coverage
    caller can write rows. Accepted deliberately: see the ceiling in Decision 6.
 4. **Uptime is NOT built.** A free external monitor does it better, and crucially it lives
    outside the app: a site that is down cannot report that it is down. The useful trick is to
-   point the monitor at the edge function and **expect HTTP 401** - a booting function answers
-   its own 401, while the dead one answered 503 `BOOT_ERROR`. That catches today's exact failure
-   with no auth, no secret and no cron. Setup instructions go in HANDOVER, not in code.
+   point the monitor at the edge function with method **OPTIONS** and expect **204**. The
+   function answers the CORS preflight above its auth check, so a 204 proves the isolate booted
+   and ran our code, while the dead one answered 503 `BOOT_ERROR`. **Not a plain GET expecting
+   401:** an unauthenticated request is rejected by the gateway before the function starts, so
+   healthy and dead both return 401 and the monitor never fires. Setup goes in HANDOVER, not
+   code.
 5. **AI failures are not a separate feature.** They are the same call with a `context` of
    `extract:image` and friends, so the extraction chain gets its own label for free.
 6. **No rate limiting, and this is the known ceiling.** A crash loop could insert continuously,
