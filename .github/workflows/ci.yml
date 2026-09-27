@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'ci/**']   # ci/** is TEMPORARY, removed before this merges
   pull_request:
 
 jobs:
