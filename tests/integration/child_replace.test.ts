@@ -64,7 +64,7 @@ test("every ingredient column survives a replace, not just the ones 0006 knew ab
   const ing = await admin.from("recipe_ingredients")
     .select("position,item,section,optional,alt_group").eq("recipe_id", rec.id).order("position");
   expect(ing.data).toEqual([
-    { position: 0, item: "DELIBERATE-CI-BREAK", section: "For the sauce", optional: false, alt_group: "g1" },
+    { position: 0, item: "cream", section: "For the sauce", optional: false, alt_group: "g1" },
     { position: 1, item: "yogurt", section: "For the sauce", optional: false, alt_group: "g1" },
     { position: 2, item: "basil", section: null, optional: true, alt_group: null },
   ]);
