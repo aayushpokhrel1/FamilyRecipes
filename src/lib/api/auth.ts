@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { forgetPhotoUrls } from "./photos";
 
 export async function signUp(email: string, password: string, displayName: string) {
   const { data, error } = await supabase.auth.signUp({
@@ -17,6 +18,7 @@ export async function signIn(email: string, password: string) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
+  forgetPhotoUrls(); // remembered photo urls outlive the session otherwise, for up to a day
 }
 export async function getSession() {
   const { data } = await supabase.auth.getSession();

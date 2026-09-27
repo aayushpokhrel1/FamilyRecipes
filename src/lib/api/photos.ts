@@ -42,7 +42,11 @@ async function shrink(file: File): Promise<File> {
 
 export async function uploadRecipePhoto(recipeId: string, file: File, isCover: boolean): Promise<RecipePhoto> {
   const path = recipeId + "/" + crypto.randomUUID();
-  const { error: upErr } = await supabase.storage.from("recipe-photos").upload(path, await shrink(file));
+  // A year of cache-control is safe because `path` carries a fresh UUID: an object here is
+  // written once and never rewritten, so a stale cache entry cannot exist. Supabase's default
+  // is one hour, which had the browser re-fetching an unchanged image every hour.
+  const { error: upErr } = await supabase.storage.from("recipe-photos")
+    .upload(path, await shrink(file), { cacheControl: "31536000" });
   if (upErr) throw new Error(upErr.message);
   const { data, error } = await supabase.from("recipe_photos")
     .insert({ recipe_id: recipeId, storage_path: path, is_cover: isCover }).select().single();
@@ -63,10 +67,53 @@ export async function uploadRecipePhoto(recipeId: string, file: File, isCover: b
   return inserted;
 }
 
+// Signing produces a DIFFERENT url every call, and a different url is a different cache key,
+// so the browser re-downloaded the whole image on every page load no matter what
+// cache-control said. Remembering the url until shortly before its token expires makes the
+// src identical between visits, which is what turns the second view into a cache hit.
+// The tradeoff is deliberate: a leaked url is now usable for a day rather than an hour. These
+// are photos of family dinners, and the alternative was paying for every one on every view.
+const SIGN_TTL_S = 24 * 3600;
+const REFRESH_MARGIN_MS = 60 * 60 * 1000; // re-sign before expiry, never hand out a dead url
+const CACHE_PREFIX = "photo-url:";
+
+function cachedUrl(path: string): string | null {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + path);
+    if (!raw) return null;
+    const { url, exp } = JSON.parse(raw) as { url: string; exp: number };
+    return exp - Date.now() > REFRESH_MARGIN_MS ? url : null;
+  } catch {
+    return null; // no store, or a corrupt entry: sign a fresh one
+  }
+}
+
+function rememberUrl(path: string, url: string): void {
+  try {
+    localStorage.setItem(CACHE_PREFIX + path, JSON.stringify({ url, exp: Date.now() + SIGN_TTL_S * 1000 }));
+  } catch {
+    // A disabled or full store costs a re-download, which is exactly the old behaviour.
+    // ponytail: no eviction; entries are a few hundred bytes each and paths are never reused.
+  }
+}
+
+// Signing out has to drop these. A remembered url is a bearer token for a private photo, and
+// leaving a day's worth behind on a shared device would be handing the next person the keys.
+export function forgetPhotoUrls(): void {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(CACHE_PREFIX)) localStorage.removeItem(key);
+    }
+  } catch { /* nothing stored means nothing to forget */ }
+}
+
 // ponytail: always a signed URL (works for private and public); add public-URL fast path only if it matters
 export async function getPhotoUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from("recipe-photos").createSignedUrl(path, 3600);
+  const hit = cachedUrl(path);
+  if (hit) return hit;
+  const { data, error } = await supabase.storage.from("recipe-photos").createSignedUrl(path, SIGN_TTL_S);
   if (error) throw new Error(error.message);
+  rememberUrl(path, data.signedUrl);
   return data.signedUrl;
 }
 
@@ -88,11 +135,25 @@ export async function listCoverPhotoUrls(recipeIds: string[]): Promise<Map<strin
   }
   if (byRecipe.size === 0) return byRecipe;
 
-  const { data: signed, error: signErr } = await supabase.storage
-    .from("recipe-photos").createSignedUrls([...byRecipe.values()], 3600);
-  if (signErr) throw new Error(signErr.message);
-
-  const urlByPath = new Map((signed ?? []).map((s) => [s.path ?? "", s.signedUrl]));
+  // Only the paths without a live remembered url need signing. On a revisit that is usually
+  // none, so painting the grid costs one select instead of a select plus a signing round trip.
+  const urlByPath = new Map<string, string>();
+  const unsigned: string[] = [];
+  for (const path of new Set(byRecipe.values())) {
+    const hit = cachedUrl(path);
+    if (hit) urlByPath.set(path, hit);
+    else unsigned.push(path);
+  }
+  if (unsigned.length > 0) {
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("recipe-photos").createSignedUrls(unsigned, SIGN_TTL_S);
+    if (signErr) throw new Error(signErr.message);
+    for (const s of signed ?? []) {
+      if (!s.path || !s.signedUrl) continue;
+      urlByPath.set(s.path, s.signedUrl);
+      rememberUrl(s.path, s.signedUrl);
+    }
+  }
   const out = new Map<string, string>();
   for (const [recipeId, path] of byRecipe) {
     const url = urlByPath.get(path);
