@@ -127,3 +127,39 @@ test("works with no onIngredientsFound prop at all", async () => {
   await waitFor(() => expect(box().value).toBe("Whisk"));
   expect(screen.queryByText(/also filled in/i)).toBeNull();
 });
+
+// The voice regression nobody has been able to exercise: useRecorder captures its callback
+// when recording STARTS, so reading `text` from that closure appended the transcript to
+// whatever was in the box back then and silently deleted anything typed while talking.
+// `textRef` is the fix. A real mic cannot be driven from a test, but the stale closure can:
+// grab the callback from the FIRST render and invoke it after more typing, which is exactly
+// what a cook who keeps typing mid-recording produces.
+test("a transcript appends to text typed WHILE recording, instead of overwriting it", async () => {
+  const captured: ((base64: string) => void)[] = [];
+  vi.doMock("../lib/useRecorder", () => ({
+    blobToBase64: vi.fn(),
+    useRecorder: (onResult: (base64: string) => void) => {
+      captured.push(onResult); // one per render; [0] is the stale one recording would hold
+      return { recording: false, supported: true, start: () => {}, stop: () => {}, error: null };
+    },
+  }));
+  vi.resetModules();
+  const { default: Editor } = await import("./StepEditor");
+  const { extractRecipe } = await import("../lib/api/extract");
+  vi.mocked(extractRecipe).mockResolvedValue({
+    title: "", story: null, servings: null, ingredients: [],
+    steps: [step("Simmer for ten minutes")],
+  } as never);
+
+  const onChange = vi.fn();
+  render(<Editor items={[]} onChange={onChange} />);
+  fireEvent.change(box(), { target: { value: "Chop the onion" } }); // typed mid-recording
+
+  await captured[0]("data:audio/webm;base64,AAA"); // the callback recording started with
+  await waitFor(() => expect(box().value).toBe("Chop the onion\nSimmer for ten minutes"));
+  expect(onChange).toHaveBeenLastCalledWith([
+    { position: 0, text: "Chop the onion" },
+    { position: 1, text: "Simmer for ten minutes" },
+  ]);
+  vi.doUnmock("../lib/useRecorder");
+});
