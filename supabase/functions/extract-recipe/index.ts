@@ -127,7 +127,10 @@ Deno.serve(async (req) => {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (key) headers.authorization = `Bearer ${key}`; // omit for keyless gateways
 
-  const body = JSON.stringify({
+  // NOT `body`: the request body is already declared above, and a duplicate declaration is a
+  // SyntaxError that stops the isolate booting at all. Deploy does not typecheck, so it
+  // shipped as a 503 BOOT_ERROR on every mode. `npm test` now parses this file for exactly that.
+  const modelBody = JSON.stringify({
     model,
     messages: [
       { role: "system", content: SYSTEM_PROMPT + "\nSchema: " + JSON.stringify(DRAFT_SCHEMA) },
@@ -143,7 +146,7 @@ Deno.serve(async (req) => {
   });
 
   try {
-    const res = await callModelWithRetry(`${base}/chat/completions`, headers, body);
+    const res = await callModelWithRetry(`${base}/chat/completions`, headers, modelBody);
     if (!res.ok) {
       return json({ error: `model error ${res.status}: ${await res.text()}` }, 502);
     }

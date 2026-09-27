@@ -20,5 +20,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The ONLY check that covers supabase/functions/. `npm run build` typechecks the app and
+      # skips the edge function (it is Deno), and `supabase functions deploy` uploads source
+      # without parsing it, so a SyntaxError there deploys fine and then fails to BOOT: every
+      # request, every mode, a 503. That shipped once. oxlint catches it and exits 1.
+      - run: npm run lint
       - run: npm run build
       - run: npm test
