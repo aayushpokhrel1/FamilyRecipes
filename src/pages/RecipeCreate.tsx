@@ -79,19 +79,25 @@ export default function RecipeCreate() {
       <form onSubmit={handleSubmit}>
         <IngredientEditor
           items={draft.ingredients}
-          onChange={(ingredients) => setDraft({ ...draft, ingredients })}
+          onChange={(ingredients) => setDraft((d) => ({ ...d, ingredients }))}
           itemSuggestions={itemSuggestions}
           sectionSuggestions={sectionSuggestions}
         />
         <StepEditor
           items={draft.steps}
-          onChange={(steps) => setDraft({ ...draft, steps })}
+          // Every setDraft on this page uses the updater form, and it is not a style choice.
+          // StepEditor calls onChange AND onIngredientsFound in the SAME tick after the mic or
+          // Tidy, React batches them, and a `{ ...draft }` spread off the render closure meant
+          // the second call wrote back the steps from BEFORE the first. The box still showed the
+          // dictated steps, because StepEditor owns its own text, so the loss only appeared once
+          // the recipe was saved with them missing.
+          onChange={(steps) => setDraft((d) => ({ ...d, steps }))}
           // Only when the cook has not written any ingredients themselves. Tidy and the mic
           // extract a whole recipe, and dropping what they found was silent data loss; but
           // overwriting ingredients someone typed would be worse than the bug being fixed.
           onIngredientsFound={(found) => {
             if (draft.ingredients.some((i) => i.item.trim())) return 0;
-            setDraft({ ...draft, ingredients: found });
+            setDraft((d) => ({ ...d, ingredients: found }));
             return found.length;
           }}
         />
@@ -99,7 +105,7 @@ export default function RecipeCreate() {
           Title
           <input
             value={draft.title}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
             placeholder="Title"
           />
         </label>
@@ -108,7 +114,7 @@ export default function RecipeCreate() {
           <input
             type="number"
             value={draft.servings ?? ""}
-            onChange={(e) => setDraft({ ...draft, servings: toNumber(e.target.value) })}
+            onChange={(e) => setDraft((d) => ({ ...d, servings: toNumber(e.target.value) }))}
           />
         </label>
         <label>
@@ -116,7 +122,7 @@ export default function RecipeCreate() {
           <input
             type="number"
             value={draft.prep_minutes ?? ""}
-            onChange={(e) => setDraft({ ...draft, prep_minutes: toNumber(e.target.value) })}
+            onChange={(e) => setDraft((d) => ({ ...d, prep_minutes: toNumber(e.target.value) }))}
           />
         </label>
         <label>
@@ -124,21 +130,21 @@ export default function RecipeCreate() {
           <input
             type="number"
             value={draft.cook_minutes ?? ""}
-            onChange={(e) => setDraft({ ...draft, cook_minutes: toNumber(e.target.value) })}
+            onChange={(e) => setDraft((d) => ({ ...d, cook_minutes: toNumber(e.target.value) }))}
           />
         </label>
         <label>
           Story
           <textarea
             value={draft.story}
-            onChange={(e) => setDraft({ ...draft, story: e.target.value })}
+            onChange={(e) => setDraft((d) => ({ ...d, story: e.target.value }))}
           />
         </label>
         <label>
           Provenance
           <textarea
             value={draft.provenance}
-            onChange={(e) => setDraft({ ...draft, provenance: e.target.value })}
+            onChange={(e) => setDraft((d) => ({ ...d, provenance: e.target.value }))}
           />
         </label>
         <VisibilitySelect value={visibility} onChange={setVisibility} />
