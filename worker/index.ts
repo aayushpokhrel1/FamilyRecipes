@@ -5,6 +5,7 @@
 // Everything not explicitly handled falls through to the assets binding untouched, which is
 // exactly what the assets-only config did before. Keep it that way: a recipe page must never
 // fail to load because a preview could not be built.
+import { checkExtract, HEALTH_PATH } from "./health";
 import { buildTags, ogIdFromPath, recipeIdFromPath, type Tags } from "./meta";
 
 export interface Env {
@@ -180,6 +181,9 @@ async function enrichRecipePage(request: Request, env: Env, id: string): Promise
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const pathname = new URL(request.url).pathname;
+
+    // First, and deliberately cheap: an outage check has to answer when the rest is unwell.
+    if (pathname === HEALTH_PATH) return checkExtract(env.SUPABASE_URL);
 
     const ogId = ogIdFromPath(pathname);
     if (ogId) return serveOgImage(env, ogId);
