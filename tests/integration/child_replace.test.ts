@@ -44,6 +44,32 @@ test("replace_recipe_children atomically replaces ingredients and steps for the 
   expect(steps2.data).toHaveLength(1);
 });
 
+// The 0009 bug, pinned. replace_recipe_children has a FIXED column list, so an ingredient
+// column that is not named there is silently dropped the first time anyone edits a recipe:
+// no error, just gone. That is exactly how `section` was lost between 0006 and 0009. This
+// test fails the moment a new column is added to the table and not to the function.
+test("every ingredient column survives a replace, not just the ones 0006 knew about", async () => {
+  const { alice, rec } = await famWithRecipe("rc-cols");
+  const { error } = await alice.client.rpc("replace_recipe_children", {
+    p_recipe_id: rec.id,
+    p_ingredients: [
+      { quantity: "100", unit: "ml", item: "cream", section: "For the sauce", optional: false, alt_group: "g1" },
+      { quantity: "100", unit: "ml", item: "yogurt", section: "For the sauce", optional: false, alt_group: "g1" },
+      { quantity: null, unit: null, item: "basil", section: null, optional: true, alt_group: null },
+    ],
+    p_steps: null,
+  });
+  expect(error).toBeNull();
+
+  const ing = await admin.from("recipe_ingredients")
+    .select("position,item,section,optional,alt_group").eq("recipe_id", rec.id).order("position");
+  expect(ing.data).toEqual([
+    { position: 0, item: "cream", section: "For the sauce", optional: false, alt_group: "g1" },
+    { position: 1, item: "yogurt", section: "For the sauce", optional: false, alt_group: "g1" },
+    { position: 2, item: "basil", section: null, optional: true, alt_group: null },
+  ]);
+});
+
 test("a non-member cannot replace another recipe's children (RLS holds through the RPC)", async () => {
   const { rec } = await famWithRecipe("rc-owner");
   const bob = await makeUser(`rc-bob${Date.now()}@t.dev`);
