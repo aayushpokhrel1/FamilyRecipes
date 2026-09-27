@@ -118,3 +118,32 @@ test("the duplicate button is disabled for an open-ended plan", async () => {
   );
   expect(await screen.findByRole("button", { name: /duplicate to next week/i })).toBeDisabled();
 });
+
+// The pure resolver in planDrop.test.ts decides what a drop MEANS, but it cannot notice the
+// integration exploding. This renders the real calendar grid with dnd-kit mounted, which is
+// what caught the sensors being declared below an early return: the hooks ran conditionally,
+// React unmounted the component, and the page rendered as an empty div.
+test("the calendar grid mounts with a move grip on each scheduled meal", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  const rp = await import("../lib/api/recipes");
+  (mp.listPlans as any).mockResolvedValue([
+    { id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "calendar",
+      is_shared: false, checked_items: [], start_date: "2026-09-28", length_days: 3,
+      created_at: "", updated_at: "" },
+  ]);
+  (rp.listRecipes as any).mockResolvedValue([{ id: "r1", title: "Dal", servings: 4 }]);
+  (mp.listItems as any).mockResolvedValue([
+    { id: "i1", plan_id: "p1", recipe_id: "r1", day: "2026-09-28", meal_slot: "dinner",
+      position: 0, servings: null, leftover_of: null },
+  ]);
+
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByRole("button", { name: /move dal/i })).toBeInTheDocument();
+  // The tap-to-fill path must survive: dragging is an addition, never the only way in.
+  expect(screen.getAllByRole("button", { name: /add to .* on /i }).length).toBeGreaterThan(0);
+});

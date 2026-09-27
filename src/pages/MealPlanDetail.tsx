@@ -1,4 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
+import {
+  DndContext, KeyboardSensor, MouseSensor, TouchSensor, useDraggable, useDroppable,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { addDays, dayLabel } from "../lib/dates";
@@ -10,8 +14,45 @@ import { listRecipes } from "../lib/api/recipes";
 import { suggestedServings } from "../lib/leftovers";
 import type { MealPlan, MealPlanItem, MealSlot, Recipe } from "../lib/api/types";
 import GroceryPanel from "../components/GroceryPanel";
+import { cellId, resolveDrop } from "../lib/planDrop";
 
 const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
+
+// A dedicated grip rather than a draggable card. These cells are dense with controls
+// (servings steppers, Leftovers, Remove), and making the whole card draggable turns every
+// mis-aimed tap on one of them into a drag. The grip is also where the keyboard sensor lands,
+// so dragging has a keyboard path instead of being mouse-only.
+function MealGrip({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      className="meal-grip"
+      aria-label={`Move ${label}`}
+      style={isDragging ? { opacity: 0.4 } : undefined}
+      {...listeners}
+      {...attributes}
+    >
+      ⠿
+    </button>
+  );
+}
+
+// Both the filled and the empty cell are drop targets, so a meal can be moved onto a day that
+// already has something as well as into a gap.
+function DroppableCell({
+  day, slot, className, children, ...rest
+}: {
+  day: string; slot: MealSlot; className: string; children: React.ReactNode;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  const { setNodeRef, isOver } = useDroppable({ id: cellId(day, slot) });
+  return (
+    <div ref={setNodeRef} className={isOver ? `${className} drop-over` : className} {...rest}>
+      {children}
+    </div>
+  );
+}
 const LENGTHS = [3, 5, 7, 14];
 
 export default function MealPlanDetail() {
@@ -26,6 +67,18 @@ export default function MealPlanDetail() {
   const [cell, setCell] = useState<{ day: string; slot: MealSlot } | null>(null);
   const [nudge, setNudge] = useState<{ itemId: string; title: string; current: number; suggested: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Mouse and touch are separated on purpose. A mouse drag should start as soon as the pointer
+  // moves, but a touch drag must wait: the grid scrolls horizontally, and without a hold delay
+  // every swipe across it would pick up a meal instead of scrolling. 250ms is a starting point
+  // to tune on a real phone, not a number anyone should treat as settled.
+  // ponytail: one delay for every device; per-device tuning only if it actually feels wrong.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
 
   useEffect(() => {
     if (!id) return;
@@ -168,25 +221,38 @@ export default function MealPlanDetail() {
   const cellItems = (day: string, slot: MealSlot) =>
     items.filter((it) => it.day === day && it.meal_slot === slot);
 
+  async function handleDragEnd(event: DragEndEvent) {
+    const move = resolveDrop(
+      String(event.active.id),
+      event.over ? String(event.over.id) : null,
+      items,
+    );
+    if (!move) return; // dropped on nothing, or back where it started
+    await moveItem(move.itemId, { day: move.day, mealSlot: move.mealSlot });
+    refresh();
+  }
+
   function weekCell(day: string, slot: MealSlot) {
     const cellItemList = cellItems(day, slot);
     if (cellItemList.length === 0) {
       return (
-        <button
-          key={`${day}-${slot}`}
-          type="button"
-          className="week-cell empty"
-          aria-label={`Add to ${slot} on ${dayLabel(day)}`}
-          onClick={() => setCell({ day, slot })}
-        >
-          +
-        </button>
+        <DroppableCell key={`${day}-${slot}`} day={day} slot={slot} className="week-cell empty">
+          <button
+            type="button"
+            className="cell-add"
+            aria-label={`Add to ${slot} on ${dayLabel(day)}`}
+            onClick={() => setCell({ day, slot })}
+          >
+            +
+          </button>
+        </DroppableCell>
       );
     }
     return (
-      <div key={`${day}-${slot}`} className="week-cell">
+      <DroppableCell key={`${day}-${slot}`} day={day} slot={slot} className="week-cell">
         {cellItemList.map((it) => (
           <div key={it.id}>
+            <MealGrip id={it.id} label={titleById.get(it.recipe_id) ?? "meal"} />
             <span>{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
             {it.leftover_of !== null ? (
               <span className="leftover">leftovers</span>
@@ -199,7 +265,7 @@ export default function MealPlanDetail() {
             <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
           </div>
         ))}
-      </div>
+      </DroppableCell>
     );
   }
 
@@ -244,21 +310,23 @@ export default function MealPlanDetail() {
       )}
 
       {showGrid ? (
-        <div
-          className="week-grid"
-          style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(120px, 1fr))` }}
-        >
-          <span className="slot-head" />
-          {days.map((day) => (
-            <span key={day} className="col-head">{dayLabel(day)}</span>
-          ))}
-          {SLOTS.map((slot) => (
-            <Fragment key={slot}>
-              <span className="slot-head">{slot}</span>
-              {days.map((day) => weekCell(day, slot))}
-            </Fragment>
-          ))}
-        </div>
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div
+            className="week-grid"
+            style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(120px, 1fr))` }}
+          >
+            <span className="slot-head" />
+            {days.map((day) => (
+              <span key={day} className="col-head">{dayLabel(day)}</span>
+            ))}
+            {SLOTS.map((slot) => (
+              <Fragment key={slot}>
+                <span className="slot-head">{slot}</span>
+                {days.map((day) => weekCell(day, slot))}
+              </Fragment>
+            ))}
+          </div>
+        </DndContext>
       ) : plan.view_mode === "list" ? (
         <ul className="stack">
           {items.map((it) => itemRow(it))}

@@ -887,6 +887,23 @@ button[aria-pressed="true"] {
   background: transparent; border-style: dashed; box-shadow: none;
   color: var(--on-wall-soft); align-items: center; justify-content: center;
 }
+/* The cell a meal is hovering over. Vermilion is the one action colour, so a drop target is
+   the same signal language as a primary button rather than a new one. */
+.week-cell.drop-over {
+  border-color: var(--action); border-style: solid;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--action) 35%, transparent);
+}
+.week-cell.empty { }
+.cell-add {
+  all: unset; cursor: pointer; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+/* Small, quiet, and only a grip: the cell's real controls must stay the loud ones. */
+.meal-grip {
+  all: unset; cursor: grab; touch-action: none;
+  color: var(--ink-soft); font-size: 0.9rem; line-height: 1; padding: 2px 4px;
+}
+.meal-grip:active { cursor: grabbing; }
 .week-cell .leftover {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--ink-soft);
