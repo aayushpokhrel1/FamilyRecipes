@@ -12,7 +12,7 @@ export interface Profile {
 }
 export interface Family { id: string; name: string; invite_code: string; created_by: string; }
 export interface FamilyMember { family_id: string; user_id: string; role: "owner" | "member"; }
-export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; }
+export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; optional?: boolean; alt_group?: string | null; }
 export interface Step { id?: string; position: number; text: string; }
 export interface Recipe {
   id: string; family_id: string; author_id: string; title: string;
@@ -67,4 +67,6 @@ export interface GroceryLine {
   // which aisle this line belongs to, derived from the item name. null when the
   // catalog has not seen it, and always null for a manual line.
   category: string | null;
+  // true only when EVERY recipe contributing to this line marked it optional
+  optional: boolean;
 }

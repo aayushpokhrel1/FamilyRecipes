@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { buildGroceryList, type IngredientRow } from "./grocery";
+import { primaryIngredients } from "./primaryIngredients";
 import { listPantry } from "./pantry";
 import { listCategoryOverrides } from "./ingredientCategories";
 import { parseQuantity, scaleIngredientQty } from "./quantity";
@@ -203,7 +204,7 @@ async function groceryLinesFromItems(
   if (recipeIds.length) {
     const [{ data: recipes }, { data: ings }] = await Promise.all([
       supabase.from("recipes").select("id,title,servings").in("id", recipeIds),
-      supabase.from("recipe_ingredients").select("recipe_id,quantity,unit,item").in("recipe_id", recipeIds),
+      supabase.from("recipe_ingredients").select("recipe_id,quantity,unit,item,position,optional,alt_group").in("recipe_id", recipeIds),
     ]);
     const recipeById = new Map((recipes ?? []).map((r: any) => [r.id, r]));
     const ingsByRecipe = new Map<string, any[]>();
@@ -218,7 +219,9 @@ async function groceryLinesFromItems(
       // Only scale when we have both a target and a base to scale from. A recipe
       // with no servings has no base, so its rows pass through untouched.
       const factor = target && recipe.servings ? target / recipe.servings : null;
-      for (const g of ingsByRecipe.get(recipeId) ?? []) {
+      // Alternatives are resolved per recipe: the same group string in another
+      // dish is a different choice, and merging them would drop an ingredient.
+      for (const g of primaryIngredients(ingsByRecipe.get(recipeId) ?? [])) {
         const canScale = factor !== null && factor !== 1 && parseQuantity(g.quantity) !== null;
         rows.push({
           recipeTitle: recipe.title ?? "",
@@ -226,6 +229,7 @@ async function groceryLinesFromItems(
           unit: g.unit,
           item: g.item,
           scaled: canScale,
+          optional: g.optional ?? false,
         });
       }
     }

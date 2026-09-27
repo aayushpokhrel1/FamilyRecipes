@@ -130,3 +130,17 @@ test("an override can correct the catalog, not only extend it", () => {
   const lines = buildGroceryList(rows, [], [], { categories: new Map([["tomato", "Canned"]]) });
   expect(lines[0].category).toBe("Canned");
 });
+
+test("a line is optional only when every contribution is optional", () => {
+  const required = buildGroceryList([
+    row({ item: "garlic", recipeTitle: "A", optional: true }),
+    row({ item: "garlic", recipeTitle: "B", optional: false }),
+  ], [], []);
+  expect(required[0].optional).toBe(false);
+
+  const suggested = buildGroceryList([
+    row({ item: "garlic", recipeTitle: "A", optional: true }),
+    row({ item: "garlic", recipeTitle: "B", optional: true }),
+  ], [], []);
+  expect(suggested[0].optional).toBe(true);
+});

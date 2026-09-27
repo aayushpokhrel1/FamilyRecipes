@@ -7,6 +7,7 @@ import type { GroceryLine, GroceryContribution } from "./types";
 export interface IngredientRow {
   recipeTitle: string; quantity: string | null; unit: string | null; item: string;
   scaled: boolean;
+  optional?: boolean;
 }
 
 // Sum a line's contributions per unit family. A contribution merges only when
@@ -64,10 +65,14 @@ export function buildGroceryList(
         key, name: r.item, contributions: [], checked: checked.has(key), manual: false,
         totals: [], partial: false, staple: staples.has(key),
         category: categoryFor(r.item, opts.categories),
+        // A line is skippable only while every recipe that wants it says so: if
+        // one dish needs garlic, the list must still buy garlic.
+        optional: true,
       };
       byKey.set(key, line);
       order.push(key);
     }
+    if (!r.optional) line.optional = false;
     const c: GroceryContribution = {
       quantity: r.quantity, unit: r.unit, recipeTitle: r.recipeTitle, scaled: r.scaled,
     };
@@ -83,7 +88,7 @@ export function buildGroceryList(
     const key = `manual:${m.id}`;
     lines.push({
       key, name: m.label, contributions: [], checked: checked.has(key), manual: true,
-      totals: [], partial: false, staple: false, category: null,
+      totals: [], partial: false, staple: false, category: null, optional: false,
     });
   }
   return lines;
