@@ -81,6 +81,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
           <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
           <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{line.name}</span>
         </label>
+        {line.optional === true && <span className="optional">optional</span>}
         {inOther && activeFamily && (
           <span className="aisle-setter">
             <select

@@ -185,12 +185,30 @@ export default function RecipeDetail() {
             <div key={grp.section ?? "_"}>
               {grp.section && <h3 className="ing-section">{grp.section}</h3>}
               <ul className="ing-list">
-                {grp.items.map((g, i) => (
-                  <li key={i}>
-                    <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
-                    <span>{g.item}</span>
-                  </li>
-                ))}
+                {grp.items.map((g, i) => {
+                  // Alternatives are decided inside this rendered list, by array
+                  // order: the first member of an alt_group is the primary, and
+                  // every later member hangs off it instead of taking a line.
+                  const primaryIndex = g.alt_group
+                    ? grp.items.findIndex((x) => x.alt_group === g.alt_group)
+                    : -1;
+                  if (primaryIndex !== -1 && primaryIndex < i) {
+                    return (
+                      <li key={i} className="alt-line">
+                        <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
+                        <span>or {g.item}</span>
+                        {g.optional === true && <span className="optional">optional</span>}
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={i}>
+                      <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
+                      <span>{g.item}</span>
+                      {g.optional === true && <span className="optional">optional</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

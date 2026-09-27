@@ -908,6 +908,20 @@ button[aria-pressed="true"] {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--ink-soft);
 }
+/* "optional" is the same kind of quiet label as .leftover: small, uppercase,
+   muted. It sits after the ingredient text, never in place of it. */
+.optional {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+/* An alternative reads as a continuation of the line above, not as its own
+   entry: indented under the primary, same muted ink, no divider of its own. */
+.alt-line {
+  padding-left: 22px;
+  color: var(--ink-soft);
+  border-bottom: none;
+}
+.alt-line .qty { color: var(--ink-soft); font-weight: 600; }
 .nudge {
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   padding: 10px 14px; border-radius: var(--radius-sm);

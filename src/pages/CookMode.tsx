@@ -126,11 +126,22 @@ export default function CookMode() {
             <div key={grp.section ?? "_"}>
               {grp.section && <h3 className="ing-section">{grp.section}</h3>}
               <ul className="cook-ings">
-                {grp.items.map((g, i) => (
-                  <li key={i}>
-                    {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")} <span>{g.item}</span>
-                  </li>
-                ))}
+                {grp.items.map((g, i) => {
+                  // Same rule as the recipe page: within this rendered list, the
+                  // first ingredient of an alt_group is the primary and the rest
+                  // are alternatives indented beneath it.
+                  const primaryIndex = g.alt_group
+                    ? grp.items.findIndex((x) => x.alt_group === g.alt_group)
+                    : -1;
+                  const isAlt = primaryIndex !== -1 && primaryIndex < i;
+                  return (
+                    <li key={i} className={isAlt ? "alt-line" : undefined}>
+                      {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}{" "}
+                      <span>{isAlt ? "or " + g.item : g.item}</span>
+                      {g.optional === true && <span className="optional">optional</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
