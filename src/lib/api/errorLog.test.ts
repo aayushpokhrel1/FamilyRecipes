@@ -114,3 +114,18 @@ test("a non-Error value still produces a usable message", async () => {
   expect(inserted[1].payload.message).toBe("[object Object]");
   expect(inserted[1].payload.stack).toBeNull();
 });
+
+// The rejection handler on the insert is load-bearing and was NOT covered: removing it left
+// every other test green, because an unhandled rejection does not fail a vitest run by
+// default. It is the only thing standing between a failed insert and an unhandled rejection
+// in a family member's console, so it gets pinned directly: the module must attach a
+// rejection handler to the thenable it gets back.
+test("a rejection handler is attached to the insert, not left dangling", async () => {
+  let handler: unknown;
+  from.mockImplementation(() => ({
+    insert: () => ({ then: (_ok: unknown, fail?: unknown) => { handler = fail; } }),
+  }));
+  const reportError = await load();
+  reportError("ctx", new Error("boom"));
+  expect(typeof handler).toBe("function");
+});
