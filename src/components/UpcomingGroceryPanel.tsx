@@ -6,15 +6,7 @@ import { useEffect, useState } from "react";
 import { getUpcomingGroceryList, toggleCheckedAcross } from "../lib/api/mealPlans";
 import type { GroceryLine } from "../lib/api/types";
 import { CATEGORY_ORDER } from "../lib/catalog";
-
-function contribLabel(c: { quantity: string | null; unit: string | null; recipeTitle: string }): string {
-  const qty = [c.quantity, c.unit].filter(Boolean).join(" ").trim();
-  return qty ? `${qty} (${c.recipeTitle})` : `(${c.recipeTitle})`;
-}
-
-function totalLabel(t: { quantity: string; unit: string }): string {
-  return [t.quantity, t.unit].filter(Boolean).join(" ").trim();
-}
+import { contribLabel, totalLabel, lineName, qtyIsRedundant } from "../lib/groceryLabels";
 
 export default function UpcomingGroceryPanel({ days }: { days: number }) {
   const [lines, setLines] = useState<GroceryLine[]>([]);
@@ -61,7 +53,7 @@ export default function UpcomingGroceryPanel({ days }: { days: number }) {
       <li key={line.key}>
         <label>
           <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
-          <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{line.name}</span>
+          <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{lineName(line)}</span>
         </label>
         {line.totals.length > 0 && (
           <span className="qty">{line.totals.map(totalLabel).join(", ")}</span>
@@ -76,7 +68,7 @@ export default function UpcomingGroceryPanel({ days }: { days: number }) {
             {line.contributions.map((c, i) => (
               <span key={i}>
                 {i > 0 && ", "}
-                {contribLabel(c)}
+                {contribLabel(c, { redundant: qtyIsRedundant(line) })}
                 {hasScaled && !c.scaled && <span className="chip">unscaled</span>}
               </span>
             ))}

@@ -38,15 +38,20 @@ function singularizeWord(w: string): string {
   return w;
 }
 
+// A parenthesised group CONTAINING A DIGIT is a quantity that leaked into the item
+// name ("(2 mL) salt"), which extraction does often enough to matter: the key became
+// "(2 ml) salt" and could never match the cupboard's "salt".
+// Only with a digit, deliberately. A parenthetical without one is usually a real
+// distinction ("chicken (thighs)"), and merging that into "chicken" would silently
+// drop an ingredient, which this file holds is worse than not merging.
+// Exported because the grocery list also shows the item, and "(2 mL) salt" is the
+// same noise on screen as it is in the key.
+export function stripLeakedQuantity(s: string): string {
+  return s.replace(/\([^)]*\d[^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export function normalizeItem(item: string): string {
-  let s = item.toLowerCase().split(",")[0];
-  // A parenthesised group CONTAINING A DIGIT is a quantity that leaked into the
-  // item name ("(2 mL) salt"), which extraction does often enough to matter: the
-  // key became "(2 ml) salt" and could never match the cupboard's "salt".
-  // Only with a digit, deliberately. A parenthetical without one is usually a
-  // real distinction ("chicken (thighs)"), and merging that into "chicken" would
-  // silently drop an ingredient, which this file holds is worse than not merging.
-  s = s.replace(/\([^)]*\d[^)]*\)/g, " ");
+  let s = stripLeakedQuantity(item.toLowerCase().split(",")[0]);
   s = s.replace(/-/g, " ").replace(/\s+/g, " ").trim();
   const words = s.split(" ").filter((w) => w && !PREP_WORDS.has(w));
   if (words.length) words[words.length - 1] = singularizeWord(words[words.length - 1]);

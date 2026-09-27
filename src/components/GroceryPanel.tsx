@@ -6,15 +6,7 @@ import { setCategoryOverride } from "../lib/api/ingredientCategories";
 import { useFamily } from "../context/FamilyContext";
 import type { GroceryLine } from "../lib/api/types";
 import { CATEGORY_ORDER } from "../lib/catalog";
-
-function contribLabel(c: { quantity: string | null; unit: string | null; recipeTitle: string }): string {
-  const qty = [c.quantity, c.unit].filter(Boolean).join(" ").trim();
-  return qty ? `${qty} (${c.recipeTitle})` : `(${c.recipeTitle})`;
-}
-
-function totalLabel(t: { quantity: string; unit: string }): string {
-  return [t.quantity, t.unit].filter(Boolean).join(" ").trim();
-}
+import { contribLabel, totalLabel, lineName, qtyIsRedundant } from "../lib/groceryLabels";
 
 export default function GroceryPanel({ planId }: { planId: string }) {
   const { activeFamily } = useFamily();
@@ -41,7 +33,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
   }
   async function handleSetAisle(line: GroceryLine, category: string) {
     if (!activeFamily || !category) return;
-    await setCategoryOverride(activeFamily.id, line.name, category);
+    await setCategoryOverride(activeFamily.id, lineName(line), category);
     reload();
   }
 
@@ -53,7 +45,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
     setStocking(true);
     try {
       const checked = lines.filter((l) => l.checked && !l.staple);
-      await Promise.all(checked.map((l) => addItem(activeFamily.id, l.name, "week")));
+      await Promise.all(checked.map((l) => addItem(activeFamily.id, lineName(l), "week")));
       // getGroceryList recomputes staple flags from the cupboard server side,
       // so reloading the list is enough to reflect what just went in.
       reload();
@@ -79,13 +71,13 @@ export default function GroceryPanel({ planId }: { planId: string }) {
       <li key={line.key}>
         <label>
           <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
-          <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{line.name}</span>
+          <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{lineName(line)}</span>
         </label>
         {line.optional === true && <span className="optional">optional</span>}
         {inOther && activeFamily && (
           <span className="aisle-setter">
             <select
-              aria-label={`Set aisle for ${line.name}`}
+              aria-label={`Set aisle for ${lineName(line)}`}
               value=""
               onChange={(e) => handleSetAisle(line, e.target.value)}
             >
@@ -109,7 +101,7 @@ export default function GroceryPanel({ planId }: { planId: string }) {
             {line.contributions.map((c, i) => (
               <span key={i}>
                 {i > 0 && ", "}
-                {contribLabel(c)}
+                {contribLabel(c, { redundant: qtyIsRedundant(line) })}
                 {hasScaled && !c.scaled && <span className="chip">unscaled</span>}
               </span>
             ))}

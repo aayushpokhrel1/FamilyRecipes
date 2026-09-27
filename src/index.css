@@ -782,7 +782,12 @@ button[aria-pressed="true"] {
 .grocery-list li:last-child { border-bottom: none; }
 .grocery-list label { display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; }
 .grocery-list input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }
-.grocery-list small { color: var(--ink-soft); }
+/* Same two grounds as .staples summary: GroceryPanel is on a plate, My Kitchen's
+   UpcomingGroceryPanel renders this exact markup on the wall. --ink-soft alone is a
+   mid green that sits too close to the dark wall in light mode. Soft-on-wall is the
+   base, soft-on-plate overrides by specificity. */
+.grocery-list small { color: var(--on-wall-soft); }
+.plate .grocery-list small { color: var(--ink-soft); }
 .grocery-list .qty {
   font-family: var(--sign);
   font-weight: 700;
@@ -1003,13 +1008,18 @@ button[aria-pressed="true"] {
   text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em;
 }
 /* Colour is deliberately NOT shared between these two, because their grounds are
-   opposite: .staples sits inside GroceryPanel's section.plate (bone, so ink), while
-   .plans sits directly on the wall (green, so on-wall).
+   opposite: .plans sits directly on the wall (green, so on-wall).
    This rule used to set `color: var(--ink)` for BOTH, which silently beat the
    `.plans summary` rule above on equal specificity by being later in the file. In dark
    mode --ink is light, so it looked fine and the bug hid; in light mode it rendered
-   near-black on dark green and the Plans heading was effectively invisible. */
-.staples summary { color: var(--ink); }
+   near-black on dark green and the Plans heading was effectively invisible.
+   .staples IS ON BOTH GROUNDS, which the first version of this comment got wrong:
+   GroceryPanel renders it inside section.plate, and UpcomingGroceryPanel renders the
+   SAME markup inside My Kitchen's section.panel, on the wall. Pinning it to --ink
+   reproduced the Plans bug one component over. Wall is the base, the plate overrides
+   BY SPECIFICITY (0,2,1 over 0,1,1), never by source order. */
+.staples summary { color: var(--on-wall); }
+.plate .staples summary { color: var(--ink); }
 .staples .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .staples .chip button {
   padding: 0 2px; margin-left: 6px; border: 0; background: none;
