@@ -1,69 +1,78 @@
 # Family Recipes
 
-A private, multi-family recipe vault. Families collect, organize, and pass down
-their recipes with photos, story, and provenance. Each recipe carries a
-visibility flag (Private / Family / Public) so an opt-in public recipe feed can
-grow on top later. A community of food lovers, built family-first.
+A private, multi-family recipe vault. Families collect, organize, and pass down their recipes
+with photos, story, and provenance. Each recipe carries a visibility flag (Private / Family /
+Public) so an opt-in public recipe feed can grow on top later. A community of food lovers, built
+family-first.
 
-## Status
+**Live at <https://recipes.enamelvault.com>.**
 
-**Built, deployed and in use**: <https://recipes.enamelvault.com>. The v1 design lives in
-[docs/superpowers/specs/2026-09-16-family-recipes-design.md](docs/superpowers/specs/2026-09-16-family-recipes-design.md);
-everything since is in `docs/superpowers/specs/`.
+## Documentation
 
-## What v1 does
+| Document | What it holds |
+| --- | --- |
+| [PRODUCT.md](PRODUCT.md) | Who it is for, the product decisions, the roadmap, and what is deliberately deferred |
+| [DESIGN.md](DESIGN.md) | The Enamel Vault design system: tokens, type, colour, components |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Running it locally, verifying, CI, deploying, secrets, monitoring, environment traps |
+| [docs/LESSONS.md](docs/LESSONS.md) | Engineering rules this project paid for. Read before a big change |
+| [docs/superpowers/specs/](docs/superpowers/specs/) | Per-feature design specs, newest first |
+
+`HANDOVER.md` is local-only and gitignored: it holds current session state, nothing durable.
+
+## What it does
 
 - **Multiple families per user**: belong to several, switch between them.
-- **Rich recipes**: ingredients, steps, servings, times, tags, photos, plus a
-  story and provenance ("from Grandma, adapted by Mom").
-- **Easy entry**: a guided manual form, or AI pre-fill from pasted text, a URL,
-  a photo of a handwritten card, voice, or freeform writing. The AI drafts; you
-  always review before saving.
+- **Rich recipes**: ingredients, steps, servings, times, tags, photos, plus a story and
+  provenance ("from Grandma, adapted by Mom").
+- **Easy entry**: a guided manual form, or AI pre-fill from pasted text, a URL, a photo of a
+  handwritten card, voice, or freeform writing. The AI drafts; you always review before saving.
+- **Optional ingredients and alternatives**: mark something optional, or as a swap for another
+  ingredient. The grocery list buys one of a swap pair, never both.
 - **Per-recipe visibility**: Private / Family / Public.
 - **In-family comments** and **Cook Mode** (big-text, screen stays awake).
-- **Optional ingredients and alternatives**: mark something optional, or as a
-  swap for another ingredient. The grocery list buys one of a swap pair, never
-  both.
+- **My Kitchen**: meal planning on a day-by-slot week grid (drag a meal's grip, or tap to
+  assign), leftovers that fill a slot without buying twice, and a grocery list built from the
+  plan, grouped by supermarket aisle and scaled to each plan item's servings.
+- **The cupboard**: what you already have, so the grocery list stops telling you to buy it.
 - **Sign-in** with a verified email address or with Google.
 
 ## Stack
 
-- React (responsive web now; React Native app later, sharing the same API).
-- Supabase: Postgres, Auth, Storage, and Row-Level Security enforcing the
-  visibility model.
-- One Supabase Edge Function (`extract-recipe`) for AI recipe structuring.
+- React (responsive web now; a React Native app later, sharing the same API).
+- Supabase: Postgres, Auth, Storage, and Row-Level Security enforcing the visibility model.
+- Two Supabase Edge Functions: `extract-recipe` (AI recipe structuring) and `delete-account`.
+- Cloudflare Workers serves the built frontend and a small health route.
 
-Designed for portability: all data access is isolated in `lib/api/`, so moving
-to a self-owned Node/Express + Postgres backend later is a bounded swap.
+Designed for portability: **all data access is isolated in `src/lib/api/`**, and nothing outside
+it imports the Supabase client, so moving to a self-owned Node/Express + Postgres backend later
+is a bounded swap.
+
+## Quick start
+
+Docker must be running.
+
+```bash
+npx supabase start
+```
+
+```bash
+npm run dev
+```
+
+Full setup, environment variables and the verify commands are in
+[docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Roadmap
 
-- **v1** - private multi-family vault (this design). Built and live.
-- **My Kitchen** - personal meal planning + auto grocery list from picked
-  recipes; plans shareable read-only with the family.
-  [Design](docs/superpowers/specs/2026-09-18-my-kitchen-meal-planning-design.md).
-- **Recipe enrichment + grocery scaling** - portions scaling, ingredient
-  sections, an ingredient catalog, fuzzy recipe search (trigram), a curated
-  ingredient synonym map, unit-aware quantity merging, and a per-plan-item
-  servings target that scales the grocery list. Built.
-  [Design](docs/superpowers/specs/2026-09-22-grocery-scaling-canonicalization-design.md).
-- **My Kitchen week** - dated plans shown as a day-by-slot grid, a today and
-  up-next landing merged across every readable plan, week duplication,
-  leftovers that fill a slot without buying twice, and pantry staples.
-  [Design](docs/superpowers/specs/2026-09-23-my-kitchen-week-design.md).
-- **Ingredient aisles** - every ingredient's supermarket aisle is derived from
-  its name, never stored on the recipe. The grocery list groups by aisle, the
-  recipe page offers it as a view toggle, and a family can tag anything the
-  catalog does not recognise so it sticks for them from then on.
-- **My Kitchen drag and drop** - drag a meal's grip to another day or slot on
-  the week grid. Tap-to-assign stays, so the grid works without a pointer. Built.
-- **Error and uptime monitoring** - an insert-only `error_log` table written
-  from the failure paths that cost someone their work, read in the Supabase SQL
-  editor, plus two external HEAD checks (the site, and a route that proves the
-  edge function boots). Built.
-- **Phase 2** - public recipe-only community feed: follow, save, fork with
-  link-back. The `public` flag already ships in v1.
-- **Later** - LLM / entity canonicalization for ingredients (the curated map
-  above handles only what it has seen), a family-editable ingredient catalog
-  (today a family can tag an ingredient's aisle, but not add or rename catalog
-  entries), native app.
+Shipped, newest first: optional ingredients and alternatives · week-grid drag and drop · error
+and uptime monitoring · verified email and Google sign-in · the cupboard and "cook now" ·
+ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scaling · My Kitchen
+meal planning · v1 private multi-family vault.
+
+Next: a public recipe-only community feed (follow, save, fork with link-back). The `public` flag
+already ships.
+
+Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,
+per-recipe link previews, and a native app.
+
+[PRODUCT.md](PRODUCT.md) has the detail, including what is deferred and why.

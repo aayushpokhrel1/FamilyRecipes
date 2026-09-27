@@ -103,6 +103,12 @@ Explicitly undecided or deferred (future work must not present these as done):
   imperial are separate families. So 2 tbsp + 1/4 cup merges to 6 tbsp, while 1 cup + 500 g,
   or cups + millilitres, deliberately do not. Cross-system conversion is out of scope, and
   volume-to-weight needs per-ingredient density that does not exist here.
+- **Per-recipe link previews** are half built. `index.html` carries site-wide OpenGraph tags, and
+  a public recipe gets its own title and photo via the Worker. Previews for `family` recipes
+  behind a share link are deliberately not built.
+- **Sorting tags by how often the family uses them** is deferred. The picker caps its height and
+  filters above 12 tags, which solves crowding; ordering by use would solve *hunting*, but needs
+  usage counts. Worth doing only if the filter proves insufficient in real use.
 - A **React Native app** is planned later, sharing the same API. It does not exist yet.
 - **Email confirmation is ON** (since 2026-09-26), delivered through Resend on
   `mail.enamelvault.com`, and Google sign-in is live alongside it. This line previously said
