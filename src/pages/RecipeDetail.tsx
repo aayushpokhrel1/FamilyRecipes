@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteRecipe, getRecipe } from "../lib/api/recipes";
 import { getCoverPhotoUrl } from "../lib/api/photos";
 import { listPlans, addRecipe } from "../lib/api/mealPlans";
+import { listRecipeTags } from "../lib/api/tags";
 import { listCategoryOverrides } from "../lib/api/ingredientCategories";
-import type { Ingredient, Recipe, Step, MealPlan } from "../lib/api/types";
+import type { Ingredient, Recipe, Step, MealPlan, Tag } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
@@ -19,6 +20,7 @@ export default function RecipeDetail() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const isAlternative = alternativesOf(ingredients);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,10 @@ export default function RecipeDetail() {
     if (!id) return;
     let ignore = false;
     setLoading(true);
+    // Tags were write-only until now: they could be set on a recipe and filtered on in the
+    // vault, but the recipe itself never showed them back, so tagging looked like it did
+    // nothing. Failing to load them must not fail the recipe, hence the separate catch.
+    listRecipeTags(id).then((t) => { if (!ignore) setTags(t); }).catch(() => { if (!ignore) setTags([]); });
     getRecipe(id)
       .then((data) => {
         if (ignore) return;
@@ -158,6 +164,12 @@ export default function RecipeDetail() {
         </p>
       )}
       {addMsg && <p className="vault-note">{addMsg}</p>}
+
+      {tags.length > 0 && (
+        <div className="recipe-tags">
+          {tags.map((t) => <span key={t.id} className="chip">{t.name}</span>)}
+        </div>
+      )}
 
       {photoUrl && <img className="recipe-photo" src={photoUrl} alt={recipe.title} />}
 

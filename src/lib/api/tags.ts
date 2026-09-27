@@ -32,6 +32,16 @@ export async function recipeIdsForTag(tagId: string): Promise<string[]> {
   return (data ?? []).map((r: any) => r.recipe_id);
 }
 
+// The tags ON a recipe, names included. One request through the join rather than
+// getRecipeTagIds plus listTags, which would be two round trips and would need the
+// family id the recipe page does not otherwise care about.
+export async function listRecipeTags(recipeId: string): Promise<Tag[]> {
+  const { data, error } = await supabase.from("recipe_tags")
+    .select("tags(id,family_id,name)").eq("recipe_id", recipeId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).flatMap((r: any) => (r.tags ? [r.tags as Tag] : []));
+}
+
 export async function getRecipeTagIds(recipeId: string): Promise<string[]> {
   const { data, error } = await supabase.from("recipe_tags").select("tag_id").eq("recipe_id", recipeId);
   if (error) throw new Error(error.message);

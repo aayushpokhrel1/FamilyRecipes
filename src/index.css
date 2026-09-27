@@ -609,7 +609,15 @@ button[aria-pressed="true"] {
 .editor-row input { flex: 1 1 120px; min-width: 0; }
 .editor-row input:last-of-type { flex: 2 1 200px; }
 
-.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.recipe-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+
+/* Capped so a family with many tags cannot push the rest of the form off the screen. The
+   row scrolls instead of growing without limit; the filter above it does the narrowing. */
+.tag-row {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  max-height: 132px; overflow-y: auto;
+}
+.tag-filter { margin-bottom: 10px; width: 100%; max-width: 280px; }
 .tag-row button { padding: 6px 13px; font-size: 0.8rem; }
 
 .ai-panel { margin-bottom: 24px; padding: 20px 22px; }

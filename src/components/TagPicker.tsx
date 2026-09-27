@@ -13,6 +13,7 @@ export default function TagPicker({
 }) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [name, setName] = useState("");
+  const [filter, setFilter] = useState("");
 
   useEffect(() => {
     listTags(familyId).then(setTags).catch(() => setTags([]));
@@ -33,10 +34,30 @@ export default function TagPicker({
     setName("");
   }
 
+  // Every family tag rendered as a button, forever, eventually pushes the rest of the form
+  // off the screen. A filter earns its place only once there are enough tags to hunt through;
+  // below that it is one more box between a cook and saving a recipe.
+  const FILTER_FROM = 12;
+  const needle = filter.trim().toLowerCase();
+  // A selected tag always shows, even when it does not match: hiding what is already ticked
+  // makes it look unticked, and you cannot untick what you cannot see.
+  const shown = needle
+    ? tags.filter((t) => t.name.toLowerCase().includes(needle) || value.includes(t.id))
+    : tags;
+
   return (
     <div>
+      {tags.length > FILTER_FROM && (
+        <input
+          className="tag-filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder={`Filter ${tags.length} tags`}
+          aria-label="Filter tags"
+        />
+      )}
       <div className="tag-row">
-        {tags.map((t) => (
+        {shown.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -46,6 +67,7 @@ export default function TagPicker({
             {t.name}
           </button>
         ))}
+        {shown.length === 0 && <p className="vault-note">No tag matches that.</p>}
       </div>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New tag" />
       <button type="button" onClick={handleAdd}>

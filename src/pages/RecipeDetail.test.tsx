@@ -28,6 +28,8 @@ vi.mock("../lib/api/mealPlans", () => ({
 vi.mock("../lib/api/photos", () => ({
   getCoverPhotoUrl: vi.fn().mockResolvedValue(null),
 }));
+const listRecipeTags = vi.fn().mockResolvedValue([]);
+vi.mock("../lib/api/tags", () => ({ listRecipeTags: (...a: any[]) => listRecipeTags(...a) }));
 
 test("renders the recipe title, ingredients and steps", async () => {
   render(
@@ -52,4 +54,32 @@ test("shows an add-to-plan control listing the user's plans", async () => {
   );
   expect(await screen.findByRole("button", { name: /add to plan/i })).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "This week" })).toBeInTheDocument();
+});
+
+// Tags were write-only: you could tag a recipe and filter the vault by tag, but the recipe
+// itself never showed them, so tagging read as doing nothing at all. Same shape as the photos
+// bug: the data was fine, nothing showed it back.
+test("the recipe shows the tags it carries", async () => {
+  listRecipeTags.mockResolvedValue([
+    { id: "t1", family_id: "f1", name: "vegetarian" },
+    { id: "t2", family_id: "f1", name: "quick" },
+  ]);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("vegetarian")).toBeInTheDocument();
+  expect(screen.getByText("quick")).toBeInTheDocument();
+});
+
+// A tag read failing must not cost you the recipe.
+test("a recipe with no tags renders normally", async () => {
+  listRecipeTags.mockRejectedValue(new Error("nope"));
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("Dal")).toBeInTheDocument();
 });
