@@ -13,8 +13,10 @@ genuine crash. The dead edge function threw, so it would have been recorded.
 any call was made, so even comparing what was sent against what came back would have compared
 two matching wrong values. **No error monitor of any design catches that class.** What protects
 it is a test at the boundary that asserts what reaches the API, which is what
-`RecipeCreate.test.tsx` now does. `RecipeEdit` has no test file at all, and that is the real
-remaining gap. It is named here so nobody later mistakes monitoring for coverage.
+`RecipeCreate.test.tsx` now does. `RecipeEdit` had no test file at all and was the real
+remaining gap; that gap was **closed on 2026-09-27** (`3566d87`, `RecipeEdit.test.tsx`, proven
+by reintroducing the bug). The point stands and is why it is named here: monitoring is not
+coverage.
 
 ## Decisions (settled 2026-09-27, do not relitigate)
 
