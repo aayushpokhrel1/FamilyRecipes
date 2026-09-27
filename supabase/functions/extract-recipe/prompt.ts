@@ -9,6 +9,8 @@ Ingredient amounts (the input may be a spoken transcript, so phrasing is loose):
 - Convert worded numbers to digits: "two" -> "2", "half a cup" -> quantity "1/2" and unit "cup", "a couple of" -> "2", "a" or "an" before a unit -> "1".
 - A size describing the container or piece belongs in item, not quantity: "one 28-ounce can of crushed tomatoes" -> quantity "1", unit "can", item "28-ounce crushed tomatoes".
 - Amounts with no number ("a pinch", "to taste", "for garnish") go in unit or item, with quantity null.
+- optional is true ONLY when the recipe itself says so ("optional", "if you like", "to taste", "for garnish"). Never infer it because an ingredient seems minor. Default false.
+- Do NOT try to pair ingredients as alternatives to each other. If the recipe says "cream (or yogurt)", that is ONE ingredient and the text stays in item. Guessing wrong would silently remove something from a shopping list.
 
 servings is an integer. Read it from any phrasing of yield, including spoken ones: "it serves four" -> 4, "feeds a family of six" -> 6, "makes 12 cookies" -> 12. Use null only when no yield is mentioned at all.`;
 
@@ -30,6 +32,7 @@ export const DRAFT_SCHEMA = {
           quantity: { type: ["string", "null"], description: "Number only, no unit or words: \"2\", \"2.5\", \"1/2\", \"1 1/2\", \"2-3\". null if not stated" },
           unit: { type: ["string", "null"], description: "Unit of measure alone and singular (cup, tablespoon, can), null if not stated" },
           item: { type: "string", description: "The ingredient itself" },
+          optional: { type: "boolean", description: "True only if the recipe calls it optional, to taste, or for garnish. Default false" },
         },
         required: ["position", "item"],
       },
