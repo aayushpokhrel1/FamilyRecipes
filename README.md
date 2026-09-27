@@ -14,10 +14,13 @@ family-first.
 | [PRODUCT.md](PRODUCT.md) | Who it is for, the product decisions, the roadmap, and what is deliberately deferred |
 | [DESIGN.md](DESIGN.md) | The Enamel Vault design system: tokens, type, colour, components |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Running it locally, verifying, CI, deploying, secrets, monitoring, environment traps |
-| [docs/LESSONS.md](docs/LESSONS.md) | Engineering rules this project paid for. Read before a big change |
 | [docs/superpowers/specs/](docs/superpowers/specs/) | Per-feature design specs, newest first |
 
 `HANDOVER.md` is local-only and gitignored: it holds current session state, nothing durable.
+
+Engineering lessons are **not** kept in this repo as prose. A rule about specific code lives as a
+comment at that code, where it cannot be missed; the generalisable half lives in the Obsidian
+vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
 
 ## What it does
 

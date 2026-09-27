@@ -14,13 +14,33 @@ model swap the same file recorded as already tried and rejected.
 | `PRODUCT.md` | Product truth: who it is for, decisions, roadmap, what is deferred **and why** |
 | `DESIGN.md` | The visual system: tokens, type, colour, component patterns |
 | `docs/OPERATIONS.md` | Running, verifying, CI, deploying, secrets, monitoring, environment traps, latent landmines |
-| `docs/LESSONS.md` | An engineering rule the project paid for. "We learned X the hard way" |
+| a **code comment at the site** | A rule about specific code ("any new ingredient column must be added here too") |
+| the **Obsidian vault** | A lesson that would change how I work on a *different* project |
 | `docs/superpowers/specs/` | The design of one feature, written before building it |
 | `HANDOVER.md` | **Only** current state: commit, versions, test counts, what is half-done, what is next |
 | nowhere | A dated narrative of what you did today. `git log` already holds it, in detail |
 
 `HANDOVER.md` is gitignored and local-only, so nothing durable may live there: a fresh clone or
 another machine would never see it.
+
+## Lessons have ONE home each, by reach
+
+There is deliberately **no `LESSONS.md` in this repo**. It was tried on 2026-09-27 and deleted
+the same day, because every entry was already a third copy: the codebase-specific ones were
+comments at the code, and the generalisable ones were in the vault.
+
+1. **A rule about specific code goes in a comment AT that code.** This is the most reliable form
+   by a distance: you cannot edit `replace_recipe_children` without reading the warning above it.
+   A doc elsewhere is the least reliable, because nobody re-reads it.
+2. **A lesson that generalises goes in the Obsidian vault**, `Projects/FamilyRecipes/index.md`,
+   phrased so it is useful on another project, with this one as the example.
+3. **Nothing goes in both.** If something is genuinely both, the detail is the code comment and
+   the generalisable half is the vault note.
+
+The evidence for why prose docs do not work here: three bugs on 2026-09-27 had their lesson
+already written down in this project before they happened. **The failure mode is not ignorance,
+it is not re-reading.** Prefer a mechanical defence — a test that fails, a CI job, a grep, a
+comment you cannot avoid — over a document.
 
 **Updating docs means making them TRUE, not just appending what shipped.** Correct or strike a
 stale claim where it sits rather than adding a newer entry beneath it, because the next reader
@@ -41,5 +61,6 @@ When asked to "update the docs", sweep all of them, not the one you happen to ha
 - **The edge function is never deployed automatically** — always
   `npx supabase functions deploy extract-recipe`. `ACTIVE` means deployed, not runnable.
 - **Work on `master`** (solo project). Branch only to let CI gate something risky first.
-- **Read `docs/LESSONS.md` before a big change** and `docs/OPERATIONS.md` before any deploy.
-  Most entries there name a bug that recurred *after* its lesson was first written down.
+- **Query the Obsidian vault (`Projects/FamilyRecipes/`) before a big change**, and read
+  `docs/OPERATIONS.md` before any deploy. Most vault entries name a bug that recurred *after*
+  its lesson was first written down.

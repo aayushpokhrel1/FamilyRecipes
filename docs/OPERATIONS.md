@@ -1,7 +1,7 @@
 # Operations
 
-How to run, deploy and not break Family Recipes. Cross-cutting engineering rules live in
-[LESSONS.md](LESSONS.md); product truth lives in [../PRODUCT.md](../PRODUCT.md).
+How to run, deploy and not break Family Recipes. Cross-cutting engineering lessons live in the Obsidian vault
+(`Projects/FamilyRecipes/`), not in this repo; product truth lives in [../PRODUCT.md](../PRODUCT.md).
 
 ## Running it locally
 
@@ -74,7 +74,7 @@ npm run test:int
 `npm run lint` is the **only** check covering `supabase/functions/`. `npm run build` typechecks
 the app and deliberately excludes the edge function because it is Deno, and
 `supabase functions deploy` uploads source without parsing it. A syntax error there deploys
-fine and then fails to boot on every request. See [LESSONS.md](LESSONS.md#deploying).
+fine and then fails to boot on every request.
 
 CI only triggers on master pushes and PRs, so a plain feature-branch push fires nothing. To gate
 a branch without opening a PR, temporarily add it to `push.branches` (e.g. `'ci/**'`) and strip
