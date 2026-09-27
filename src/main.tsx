@@ -5,6 +5,13 @@ import './index.css'
 import { AuthProvider } from './context/AuthContext'
 import { FamilyProvider } from './context/FamilyContext'
 import AppRoutes from './routes'
+import { reportError } from './lib/api/errorLog'
+
+// Nearly every failure in this app is caught and shown to the person who hit it, so the
+// catch blocks that report are the ones that see them. These two listeners exist for the
+// failures no catch block ever saw: a throw during render, or a promise nobody awaited.
+window.addEventListener("error", (e) => reportError("window:error", e.error ?? e.message));
+window.addEventListener("unhandledrejection", (e) => reportError("window:unhandledrejection", e.reason));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

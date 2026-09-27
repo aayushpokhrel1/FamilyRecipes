@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { setNewPassword } from "../lib/api/auth";
+import { reportError } from "../lib/api/errorLog";
 
 export default function Recover() {
   const [next, setNext] = useState("");
@@ -25,6 +26,7 @@ export default function Recover() {
       await setNewPassword(next);
       setDone(true);
     } catch (err) {
+      reportError("auth:recover", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }

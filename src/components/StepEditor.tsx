@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { extractRecipe } from "../lib/api/extract";
+import { reportError } from "../lib/api/errorLog";
 import type { Ingredient, Step } from "../lib/api/types";
 import { useRecorder } from "../lib/useRecorder";
 
@@ -81,6 +82,7 @@ export default function StepEditor({
       onChange(toSteps(combined));
       offerIngredients(draft.ingredients);
     } catch (err) {
+      reportError("extract:audio", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
@@ -98,6 +100,7 @@ export default function StepEditor({
       onChange(toSteps(tidied));
       offerIngredients(draft.ingredients);
     } catch (err) {
+      reportError("extract:text", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);

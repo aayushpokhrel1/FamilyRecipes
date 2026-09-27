@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from "react";
 import { extractRecipe } from "../lib/api/extract";
+import { reportError } from "../lib/api/errorLog";
 import type { RecipeDraft } from "../lib/api/types";
 import { blobToBase64, useRecorder } from "../lib/useRecorder";
 
@@ -28,6 +29,7 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
       const draft = await extractRecipe(m, payload);
       onDraft(draft);
     } catch (err) {
+      reportError(`extract:${m}`, err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
@@ -54,6 +56,7 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
       const base64 = await blobToBase64(file);
       await run("image", base64);
     } catch (err) {
+      reportError("extract:image-file", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }

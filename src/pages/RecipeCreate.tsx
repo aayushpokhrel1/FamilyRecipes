@@ -4,6 +4,7 @@ import { useFamily } from "../context/FamilyContext";
 import { createRecipe, listFamilyIngredientNames, listFamilySectionNames } from "../lib/api/recipes";
 import { setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
+import { reportError } from "../lib/api/errorLog";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import AiPrefillPanel from "../components/AiPrefillPanel";
 import IngredientEditor from "../components/IngredientEditor";
@@ -62,6 +63,7 @@ export default function RecipeCreate() {
       if (coverFile) await uploadRecipePhoto(created.id, coverFile, true);
       navigate("/recipes/" + created.id);
     } catch (err) {
+      reportError("save:recipe-create", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }

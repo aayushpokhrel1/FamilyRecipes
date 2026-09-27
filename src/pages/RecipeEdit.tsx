@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getRecipe, updateRecipe, listFamilyIngredientNames, listFamilySectionNames } from "../lib/api/recipes";
 import { getRecipeTagIds, setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
+import { reportError } from "../lib/api/errorLog";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import { mergeDraft } from "../lib/mergeDraft";
 import AiPrefillPanel from "../components/AiPrefillPanel";
@@ -82,6 +83,7 @@ export default function RecipeEdit() {
       if (coverFile) await uploadRecipePhoto(id, coverFile, true);
       navigate("/recipes/" + id);
     } catch (err) {
+      reportError("save:recipe-edit", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }

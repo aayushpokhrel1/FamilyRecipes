@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signUp } from "../lib/api/auth";
+import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 
 export default function SignUp() {
@@ -19,6 +20,7 @@ export default function SignUp() {
       if (session) navigate("/");
       else setSent(true);
     } catch (err) {
+      reportError("auth:sign-up", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }

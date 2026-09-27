@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signIn, requestPasswordReset } from "../lib/api/auth";
+import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 
 export default function SignIn() {
@@ -17,6 +18,7 @@ export default function SignIn() {
       await signIn(email, password);
       navigate("/");
     } catch (err) {
+      reportError("auth:sign-in", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }
@@ -33,6 +35,7 @@ export default function SignIn() {
       await requestPasswordReset(email);
       setResetSent(true);
     } catch (err) {
+      reportError("auth:password-reset", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }
