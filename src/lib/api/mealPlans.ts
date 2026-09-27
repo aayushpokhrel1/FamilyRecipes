@@ -244,11 +244,19 @@ async function groceryLinesFromItems(
     rows, manualList, checkedKeys,
     {
       // An item you are low on or out of is a thing to BUY, not a thing to
-      // assume you have. This one filter is the whole "do we need more rice"
-      // job. A week item is never a staple: it is this week's food, and it
-      // belongs on the list like anything else.
+      // assume you have. This one filter is the whole "do we need more rice" job.
+      //
+      // `kind` is deliberately NOT consulted. It used to require `kind === "keep"`,
+      // on the reasoning that a week item "is this week's food and belongs on the
+      // list like anything else" — but that made the cupboard half-useless and made
+      // "Put N items in the cupboard" a button with no visible effect: it adds week
+      // items, so everything you just bought came straight back as something to buy
+      // (GroceryPanel's own comment expects the reload to reflect it). `kind` decides
+      // how long a claim is TRUSTED, and listPantry already enforces that by dropping
+      // expired rows, so anything it returns is a current "we have this". Gating on
+      // kind as well was a second, wrong copy of that rule.
       staples: new Set(
-        pantry.filter((p) => p.kind === "keep" && p.state === "have").map((p) => p.key),
+        pantry.filter((p) => p.state === "have").map((p) => p.key),
       ),
       categories,
     },

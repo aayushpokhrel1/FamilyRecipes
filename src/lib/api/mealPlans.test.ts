@@ -87,10 +87,16 @@ test("getGroceryList scales each (recipe, servings) pair separately", async () =
   expect(flour.staple).toBe(true);
 });
 
-// The whole "do we need more rice" job: a staple you have is a quiet reminder,
-// a staple you are low on or out of is a thing to buy, and a week item is this
-// week's food rather than something you always keep.
-test("only keep items you actually have are treated as staples", async () => {
+// The whole "do we need more rice" job: anything the cupboard says you HAVE is a
+// quiet reminder, anything you are low on or out of is a thing to buy.
+//
+// This test used to assert the opposite for the last case ("Chicken is this week's
+// food, not a staple") because the filter also required kind === "keep". That made
+// the cupboard half-useless: you bought chicken, the cupboard knew, and the list
+// still told you to buy chicken. `kind` decides how long a claim is trusted and
+// listPantry already enforces it by dropping expired rows, so a week item that
+// comes back is a current "we have this".
+test("anything the cupboard says you have is treated as a staple, whatever its kind", async () => {
   from.mockImplementation((table: string) => {
     if (table === "meal_plans") {
       return { select: () => ({ eq: () => ({ single: () => ({ data: { checked_items: [], family_id: "f1" }, error: null }) }) }) };
@@ -129,8 +135,9 @@ test("only keep items you actually have are treated as staples", async () => {
   const lines = await getGroceryList("p1");
   // Rice is had, so it is suppressed into the staples group.
   expect(lines.find((l) => l.key === "rice")!.staple).toBe(true);
-  // Cumin is out, so it is a real line to buy.
+  // Cumin is out, so it is a real line to buy. State still decides, and that is
+  // the half of the old rule that was right.
   expect(lines.find((l) => l.key === "cumin")!.staple).toBe(false);
-  // Chicken is this week's food, not a staple.
-  expect(lines.find((l) => l.key === "chicken")!.staple).toBe(false);
+  // Chicken is a week item you have: bought, in the fridge, not to be bought again.
+  expect(lines.find((l) => l.key === "chicken")!.staple).toBe(true);
 });

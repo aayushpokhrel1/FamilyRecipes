@@ -890,6 +890,12 @@ button[aria-pressed="true"] {
   background: var(--plate); color: var(--ink);
   border: 1.5px solid var(--rim); box-shadow: var(--lift-sm);
   display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem;
+  /* A calendar cell is a drag surface, not prose. Aiming slightly off the grip
+     used to start a text selection over the meal title, which then swallowed the
+     drag. Nobody selects text in a week grid, so the whole cell opts out.
+     touch-action stays on the grip alone: the grid scrolls sideways and the cell
+     must not block that. */
+  -webkit-user-select: none; user-select: none;
 }
 .week-cell.empty {
   background: transparent; border-style: dashed; box-shadow: none;
@@ -906,10 +912,21 @@ button[aria-pressed="true"] {
   all: unset; cursor: pointer; width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
 }
-/* Small, quiet, and only a grip: the cell's real controls must stay the loud ones. */
+/* Small, quiet, and only a grip: the cell's real controls must stay the loud ones.
+   But `all: unset` also cleared the button's default user-select, so pressing the
+   grip and moving SELECTED the glyph and the cell text instead of starting a drag.
+   The non-selection lives on .week-cell below, so a near-miss cannot start a
+   selection either; on the grip it is only belt-and-braces for the glyph itself.
+   Was 0.9rem with 2px/4px padding, a ~14x18px target you had to aim at. */
 .meal-grip {
   all: unset; cursor: grab; touch-action: none;
-  color: var(--ink-soft); font-size: 0.9rem; line-height: 1; padding: 2px 4px;
+  -webkit-user-select: none; user-select: none;
+  /* iOS raises its long-press callout at roughly the same moment as the 250ms
+     touch-hold the drag sensor waits for, and the callout wins. */
+  -webkit-touch-callout: none;
+  color: var(--ink-soft); font-size: 1rem; line-height: 1; padding: 7px 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  align-self: flex-start;
 }
 .meal-grip:active { cursor: grabbing; }
 .week-cell .leftover {
@@ -1005,10 +1022,20 @@ button[aria-pressed="true"] {
 .group-toggle button[aria-pressed="true"] {
   background: var(--action); color: var(--on-action); border-color: var(--action);
 }
+/* An aisle heading is a heading, so it gets full-strength colour. At 0.74rem
+   uppercase in --ink-soft it measured 5.7:1 on the plate, which passes AA and
+   still read as greyed-out rather than as a label: the same complaint, and the
+   same fix, as .upnext h3 / .staples-strip h3 / .forgotten h3.
+   COLOUR IS NOT SHARED HERE, DELIBERATELY. This class lives on two grounds:
+   GroceryPanel's section.plate and, in My Kitchen, section.panel on the WALL,
+   where --ink is near-black in light mode and would vanish. So the wall value is
+   the base and the plate overrides it BY SPECIFICITY (0,1,1 over 0,1,0), never by
+   source order, which is how .staples/.plans broke. Same shape as .plate h2,h3. */
 .aisle {
-  margin: 16px 0 6px; font-family: var(--sign); color: var(--ink-soft);
-  font-size: 0.74rem; letter-spacing: 0.07em; text-transform: uppercase;
+  margin: 16px 0 6px; font-family: var(--sign); color: var(--on-wall);
+  font-size: 0.82rem; letter-spacing: 0.07em; text-transform: uppercase;
 }
+.plate .aisle { color: var(--ink); }
 .aisle:first-child { margin-top: 0; }
 .editor-row select { min-width: 9rem; }
 .section-namer { display: flex; gap: 6px; align-items: center; }
