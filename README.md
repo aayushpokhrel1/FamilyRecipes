@@ -7,8 +7,9 @@ grow on top later. A community of food lovers, built family-first.
 
 ## Status
 
-Pre-implementation. The v1 design is approved and lives in
-[docs/superpowers/specs/2026-09-16-family-recipes-design.md](docs/superpowers/specs/2026-09-16-family-recipes-design.md).
+**Built, deployed and in use**: <https://recipes.enamelvault.com>. The v1 design lives in
+[docs/superpowers/specs/2026-09-16-family-recipes-design.md](docs/superpowers/specs/2026-09-16-family-recipes-design.md);
+everything since is in `docs/superpowers/specs/`.
 
 ## What v1 does
 
@@ -20,6 +21,10 @@ Pre-implementation. The v1 design is approved and lives in
   always review before saving.
 - **Per-recipe visibility**: Private / Family / Public.
 - **In-family comments** and **Cook Mode** (big-text, screen stays awake).
+- **Optional ingredients and alternatives**: mark something optional, or as a
+  swap for another ingredient. The grocery list buys one of a swap pair, never
+  both.
+- **Sign-in** with a verified email address or with Google.
 
 ## Stack
 
@@ -50,6 +55,12 @@ to a self-owned Node/Express + Postgres backend later is a bounded swap.
   its name, never stored on the recipe. The grocery list groups by aisle, the
   recipe page offers it as a view toggle, and a family can tag anything the
   catalog does not recognise so it sticks for them from then on.
+- **My Kitchen drag and drop** - drag a meal's grip to another day or slot on
+  the week grid. Tap-to-assign stays, so the grid works without a pointer. Built.
+- **Error and uptime monitoring** - an insert-only `error_log` table written
+  from the failure paths that cost someone their work, read in the Supabase SQL
+  editor, plus two external HEAD checks (the site, and a route that proves the
+  edge function boots). Built.
 - **Phase 2** - public recipe-only community feed: follow, save, fork with
   link-back. The `public` flag already ships in v1.
 - **Later** - LLM / entity canonicalization for ingredients (the curated map

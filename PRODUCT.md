@@ -104,7 +104,9 @@ Explicitly undecided or deferred (future work must not present these as done):
   or cups + millilitres, deliberately do not. Cross-system conversion is out of scope, and
   volume-to-weight needs per-ingredient density that does not exist here.
 - A **React Native app** is planned later, sharing the same API. It does not exist yet.
-- Email confirmation is currently off for pre-real-user testing.
+- **Email confirmation is ON** (since 2026-09-26), delivered through Resend on
+  `mail.enamelvault.com`, and Google sign-in is live alongside it. This line previously said
+  confirmation was off for pre-real-user testing; that has not been true since that date.
 
 ## Brand Commitments
 
