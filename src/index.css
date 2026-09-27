@@ -916,7 +916,11 @@ button[aria-pressed="true"] {
 }
 /* An alternative reads as a continuation of the line above, not as its own
    entry: indented under the primary, same muted ink, no divider of its own. */
-.alt-line {
+/* Scoped to the lists it appears in, because `.ing-list li` and `.cook-ings li` set their own
+   padding and beat a bare `.alt-line` on specificity: written unscoped, the indent silently
+   computed to 0 and the alternative sat flush with the things you actually have to buy. */
+.ing-list .alt-line,
+.cook-ings .alt-line {
   padding-left: 22px;
   color: var(--ink-soft);
   border-bottom: none;
