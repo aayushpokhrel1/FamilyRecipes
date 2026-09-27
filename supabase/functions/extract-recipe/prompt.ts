@@ -8,6 +8,9 @@ Ingredient amounts (the input may be a spoken transcript, so phrasing is loose):
 - unit holds the unit of measure on its own, singular: "tablespoon", "cup", "clove", "can". Use null if no unit was stated.
 - Convert worded numbers to digits: "two" -> "2", "half a cup" -> quantity "1/2" and unit "cup", "a couple of" -> "2", "a" or "an" before a unit -> "1".
 - A size describing the container or piece belongs in item, not quantity: "one 28-ounce can of crushed tomatoes" -> quantity "1", unit "can", item "28-ounce crushed tomatoes".
+- An amount RESTATED in another unit, usually bracketed, is the same amount twice. Keep the first and drop the bracketed one; never put it in item: "1/2 tsp (2 mL) salt" -> quantity "1/2", unit "teaspoon", item "salt". "1 lb (450 g) pork ribs" -> quantity "1", unit "pound", item "pork ribs". This is NOT the rule above: "28-ounce" describes the can you buy, "(2 mL)" is one half-teaspoon said twice.
+- Drop cookbook cross-references: "Smoky BBQ Sauce (page 341) or store-bought" -> item "Smoky BBQ Sauce or store-bought".
+- item is the ingredient NAME. It must never begin with a number or a bracketed amount.
 - Amounts with no number ("a pinch", "to taste", "for garnish") go in unit or item, with quantity null.
 - optional is true ONLY when the recipe itself says so ("optional", "if you like", "to taste", "for garnish"). Never infer it because an ingredient seems minor. Default false.
 - Do NOT try to pair ingredients as alternatives to each other. If the recipe says "cream (or yogurt)", that is ONE ingredient and the text stays in item. Guessing wrong would silently remove something from a shopping list.
