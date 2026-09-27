@@ -77,3 +77,29 @@ test("model steps survive a save that also fills in ingredients", async () => {
   vi.doUnmock("../lib/api/recipes");
   vi.doUnmock("../lib/api/tags");
 });
+
+// Reporting is only worth having if it fires on the path where a failure costs someone their
+// work. A save that blows up must leave a trace without anybody being asked to describe it.
+test("a failed save reports itself once, with the context that says where", async () => {
+  const reportError = vi.fn();
+  vi.doMock("../lib/api/errorLog", () => ({ reportError }));
+  vi.doMock("../lib/api/recipes", () => ({
+    createRecipe: vi.fn().mockRejectedValue(new Error("db is on fire")),
+    listFamilyIngredientNames: vi.fn().mockResolvedValue([]),
+    listFamilySectionNames: vi.fn().mockResolvedValue([]),
+  }));
+  vi.doMock("../lib/api/tags", () => ({ setRecipeTags: vi.fn(), listTags: vi.fn().mockResolvedValue([]) }));
+
+  vi.resetModules();
+  const { default: Page } = await import("./RecipeCreate");
+  render(<MemoryRouter><Page /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+  await waitFor(() => expect(reportError).toHaveBeenCalledWith("save:recipe-create", expect.any(Error)));
+  expect(reportError).toHaveBeenCalledTimes(1);
+  // The person still gets told; reporting is additional, never a replacement.
+  expect(await screen.findByText(/db is on fire/i)).toBeInTheDocument();
+  vi.doUnmock("../lib/api/errorLog");
+  vi.doUnmock("../lib/api/recipes");
+  vi.doUnmock("../lib/api/tags");
+});
