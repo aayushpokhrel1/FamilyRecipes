@@ -918,7 +918,10 @@ button[aria-pressed="true"] {
 .upnext { margin-bottom: 30px; }
 .upnext h3 {
   font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--on-wall-soft); margin: 18px 0 8px;
+  /* Full on-wall, matching .staples-strip h3 and .forgotten h3. At 0.78rem uppercase on
+     the wall, the 72% soft tint was dim enough to read as greyed-out rather than as a
+     heading, and it was the only one of the three section headings not at full strength. */
+  color: var(--on-wall); margin: 18px 0 8px;
 }
 .upnext .slot {
   font-family: var(--sign); text-transform: uppercase; font-size: 0.72rem;
@@ -953,9 +956,17 @@ button[aria-pressed="true"] {
 /* --------------------------------------------------------- staples ------- */
 .staples { margin-top: 18px; }
 .staples summary, .plans summary {
-  cursor: pointer; font-family: var(--sign); color: var(--ink);
+  cursor: pointer; font-family: var(--sign);
   text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em;
 }
+/* Colour is deliberately NOT shared between these two, because their grounds are
+   opposite: .staples sits inside GroceryPanel's section.plate (bone, so ink), while
+   .plans sits directly on the wall (green, so on-wall).
+   This rule used to set `color: var(--ink)` for BOTH, which silently beat the
+   `.plans summary` rule above on equal specificity by being later in the file. In dark
+   mode --ink is light, so it looked fine and the bug hid; in light mode it rendered
+   near-black on dark green and the Plans heading was effectively invisible. */
+.staples summary { color: var(--ink); }
 .staples .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .staples .chip button {
   padding: 0 2px; margin-left: 6px; border: 0; background: none;
