@@ -33,6 +33,19 @@ never match. The user's own data disproved a family-mismatch theory in one step.
 entirely, which looked like the pantry query returning nothing. Salt was simply the only cupboard
 item, so zero matches meant the whole block never rendered.
 
+**Check the premise a plan rests on, before executing the plan.** The auth spec forced a strict
+ordering on one claim: that confirmation being off meant every account was unconfirmed, so Google
+would refuse to link and would silently create a second empty account. The claim was false
+(`mailer_autoconfirm: true` stamps `email_confirmed_at` at signup). Two minutes of SQL replaced
+an evening of assumed prerequisites.
+
+**Run the safe form of a test first, when one exists.** The spec said: sign out, sign in with
+Google, check you land in your own account. If linking had failed, that produces a second empty
+account and a moment of "all our recipes are gone". Signing in with the password and then
+**Connect from Settings** attaches the provider to the account you are already inside: no
+matching, no ambiguity, no possible duplicate. Then verify in the **database** — one user id
+carrying two identity rows is proof; "it looked right" is not.
+
 **Prompt adherence is model-specific.** A prompt rule verified on one model does not carry to
 another. Re-run the check when `MODEL_NAME` changes.
 
@@ -132,6 +145,21 @@ this). When adding a link to a new page, ask what renders when the target is emp
 **A control that reveals nothing is worse than no control.** "Show 2 more days" rendered whenever
 hidden days existed, but a day with no covering plan renders nothing, so the button visibly did
 nothing. Gate a reveal on there being something to reveal.
+
+## Planning and design
+
+**A plan's self-review must grep the paths.** Three errors in one implementation plan were the
+same mistake: file paths asserted from memory and never checked against the repo. The self-review
+had checked type and signature consistency, which caught nothing because the types were fine.
+Checking that every path in a plan exists costs one grep. A worker sent to edit a file that does
+not contain the code either flails or invents something.
+
+**When a project has a written design direction, a UI question is more often unimplemented than
+undecided.** Photos were invisible in the app and "where should the photo go?" looked like an
+open design question. It had been answered months earlier in `.impeccable/surfaces/` ("a dish
+photo behind an enamel frame"); the implementation had simply never been built. Check the
+contract before opening a discussion, rather than inventing a parallel answer that will conflict
+later.
 
 ## CSS and theming
 
