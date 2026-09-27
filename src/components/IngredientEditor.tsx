@@ -30,6 +30,48 @@ export default function IngredientEditor({
     new Set(items.map((g) => g.section).filter((s): s is string => !!s && s.trim() !== "")),
   );
 
+  // The lowest-index row sharing a non-empty alt_group is the group's primary.
+  // A primary is not an alternative to anything, and cannot be a target either.
+  function primaryIndex(group: string | null | undefined) {
+    if (!group) return -1;
+    return items.findIndex((g) => g.alt_group === group);
+  }
+
+  function isPrimary(index: number) {
+    const group = items[index]?.alt_group;
+    if (!group) return false;
+    const first = primaryIndex(group);
+    return first === index && items.some((g, k) => k !== index && g.alt_group === group);
+  }
+
+  // The ingredient this row is an alternative TO: the primary of its group.
+  function alternativeTo(index: number) {
+    const group = items[index]?.alt_group;
+    if (!group) return "";
+    const first = primaryIndex(group);
+    if (first === index) return "";
+    return String(first);
+  }
+
+  function chooseAlternative(index: number, value: string) {
+    if (value === "") {
+      update(index, { alt_group: null });
+      return;
+    }
+    const target = Number(value);
+    const targetGroup = items[target]?.alt_group;
+    if (targetGroup) {
+      update(index, { alt_group: targetGroup });
+      return;
+    }
+    const group = crypto.randomUUID();
+    onChange(items.map((g, i) => {
+      if (i === index) return { ...g, alt_group: group };
+      if (i === target) return { ...g, alt_group: group };
+      return g;
+    }));
+  }
+
   function startNaming(index: number) {
     setTypedSection("");
     setNamingRow(index);
@@ -114,6 +156,31 @@ export default function IngredientEditor({
               <button type="button" onClick={() => commitNaming(i)}>Done</button>
             </span>
           )}
+          <label>
+            <input
+              type="checkbox"
+              checked={g.optional ?? false}
+              onChange={(e) => update(i, { optional: e.target.checked })}
+              aria-label={`Optional for ${g.item || "this ingredient"}`}
+            />
+            Optional
+          </label>
+          <select
+            aria-label={`Alternative to for ${g.item || "this ingredient"}`}
+            value={alternativeTo(i)}
+            disabled={isPrimary(i)}
+            onChange={(e) => chooseAlternative(i, e.target.value)}
+          >
+            <option value="">Not an alternative</option>
+            {/* A primary IS offered as a target: that is how a group grows a third
+                alternative, and excluding it would blank this select the moment the row
+                it points at became a primary. What must not happen is a primary becoming
+                somebody else's alternative, and the `disabled` above is what stops that. */}
+            {items.map((other, k) => {
+              if (k === i) return null;
+              return <option key={k} value={String(k)}>{other.item || `ingredient ${k + 1}`}</option>;
+            })}
+          </select>
           <button type="button" onClick={() => remove(i)}>
             Remove
           </button>
