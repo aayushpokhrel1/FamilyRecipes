@@ -26,6 +26,7 @@ export default function AppLayout() {
                 Recipes
               </NavLink>
               <NavLink to="/kitchen">My Kitchen</NavLink>
+              <NavLink to="/potluck">Potluck</NavLink>
               <NavLink to="/families">Families</NavLink>
               <NavLink to="/settings">Settings</NavLink>
             </nav>

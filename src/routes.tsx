@@ -17,6 +17,7 @@ import MyKitchen from "./pages/MyKitchen";
 import Cupboard from "./pages/Cupboard";
 import MealPlanDetail from "./pages/MealPlanDetail";
 import Settings from "./pages/Settings";
+import Potluck from "./pages/Potluck";
 
 export default function AppRoutes() {
   return (
@@ -51,6 +52,12 @@ export default function AppRoutes() {
         <Route path="recipes/new" element={<RecipeCreate />} />
         <Route path="recipes/:id/edit" element={<RecipeEdit />} />
         <Route path="recipes/:id/cook" element={<CookMode />} />
+        {/* Guarded on purpose, unlike recipes/:id and cooks/:handle above. Signed in now,
+            public later is one line here; public now, signed in later does not un-cache what
+            crawlers already took. This is a discovery brake and NOT a privacy boundary: anon
+            can still read public rows through the API, which is what makes the public recipe
+            pages and the OpenGraph previews work. */}
+        <Route path="potluck" element={<Potluck />} />
         <Route path="kitchen" element={<MyKitchen />} />
         {/* Above kitchen/:id deliberately. React Router ranks a static segment
             over a dynamic one, so this wins, but the ordering says so out loud

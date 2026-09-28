@@ -4,9 +4,13 @@ import type { Recipe } from "../lib/api/types";
 export default function RecipeCard({
   recipe,
   photoUrl,
+  // In Potluck every card is public, so the chip would be the same word on every tile. It
+  // still earns its place in your own vault, where the three values differ.
+  showVisibility = true,
 }: {
   recipe: Recipe;
   photoUrl?: string | null;
+  showVisibility?: boolean;
 }) {
   const monogram = recipe.title.trim().charAt(0).toUpperCase() || "?";
   return (
@@ -22,7 +26,7 @@ export default function RecipeCard({
           </span>
         )}
         <span className="plate-title">{recipe.title}</span>
-        <span className="chip">{recipe.visibility}</span>
+        {showVisibility && <span className="chip">{recipe.visibility}</span>}
       </Link>
     </li>
   );
