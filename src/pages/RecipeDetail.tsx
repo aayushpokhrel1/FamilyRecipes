@@ -5,17 +5,20 @@ import { getCoverPhotoUrl } from "../lib/api/photos";
 import { listPlans, addRecipe } from "../lib/api/mealPlans";
 import { listRecipeTags } from "../lib/api/tags";
 import { listCategoryOverrides } from "../lib/api/ingredientCategories";
-import type { Ingredient, Recipe, Step, MealPlan, Tag } from "../lib/api/types";
+import { getByline } from "../lib/api/profile";
+import type { Byline, Ingredient, Recipe, Step, MealPlan, Tag } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
 import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "../lib/groupIngredients";
+import { useAuth } from "../context/AuthContext";
 
 
 
 export default function RecipeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { userId } = useAuth();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -30,6 +33,7 @@ export default function RecipeDetail() {
   const [addMsg, setAddMsg] = useState("");
   const [groupBy, setGroupBy] = useState<"recipe" | "category">("recipe");
   const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
+  const [byline, setByline] = useState<Byline | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -60,8 +64,20 @@ export default function RecipeDetail() {
   }, [id]);
 
   useEffect(() => {
+    if (!userId) { setPlans([]); return; }
     listPlans().then(setPlans).catch(() => setPlans([]));
-  }, []);
+  }, [userId]);
+
+  // The byline is the thing a stranger lacks: a signed-in member already sees the family
+  // context in the nav. A missing byline is normal, not an error, so a failure lands on null.
+  useEffect(() => {
+    if (!id || userId) { setByline(null); return; }
+    let ignore = false;
+    getByline(id).then((b) => { if (!ignore) setByline(b); }).catch(() => { if (!ignore) setByline(null); });
+    return () => {
+      ignore = true;
+    };
+  }, [id, userId]);
 
   // A recipe with no photo is normal, and a failed signing call is not a page
   // error: both resolve to null and the page renders without the image.
@@ -124,8 +140,14 @@ export default function RecipeDetail() {
     <div>
       <div className="recipe-head">
         <h1>{recipe.title}</h1>
-        <span className="chip">{recipe.visibility}</span>
+        {userId && <span className="chip">{recipe.visibility}</span>}
       </div>
+
+      {byline && (
+        <p className="vault-note">
+          {byline.public_name ?? "A cook"} &middot; {byline.family_name}
+        </p>
+      )}
 
       {meta.length > 0 && (
         <div className="recipe-meta">
@@ -137,27 +159,29 @@ export default function RecipeDetail() {
         </div>
       )}
 
-      <div className="recipe-actions">
-        <Link to={"/recipes/" + id + "/cook"} className="action">
-          Cook Mode
-        </Link>
-        <Link to={"/recipes/" + id + "/edit"} className="btn">
-          Edit
-        </Link>
-        {plans.length > 0 && (
-          <>
-            <select aria-label="plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-              <option value="">Add to plan...</option>
-              {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <button type="button" onClick={handleAddToPlan} disabled={!planId}>Add to plan</button>
-          </>
-        )}
-        <span className="spacer" />
-        <button type="button" onClick={handleDelete}>
-          Delete
-        </button>
-      </div>
+      {userId && (
+        <div className="recipe-actions">
+          <Link to={"/recipes/" + id + "/cook"} className="action">
+            Cook Mode
+          </Link>
+          <Link to={"/recipes/" + id + "/edit"} className="btn">
+            Edit
+          </Link>
+          {plans.length > 0 && (
+            <>
+              <select aria-label="plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
+                <option value="">Add to plan...</option>
+                {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button type="button" onClick={handleAddToPlan} disabled={!planId}>Add to plan</button>
+            </>
+          )}
+          <span className="spacer" />
+          <button type="button" onClick={handleDelete}>
+            Delete
+          </button>
+        </div>
+      )}
       {error && (
         <p className="vault-note" role="alert">
           {error}
@@ -247,7 +271,7 @@ export default function RecipeDetail() {
         </section>
       )}
 
-      {id && <CommentThread recipeId={id} />}
+      {userId && id && <CommentThread recipeId={id} />}
     </div>
   );
 }

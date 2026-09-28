@@ -12,6 +12,7 @@ import RecipeCreate from "./pages/RecipeCreate";
 import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
 import CookMode from "./pages/CookMode";
+import CookPage from "./pages/CookPage";
 import MyKitchen from "./pages/MyKitchen";
 import Cupboard from "./pages/Cupboard";
 import MealPlanDetail from "./pages/MealPlanDetail";
@@ -29,6 +30,15 @@ export default function AppRoutes() {
           sign-in comes back here with no session at all, and the guard would bounce
           it to /signin, throwing away the only explanation of what went wrong. */}
       <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* Public, and outside RequireAuth for the same family of reasons as /recover above:
+          a published recipe must be readable with no session. The Worker already injects
+          OpenGraph tags for /recipes/:id, so guarding this route meant every shared link
+          advertised a page that answered with a sign-in wall.
+          Only these two are public. recipes/:id/edit and recipes/:id/cook stay guarded. */}
+      <Route element={<AppLayout />}>
+        <Route path="recipes/:id" element={<RecipeDetail />} />
+        <Route path="cooks/:handle" element={<CookPage />} />
+      </Route>
       <Route
         element={
           <RequireAuth>
@@ -39,7 +49,6 @@ export default function AppRoutes() {
         <Route index element={<RecipeList />} />
         <Route path="families" element={<Families />} />
         <Route path="recipes/new" element={<RecipeCreate />} />
-        <Route path="recipes/:id" element={<RecipeDetail />} />
         <Route path="recipes/:id/edit" element={<RecipeEdit />} />
         <Route path="recipes/:id/cook" element={<CookMode />} />
         <Route path="kitchen" element={<MyKitchen />} />

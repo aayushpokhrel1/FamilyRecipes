@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import RecipeDetail from "./RecipeDetail";
+import { listPlans } from "../lib/api/mealPlans";
+import { getByline } from "../lib/api/profile";
 
 vi.mock("../lib/api/recipes", () => ({
   getRecipe: vi.fn().mockResolvedValue({
@@ -30,6 +32,18 @@ vi.mock("../lib/api/photos", () => ({
 }));
 const listRecipeTags = vi.fn().mockResolvedValue([]);
 vi.mock("../lib/api/tags", () => ({ listRecipeTags: (...a: any[]) => listRecipeTags(...a) }));
+
+vi.mock("../lib/api/profile", () => ({ getByline: vi.fn().mockResolvedValue(null) }));
+
+// Hoisted by vi.mock, so mockAuth is read at render time, not at mock time. The existing
+// tests below are the signed-in case; only the visitor tests reassign it.
+let mockAuth: { userId: string | null; loading: boolean } = { userId: "u1", loading: false };
+vi.mock("../context/AuthContext", () => ({ useAuth: () => mockAuth }));
+
+// Reset between tests so a visitor test cannot leak into the next one.
+beforeEach(() => {
+  mockAuth = { userId: "u1", loading: false };
+});
 
 test("renders the recipe title, ingredients and steps", async () => {
   render(
@@ -82,4 +96,51 @@ test("a recipe with no tags renders normally", async () => {
     </MemoryRouter>,
   );
   expect(await screen.findByText("Dal")).toBeInTheDocument();
+});
+
+test("shows a visitor the recipe and the byline, and none of the owner controls", async () => {
+  mockAuth = { userId: null, loading: false };
+  vi.mocked(getByline).mockResolvedValue({
+    handle: "aayush", public_name: "Aayush", family_name: "Pokhrel",
+  });
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText("Dal")).toBeInTheDocument();
+  expect(screen.getByText(/Aayush/)).toBeInTheDocument();
+  expect(screen.getByText(/Pokhrel/)).toBeInTheDocument();
+  // Every one of these would bounce a visitor to /signin, so none may render.
+  expect(screen.queryByRole("link", { name: /cook mode/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /edit/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /add to plan/i })).not.toBeInTheDocument();
+  // Comments are gone by RLS, but the section must not render an empty shell either.
+  expect(screen.queryByText(/comments/i)).not.toBeInTheDocument();
+  // The visibility chip is meaningless to a stranger.
+  expect(screen.queryByText("public")).not.toBeInTheDocument();
+});
+
+test("does not ask for plans when there is no session", async () => {
+  mockAuth = { userId: null, loading: false };
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  expect(listPlans).not.toHaveBeenCalled();
+});
+
+test("still shows the owner controls when signed in", async () => {
+  mockAuth = { userId: "u1", loading: false };
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("link", { name: /cook mode/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
 });
