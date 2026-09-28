@@ -293,7 +293,11 @@ button.action:hover { background: var(--action-deep); }
   border-radius: var(--radius);
   box-shadow: inset 0 1.5px 0 var(--rim-hi), var(--lift);
 }
-.plate h2, .plate h3 { color: var(--ink); }
+/* h1 belongs here too, and its absence was invisible until a page put one on a plate: the
+   cook page's title rendered cream on cream at exactly 1:1, measured, not guessed. Headings
+   on a plate take --ink; headings on the wall take --on-wall. Any heading level missing from
+   this list silently inherits the wall colour and disappears. */
+.plate h1, .plate h2, .plate h3 { color: var(--ink); }
 
 /* ------------------------------------------------------- app header ------- */
 
