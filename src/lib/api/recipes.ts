@@ -154,3 +154,38 @@ export async function listRecipeIngredientIndex(
     recipe_id: r.id, title: r.title, items: byRecipe.get(r.id) ?? [],
   }));
 }
+
+// The Potluck feed. Deliberately NOT a view: Following is a filter over rows RLS already
+// lets the caller read, so there is nothing to join server side.
+export async function listPublicRecipes(
+  opts: { search?: string; authorIds?: string[]; limit?: number; offset?: number } = {},
+): Promise<Recipe[]> {
+  const { search, authorIds, limit = 24, offset = 0 } = opts;
+
+  // Following nobody must NOT degrade into showing everybody. An empty filter list is a
+  // real answer ("no one yet"), not a missing one, and the short circuit is what keeps the
+  // two apart. This is the single most load-bearing line in the feed.
+  if (authorIds && authorIds.length === 0) return [];
+
+  const term = search?.trim();
+  if (term) {
+    // A null family id searches the public catalogue, so Potluck and the vault share one
+    // matching rule and one set of trigram indexes (0025).
+    const { data, error } = await supabase.rpc("search_recipes", {
+      p_family_id: null, p_search: term, p_tag_id: null,
+    });
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Recipe[];
+    // The RPC has no author parameter, so Following narrows the result here rather than
+    // growing a second search function.
+    return authorIds ? rows.filter((r) => authorIds.includes(r.author_id)) : rows;
+  }
+
+  let query = supabase.from("recipes").select("*").eq("visibility", "public");
+  if (authorIds) query = query.in("author_id", authorIds);
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Recipe[];
+}

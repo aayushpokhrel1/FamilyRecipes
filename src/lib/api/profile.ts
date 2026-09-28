@@ -117,3 +117,18 @@ export async function getByline(recipeId: string): Promise<Byline | null> {
     .select("handle,public_name,family_name").eq("recipe_id", recipeId).maybeSingle();
   return (data as Byline | null) ?? null;
 }
+
+// One query for a whole page of cards, never one per card. A feed of 24 recipes asking for
+// 24 bylines separately is the kind of thing that looks fine locally and is obvious in
+// production.
+export async function getBylines(recipeIds: string[]): Promise<Map<string, Byline>> {
+  if (recipeIds.length === 0) return new Map();
+  const { data, error } = await supabase.from("public_recipe_bylines")
+    .select("recipe_id,handle,public_name,family_name").in("recipe_id", recipeIds);
+  if (error) throw new Error(error.message);
+  const out = new Map<string, Byline>();
+  for (const row of (data ?? []) as Array<Byline & { recipe_id: string }>) {
+    out.set(row.recipe_id, { handle: row.handle, public_name: row.public_name, family_name: row.family_name });
+  }
+  return out;
+}

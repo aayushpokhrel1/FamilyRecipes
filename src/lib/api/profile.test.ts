@@ -12,7 +12,7 @@ vi.mock("../supabaseClient", () => ({ supabase: {
     updateUser: (...a: any[]) => updateUser(...a),
   },
 }}));
-import { updateDisplayName, updatePreferences, handleError } from "./profile";
+import { updateDisplayName, updatePreferences, handleError, getBylines } from "./profile";
 import { changePassword } from "./auth";
 
 test("updatePreferences merges the patch into the stored preferences", async () => {
@@ -68,4 +68,30 @@ describe("handleError", () => {
     expect(handleError("a/b")).not.toBeNull();
     expect(handleError("a.b")).not.toBeNull();
   });
+});
+
+test("getBylines issues one query and keys the map by recipe_id", async () => {
+  let ids: string[] = [];
+  from.mockImplementation((table: string) => {
+    expect(table).toBe("public_recipe_bylines");
+    return { select: () => ({ in: (_c: string, v: string[]) => {
+      ids = v;
+      return { data: [
+        { recipe_id: "r1", handle: "a", public_name: "A", family_name: "F1" },
+        { recipe_id: "r2", handle: null, public_name: null, family_name: "F2" },
+      ], error: null };
+    } }) };
+  });
+  const map = await getBylines(["r1", "r2"]);
+  expect(ids).toEqual(["r1", "r2"]);
+  expect(from).toHaveBeenCalledTimes(1);
+  expect(map.get("r1")?.public_name).toBe("A");
+  // A recipe whose author never claimed a handle still gets a byline, via the left join.
+  expect(map.get("r2")?.family_name).toBe("F2");
+});
+
+test("getBylines makes no request for an empty list", async () => {
+  from.mockClear();
+  expect((await getBylines([])).size).toBe(0);
+  expect(from).not.toHaveBeenCalled();
 });

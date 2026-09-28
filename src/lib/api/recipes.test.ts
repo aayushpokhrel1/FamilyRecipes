@@ -6,7 +6,7 @@ vi.mock("../supabaseClient", () => ({ supabase: {
   rpc: (...a: any[]) => rpc(...a),
   auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "me" } } }) },
 }}));
-import { createRecipe, listPublicRecipesByAuthor, listRecipes, updateRecipe } from "./recipes";
+import { createRecipe, listPublicRecipes, listPublicRecipesByAuthor, listRecipes, updateRecipe } from "./recipes";
 test("createRecipe inserts the recipe then ingredients with positions 0,1", async () => {
   const inserted: any[] = [];
   from.mockImplementation((table: string) => ({
@@ -82,4 +82,56 @@ test("listPublicRecipesByAuthor filters on both author_id and visibility", async
   expect(filters).toEqual([["author_id", "c1"], ["visibility", "public"]]);
   expect(order).toEqual(["created_at", { ascending: false }]);
   expect(rows.map((r: any) => r.id)).toEqual(["r1"]);
+});
+
+test("listPublicRecipes with an empty authorIds makes NO request at all", async () => {
+  // Following nobody must not degrade into showing everybody. If this ever regresses, the
+  // Following filter silently becomes the All filter, which looks like it works.
+  from.mockReset();
+  rpc.mockReset();
+  const rows = await listPublicRecipes({ authorIds: [] });
+  expect(rows).toEqual([]);
+  expect(from).not.toHaveBeenCalled();
+  expect(rpc).not.toHaveBeenCalled();
+});
+
+test("listPublicRecipes routes a search through the RPC with a null family id", async () => {
+  rpc.mockReset();
+  rpc.mockResolvedValue({ data: [{ id: "r1", author_id: "c1", title: "Momo" }], error: null });
+  const rows = await listPublicRecipes({ search: " momo " });
+  expect(rpc).toHaveBeenCalledWith("search_recipes", {
+    p_family_id: null, p_search: "momo", p_tag_id: null,
+  });
+  expect(rows.map((r: any) => r.id)).toEqual(["r1"]);
+});
+
+test("listPublicRecipes filters a search by followed authors", async () => {
+  rpc.mockReset();
+  rpc.mockResolvedValue({ data: [
+    { id: "r1", author_id: "c1" }, { id: "r2", author_id: "c2" },
+  ], error: null });
+  const rows = await listPublicRecipes({ search: "momo", authorIds: ["c2"] });
+  expect(rows.map((r: any) => r.id)).toEqual(["r2"]);
+});
+
+test("listPublicRecipes pages public recipes newest first", async () => {
+  from.mockReset();
+  const filters: Array<[string, string]> = [];
+  let range: [number, number] | null = null;
+  let order: [string, any] | null = null;
+  from.mockImplementation((table: string) => {
+    expect(table).toBe("recipes");
+    const builder: any = {
+      select: () => builder,
+      eq: (c: string, v: string) => { filters.push([c, v]); return builder; },
+      in: () => builder,
+      order: (c: string, o: any) => { order = [c, o]; return builder; },
+      range: (a: number, b: number) => { range = [a, b]; return Promise.resolve({ data: [], error: null }); },
+    };
+    return builder;
+  });
+  await listPublicRecipes({ limit: 24, offset: 24 });
+  expect(filters).toEqual([["visibility", "public"]]);
+  expect(order).toEqual(["created_at", { ascending: false }]);
+  expect(range).toEqual([24, 47]);
 });
