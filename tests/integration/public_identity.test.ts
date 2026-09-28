@@ -60,6 +60,11 @@ describe("public identity", () => {
     const { data } = await anon.from("families").select("name").eq("id", familyId);
     expect(data).toEqual([]);
   });
+  // 30s, not the default 5s. These two are the only tests in the suite that touch Storage,
+  // and in CI the storage-api container has often had a couple of seconds of life when they
+  // run: the image pulls get Docker-rate-limited, so "Started supabase local development
+  // setup" lands moments before vitest does. The first storage call then exceeds 5s while
+  // the service is still initialising. Nothing here is slow by design; this is cold start.
   it("lets a stranger read the avatar object of a published cook only", async () => {
     // The Worker signs avatars with the ANON key, by design: it holds no service key, so a
     // path the anon role cannot select is a path the Worker cannot serve.
@@ -68,7 +73,7 @@ describe("public identity", () => {
       .createSignedUrl(`${cookId}/a.png`, 60);
     expect(error).toBeNull();
     expect(data?.signedUrl).toContain("token");
-  });
+  }, 30000);
 
   it("does not let a stranger read the avatar of a cook with no handle", async () => {
     const quiet = await makeUser(`quiet-av-${Date.now()}@test.dev`);
@@ -76,5 +81,5 @@ describe("public identity", () => {
     const { error } = await anon.storage.from("avatars")
       .createSignedUrl(`${quiet.id}/a.png`, 60);
     expect(error).not.toBeNull();
-  });
+  }, 30000);
 });
