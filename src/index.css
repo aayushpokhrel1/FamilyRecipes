@@ -1118,3 +1118,88 @@ button[aria-pressed="true"] {
    keeps the plate's own ink from the base control rule rather than an on-wall
    colour, which would be cream on cream. */
 .step-text { display: block; width: 100%; margin-top: 6px; }
+
+/* --------------------------------------------------------- loading -------- */
+
+/* A skeleton is a STATE, not decoration. It is worth drawing only where the shape
+   of what is coming is already known, so it wears the enamel rim and bone fill
+   rather than a grey bar from someone else's design system. Where the shape is
+   NOT known, keep the sentence: a skeleton that guesses wrong lies to the reader
+   about what is about to appear, which is worse than a word that admits waiting. */
+.skeleton { display: grid; gap: 10px; }
+.skeleton-bar,
+.skeleton-tile {
+  border: 1.5px solid var(--rim);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 1.5px 0 var(--rim-hi);
+  /* Mixed toward the wall rather than made transparent. Opacity blended the bone with
+     the green into a murky sage, i.e. the exact grey placeholder bar this world exists
+     to refuse, and it washed the rim keyline out with it. Full opacity, shaded fill. */
+  background: color-mix(in srgb, var(--plate) 86%, var(--wall));
+}
+.skeleton-tile {
+  min-height: 148px;
+  border-radius: var(--radius);
+  box-shadow: inset 0 1.5px 0 var(--rim-hi), var(--lift);
+}
+.skeleton-bar { height: 15px; }
+.skeleton-bar:nth-child(2) { width: 86%; }
+.skeleton-bar:nth-child(3) { width: 64%; }
+.skeleton-bar:nth-child(4) { width: 78%; }
+/* Inside a .plate the bone fill would be invisible on bone, so the bars there are
+   an inset shade instead. Same failure mode as the cream-on-cream labels. */
+.plate .skeleton-bar {
+  background: var(--plate-2);
+  /* Its own breathe: the wall mix above would be a green bar on a bone plate, and simply
+     switching the animation off left a frozen skeleton, which reads as broken, not busy. */
+  animation-name: enamel-breathe-inset;
+}
+@keyframes enamel-breathe-inset {
+  50% { background: color-mix(in srgb, var(--plate-2) 45%, var(--plate)); }
+}
+
+/* Six tall tiles stacked one per column is a phone screen of nothing. Three is enough to
+   say "plates are coming"; the rest would only describe the wait at greater length. */
+@media (max-width: 719px) {
+  .plate-grid > .skeleton-tile:nth-child(n + 4) { display: none; }
+}
+
+/* The one authored motion moment in the app: enamel plates being set down on the
+   rack. It lives on the recipe grid ALONE and is deliberately not reused as a
+   generic section entrance, because an identical arrival on every panel stops
+   reading as a moment and starts reading as lag. */
+@keyframes plate-settle {
+  from { transform: translateY(7px); opacity: 0; }
+}
+/* The breathe lightens the fill toward bone, so a blank plate looks like enamel catching
+   the light rather than like content fading in and out. */
+@keyframes enamel-breathe {
+  50% { background: color-mix(in srgb, var(--plate) 98%, var(--wall)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .plate-grid > * {
+    animation: plate-settle 0.42s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .plate-grid > *:nth-child(2) { animation-delay: 0.045s; }
+  .plate-grid > *:nth-child(3) { animation-delay: 0.09s; }
+  .plate-grid > *:nth-child(4) { animation-delay: 0.135s; }
+  .plate-grid > *:nth-child(5) { animation-delay: 0.18s; }
+  .plate-grid > *:nth-child(6) { animation-delay: 0.225s; }
+  .plate-grid > *:nth-child(7) { animation-delay: 0.27s; }
+  .plate-grid > *:nth-child(n + 8) { animation-delay: 0.315s; }
+
+  .skeleton-bar,
+  .skeleton-tile { animation: enamel-breathe 1.8s ease-in-out infinite; }
+}
+
+/* The floor, not a preference. Everything above is already gated on
+   no-preference; this also covers the hover and press transitions written long
+   before this block existed, so a new transition anywhere inherits the guard. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

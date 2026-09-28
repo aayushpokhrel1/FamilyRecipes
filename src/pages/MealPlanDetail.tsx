@@ -15,6 +15,7 @@ import { suggestedServings } from "../lib/leftovers";
 import type { MealPlan, MealPlanItem, MealSlot, Recipe } from "../lib/api/types";
 import GroceryPanel from "../components/GroceryPanel";
 import { cellId, resolveDrop } from "../lib/planDrop";
+import Skeleton from "../components/Skeleton";
 
 const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
 
@@ -212,7 +213,7 @@ export default function MealPlanDetail() {
     );
   }
 
-  if (!plan) return <p>Loading...</p>;
+  if (!plan) return <Skeleton shape="plate" count={4} />;
 
   const days = plan.start_date
     ? Array.from({ length: plan.length_days }, (_, i) => addDays(plan.start_date!, i))

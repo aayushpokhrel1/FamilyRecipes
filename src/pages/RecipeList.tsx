@@ -6,6 +6,7 @@ import { listCoverPhotoUrls } from "../lib/api/photos";
 import { listTags } from "../lib/api/tags";
 import type { Recipe, Tag } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
+import Skeleton from "../components/Skeleton";
 
 export default function RecipeList() {
   const { activeFamily } = useFamily();
@@ -76,7 +77,10 @@ export default function RecipeList() {
           Create or join a family to see recipes. <Link to="/families">Families</Link>
         </p>
       )}
-      {activeFamily && loading && <p className="vault-note">Loading...</p>}
+      {/* First paint only. Re-running a search keeps the current plates on screen: swapping
+          them for skeletons on every debounced keystroke would flash the whole grid to
+          describe a wait the reader is not having. */}
+      {activeFamily && loading && recipes.length === 0 && <Skeleton shape="grid" count={6} />}
       {activeFamily && !loading && recipes.length === 0 && (
         <p className="vault-note">No recipes yet.</p>
       )}

@@ -10,6 +10,7 @@ import FamilyDataPanel from "../components/FamilyDataPanel";
 import IdentitiesPanel from "../components/IdentitiesPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
 import type { Preferences, Profile } from "../lib/api/types";
+import Skeleton from "../components/Skeleton";
 
 // Mirrors LENGTHS in MealPlanDetail: the plan lengths the app actually offers.
 const LENGTHS = [3, 5, 7, 14];
@@ -184,7 +185,7 @@ export default function Settings() {
   }
 
   if (loadError) return <p className="form-error" role="alert">{loadError}</p>;
-  if (!profile) return <p className="vault-note">Loading...</p>;
+  if (!profile) return <Skeleton shape="plate" count={4} />;
 
   const prefs = profile.preferences ?? {};
 

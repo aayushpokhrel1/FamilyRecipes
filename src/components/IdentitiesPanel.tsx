@@ -7,6 +7,7 @@ import {
   type UserIdentity,
 } from "../lib/api/identities";
 import { setFirstPassword } from "../lib/api/auth";
+import Skeleton from "./Skeleton";
 
 type Status = { kind: "ok" | "error"; text: string } | null;
 
@@ -54,7 +55,7 @@ export default function IdentitiesPanel() {
     setConfirm("");
   }
 
-  if (!identities) return <p className="vault-note">Loading...</p>;
+  if (!identities) return <Skeleton shape="lines" count={3} />;
 
   const google = identities.find((i) => i.provider === "google");
   const isOnlyIdentity = identities.length < 2;

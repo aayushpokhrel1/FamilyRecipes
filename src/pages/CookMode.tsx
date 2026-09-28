@@ -9,6 +9,7 @@ import { groupIngredientsBySection, alternativesOf } from "../lib/groupIngredien
 import { useFamily } from "../context/FamilyContext";
 import { listPantry, setState as setItemState, type PantryItem } from "../lib/api/pantry";
 import { normalizeItem } from "../lib/api/normalizeItem";
+import Skeleton from "../components/Skeleton";
 
 
 
@@ -87,7 +88,7 @@ export default function CookMode() {
     };
   }, []);
 
-  if (loading) return <p className="vault-note">Loading...</p>;
+  if (loading) return <Skeleton shape="plate" count={4} />;
   if (error) return <p className="vault-note" role="alert">{error}</p>;
 
   const step = steps[index];

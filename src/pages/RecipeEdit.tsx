@@ -11,6 +11,7 @@ import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
 import TagPicker from "../components/TagPicker";
 import VisibilitySelect from "../components/VisibilitySelect";
+import Skeleton from "../components/Skeleton";
 
 function toNumber(value: string): number | null {
   return value === "" ? null : Number(value);
@@ -96,7 +97,7 @@ export default function RecipeEdit() {
     setCoverFile(e.target.files?.[0] ?? null);
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <Skeleton shape="plate" count={4} />;
   if (!draft) return <p>Recipe not found.</p>;
 
   return (

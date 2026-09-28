@@ -5,6 +5,7 @@ import { getBylines } from "../lib/api/profile";
 import { listFollowedCookIds } from "../lib/api/follows";
 import type { Byline, Recipe } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
+import Skeleton from "../components/Skeleton";
 
 const PAGE_SIZE = 24;
 
@@ -123,7 +124,7 @@ export default function Potluck() {
       </div>
 
       {loading && offset === 0 ? (
-        <p className="vault-note">Loading...</p>
+        <Skeleton shape="grid" count={6} />
       ) : scope === "following" && followingNobody ? (
         <p className="vault-note">You are not following any cooks yet.</p>
       ) : recipes.length === 0 ? (

@@ -11,6 +11,7 @@ import { notCookedLately } from "../lib/api/cookLog";
 import { addDays, dayLabel, today } from "../lib/dates";
 import UpcomingGroceryPanel from "../components/UpcomingGroceryPanel";
 import type { MealPlan, MealSlot, NotCookedLately, UpcomingItem } from "../lib/api/types";
+import Skeleton from "../components/Skeleton";
 
 const SLOTS = ["breakfast", "lunch", "dinner"] as const;
 // The FETCH window stays 4 days: the grocery list and the hero both need to see
@@ -285,7 +286,7 @@ export default function MyKitchen() {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Plan name" />
           <button type="button" className="action" onClick={handleCreate} disabled={!activeFamily}>New plan</button>
         </div>
-        {loading && <p className="vault-note">Loading...</p>}
+        {loading && <Skeleton shape="lines" count={3} />}
         {!loading && plans.length === 0 && <p className="vault-note">No plans yet.</p>}
         <ul className="stack">
           {plans.map((p) => (

@@ -5,6 +5,7 @@ import { listPublicRecipesByAuthor } from "../lib/api/recipes";
 import { follow, isFollowing, unfollow } from "../lib/api/follows";
 import { useAuth } from "../context/AuthContext";
 import type { PublicCook, Recipe } from "../lib/api/types";
+import Skeleton from "../components/Skeleton";
 
 export default function CookPage() {
   const { handle } = useParams();
@@ -69,7 +70,7 @@ export default function CookPage() {
     else { await follow(cook.id); setFollowing(true); }
   }
 
-  if (loading) return <p className="vault-note">Loading...</p>;
+  if (loading) return <Skeleton shape="plate" count={4} />;
   if (!cook) return <p className="vault-note">Cook not found.</p>;
 
   return (

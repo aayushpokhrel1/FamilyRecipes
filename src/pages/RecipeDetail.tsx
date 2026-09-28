@@ -12,6 +12,7 @@ import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
 import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "../lib/groupIngredients";
 import { useAuth } from "../context/AuthContext";
+import Skeleton from "../components/Skeleton";
 
 
 
@@ -128,7 +129,7 @@ export default function RecipeDetail() {
     }
   }
 
-  if (loading) return <p className="vault-note">Loading...</p>;
+  if (loading) return <Skeleton shape="plate" count={4} />;
   if (!recipe) return <p className="vault-note">Recipe not found.</p>;
 
   const meta: Array<[string, number]> = [];

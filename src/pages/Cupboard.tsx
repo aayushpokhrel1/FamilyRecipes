@@ -9,6 +9,7 @@ import { categoryFor, CATEGORY_ORDER, CATALOG_ITEMS } from "../lib/catalog";
 import { listRecipeIngredientIndex } from "../lib/api/recipes";
 import { seedSuggestions } from "../lib/seedSuggestions";
 import { cookNow, type CookNowResult } from "../lib/cookNow";
+import Skeleton from "../components/Skeleton";
 
 // Tap to cycle. Three states in a ring is the cheapest upkeep gesture there
 // is, and upkeep is the whole risk with a cupboard.
@@ -140,7 +141,7 @@ export default function Cupboard() {
       )}
 
       {error && <p className="form-error" role="alert">{error}</p>}
-      {loading && <p className="vault-note">Loading...</p>}
+      {loading && <Skeleton shape="lines" count={3} />}
 
       {!loading && items.length === 0 && seeds.length > 0 && (
         <section className="panel">
