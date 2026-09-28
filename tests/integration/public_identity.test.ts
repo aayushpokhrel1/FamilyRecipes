@@ -6,6 +6,10 @@ describe("public identity", () => {
   let familyId: string;
   let publicRecipeId: string;
   const anon = anonClient();
+  // Unique per run. handle is UNIQUE, so a hardcoded one passes on a fresh database and then
+  // silently fails the update on every rerun, leaving handle null and failing the byline test
+  // for a reason that has nothing to do with the byline.
+  const handle = `cook${Date.now()}`;
 
   beforeAll(async () => {
     const cook = await makeUser(`cook-${Date.now()}@test.dev`);
@@ -23,14 +27,14 @@ describe("public identity", () => {
       .select("id").single();
     publicRecipeId = (recipe as { id: string }).id;
     await admin.from("profiles")
-      .update({ handle: "aayush", public_name: "Aayush", bio: "Cooks momo." })
+      .update({ handle, public_name: "Aayush", bio: "Cooks momo." })
       .eq("id", cookId);
   });
 
   it("lets a stranger read a published cook from the view", async () => {
     const { data } = await anon.from("public_cooks").select("handle,public_name,bio")
-      .eq("handle", "aayush").single();
-    expect(data).toMatchObject({ handle: "aayush", public_name: "Aayush" });
+      .eq("handle", handle).single();
+    expect(data).toMatchObject({ handle, public_name: "Aayush" });
   });
 
   it("never lets a stranger read profiles directly", async () => {
@@ -55,5 +59,22 @@ describe("public identity", () => {
   it("never lets a stranger read families directly", async () => {
     const { data } = await anon.from("families").select("name").eq("id", familyId);
     expect(data).toEqual([]);
+  });
+  it("lets a stranger read the avatar object of a published cook only", async () => {
+    // The Worker signs avatars with the ANON key, by design: it holds no service key, so a
+    // path the anon role cannot select is a path the Worker cannot serve.
+    await admin.storage.from("avatars").upload(`${cookId}/a.png`, new Blob(["x"]));
+    const { data, error } = await anon.storage.from("avatars")
+      .createSignedUrl(`${cookId}/a.png`, 60);
+    expect(error).toBeNull();
+    expect(data?.signedUrl).toContain("token");
+  });
+
+  it("does not let a stranger read the avatar of a cook with no handle", async () => {
+    const quiet = await makeUser(`quiet-av-${Date.now()}@test.dev`);
+    await admin.storage.from("avatars").upload(`${quiet.id}/a.png`, new Blob(["x"]));
+    const { error } = await anon.storage.from("avatars")
+      .createSignedUrl(`${quiet.id}/a.png`, 60);
+    expect(error).not.toBeNull();
   });
 });
