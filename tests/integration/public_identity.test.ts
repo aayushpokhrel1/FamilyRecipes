@@ -60,26 +60,59 @@ describe("public identity", () => {
     const { data } = await anon.from("families").select("name").eq("id", familyId);
     expect(data).toEqual([]);
   });
-  // 30s, not the default 5s. These two are the only tests in the suite that touch Storage,
-  // and in CI the storage-api container has often had a couple of seconds of life when they
-  // run: the image pulls get Docker-rate-limited, so "Started supabase local development
-  // setup" lands moments before vitest does. The first storage call then exceeds 5s while
-  // the service is still initialising. Nothing here is slow by design; this is cold start.
-  it("lets a stranger read the avatar object of a published cook only", async () => {
-    // The Worker signs avatars with the ANON key, by design: it holds no service key, so a
-    // path the anon role cannot select is a path the Worker cannot serve.
-    await admin.storage.from("avatars").upload(`${cookId}/a.png`, new Blob(["x"]));
-    const { data, error } = await anon.storage.from("avatars")
-      .createSignedUrl(`${cookId}/a.png`, 60);
-    expect(error).toBeNull();
-    expect(data?.signedUrl).toContain("token");
-  }, 30000);
+  // These two exercise the avatars storage policy with RAW FETCH, the same HTTP calls
+  // worker/index.ts makes, rather than the supabase-js storage client.
+  //
+  // The client's upload(..., new Blob(["x"])) HANGS INDEFINITELY in CI (proven: it timed out
+  // at 5s, then still timed out after being given 30s) while passing on Windows locally. That
+  // made the tests untrustworthy without explaining anything. Raw fetch is what the Worker
+  // does in production anyway, so this tests the real path and cannot hang on client
+  // internals.
+  const storage = `${process.env.SB_URL}/storage/v1`;
+  const svc = {
+    apikey: process.env.SB_SERVICE_KEY!,
+    Authorization: `Bearer ${process.env.SB_SERVICE_KEY}`,
+  };
+  const anonHeaders = {
+    apikey: process.env.SB_ANON_KEY!,
+    Authorization: `Bearer ${process.env.SB_ANON_KEY}`,
+  };
 
-  it("does not let a stranger read the avatar of a cook with no handle", async () => {
+  async function putAvatar(path: string) {
+    const res = await fetch(`${storage}/object/avatars/${path}`, {
+      method: "POST",
+      headers: { ...svc, "Content-Type": "image/png" },
+      body: "x",
+    });
+    // The object must actually exist, or "cannot sign" below would pass for the wrong reason.
+    expect(res.ok).toBe(true);
+  }
+
+  // Exactly what serveAvatar does: sign as the ANON role. A 200 with a signedURL is the proof
+  // the policy allows it; anything else is the proof it does not.
+  async function signAsAnon(path: string) {
+    const res = await fetch(`${storage}/object/sign/avatars/${path}`, {
+      method: "POST",
+      headers: { ...anonHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn: 60 }),
+    });
+    return res;
+  }
+
+  it("lets a stranger sign the avatar of a published cook", async () => {
+    await putAvatar(`${cookId}/a.png`);
+    const res = await signAsAnon(`${cookId}/a.png`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { signedURL?: string };
+    expect(body.signedURL).toBeTruthy();
+  });
+
+  it("does not let a stranger sign the avatar of a cook with no handle", async () => {
     const quiet = await makeUser(`quiet-av-${Date.now()}@test.dev`);
-    await admin.storage.from("avatars").upload(`${quiet.id}/a.png`, new Blob(["x"]));
-    const { error } = await anon.storage.from("avatars")
-      .createSignedUrl(`${quiet.id}/a.png`, 60);
-    expect(error).not.toBeNull();
-  }, 30000);
+    await putAvatar(`${quiet.id}/a.png`);
+    const res = await signAsAnon(`${quiet.id}/a.png`);
+    // The Worker turns any non-2xx here into its own 404, so a published and an unpublished
+    // cook are indistinguishable to a caller.
+    expect(res.ok).toBe(false);
+  });
 });
