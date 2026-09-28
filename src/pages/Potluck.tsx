@@ -80,7 +80,7 @@ export default function Potluck() {
   return (
     <div>
       <h1>Potluck</h1>
-      <p className="vault-note">Recipes other households have published.</p>
+      <p className="vault-note">Everything published here, yours included.</p>
 
       <form onSubmit={handleSubmit}>
         <input
