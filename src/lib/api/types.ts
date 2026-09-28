@@ -9,6 +9,15 @@ export interface Profile {
   id: string; display_name: string; avatar_url: string | null;
   // every field is optional: a profile created before the column existed reads back as {}
   preferences: Preferences;
+  // null handle means "I do not publish". It IS the opt-in.
+  handle: string | null; public_name: string | null; bio: string | null;
+}
+export interface PublicCook {
+  id: string; handle: string; public_name: string | null;
+  bio: string | null; avatar_url: string | null;
+}
+export interface Byline {
+  handle: string | null; public_name: string | null; family_name: string;
 }
 export interface Family { id: string; name: string; invite_code: string; created_by: string; }
 export interface FamilyMember { family_id: string; user_id: string; role: "owner" | "member"; }

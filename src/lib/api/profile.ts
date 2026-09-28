@@ -1,11 +1,11 @@
 import { supabase } from "../supabaseClient";
-import type { Preferences, Profile } from "./types";
+import type { Byline, Preferences, Profile, PublicCook } from "./types";
 
 export async function getMyProfile(): Promise<Profile> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in");
   const { data: profile, error } = await supabase.from("profiles")
-    .select("id,display_name,avatar_url,preferences").eq("id", data.user.id).single();
+    .select("id,display_name,avatar_url,preferences,handle,public_name,bio").eq("id", data.user.id).single();
   if (error) throw new Error(error.message);
   return profile as Profile;
 }
@@ -57,4 +57,63 @@ export async function updatePreferences(patch: Preferences): Promise<Preferences
     .update({ preferences: merged }).eq("id", data.user.id);
   if (error) throw new Error(error.message);
   return merged;
+}
+
+// Mirrors the check constraint in 0020 exactly. Kept as a validator rather than a
+// transformer: silently lowercasing what someone typed means the handle they were shown is
+// not the handle they got.
+const HANDLE = /^[a-z0-9_]{3,30}$/;
+
+export function handleError(handle: string): string | null {
+  if (handle.length < 3) return "A handle needs at least 3 characters.";
+  if (handle.length > 30) return "A handle can be at most 30 characters.";
+  if (handle !== handle.toLowerCase()) return "A handle must be lowercase.";
+  if (!HANDLE.test(handle)) return "Use only letters, numbers and underscores.";
+  return null;
+}
+
+export async function updatePublicProfile(
+  p: { handle: string; public_name: string; bio: string },
+): Promise<void> {
+  const problem = handleError(p.handle);
+  if (problem) throw new Error(problem);
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("Not signed in");
+  const { error } = await supabase.from("profiles").update({
+    handle: p.handle,
+    public_name: p.public_name.trim() || null,
+    bio: p.bio.trim() || null,
+  }).eq("id", data.user.id);
+  // The unique constraint is the only authority on whether a handle is free. Checking first
+  // and inserting second is a race; letting the constraint answer is not.
+  if (error) {
+    if (error.code === "23505") throw new Error("That handle is taken.");
+    throw new Error(error.message);
+  }
+}
+
+// Clearing the handle is what unpublishing IS: every public view and the avatars policy are
+// gated on `handle is not null`, so this revokes all of them at once.
+export async function unpublishProfile(): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("Not signed in");
+  const { error } = await supabase.from("profiles")
+    .update({ handle: null }).eq("id", data.user.id);
+  if (error) throw new Error(error.message);
+}
+
+// Reads the view, never the table: a stranger has no policy on profiles.
+export async function getPublicCook(handle: string): Promise<PublicCook | null> {
+  const { data, error } = await supabase.from("public_cooks")
+    .select("id,handle,public_name,bio,avatar_url").eq("handle", handle).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as PublicCook | null) ?? null;
+}
+
+// A missing byline is normal, not an error: the recipe may not be public, and the caller
+// must not be able to tell those two cases apart.
+export async function getByline(recipeId: string): Promise<Byline | null> {
+  const { data } = await supabase.from("public_recipe_bylines")
+    .select("handle,public_name,family_name").eq("recipe_id", recipeId).maybeSingle();
+  return (data as Byline | null) ?? null;
 }

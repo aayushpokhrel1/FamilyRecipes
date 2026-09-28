@@ -12,7 +12,7 @@ vi.mock("../supabaseClient", () => ({ supabase: {
     updateUser: (...a: any[]) => updateUser(...a),
   },
 }}));
-import { updateDisplayName, updatePreferences } from "./profile";
+import { updateDisplayName, updatePreferences, handleError } from "./profile";
 import { changePassword } from "./auth";
 
 test("updatePreferences merges the patch into the stored preferences", async () => {
@@ -46,4 +46,26 @@ test("changePassword throws and never updates when the current password is wrong
   updateUser.mockClear();
   await expect(changePassword("wrong", "new")).rejects.toThrow("Current password is incorrect");
   expect(updateUser).not.toHaveBeenCalled();
+});
+
+
+describe("handleError", () => {
+  it("accepts a plain lowercase handle", () => {
+    expect(handleError("aayush")).toBeNull();
+    expect(handleError("cook_2")).toBeNull();
+  });
+  it("rejects one that is too short or too long", () => {
+    expect(handleError("ab")).toMatch(/3/);
+    expect(handleError("a".repeat(31))).toMatch(/30/);
+  });
+  it("rejects uppercase rather than silently lowercasing it", () => {
+    // Silently rewriting what someone typed means the handle they were shown is not the one
+    // they got. Tell them instead.
+    expect(handleError("Aayush")).toMatch(/lowercase/);
+  });
+  it("rejects characters that would need escaping in a URL", () => {
+    expect(handleError("a b")).not.toBeNull();
+    expect(handleError("a/b")).not.toBeNull();
+    expect(handleError("a.b")).not.toBeNull();
+  });
 });
