@@ -423,6 +423,18 @@ button.action:hover { background: var(--action-deep); }
   letter-spacing: 0.01em;
   margin-top: auto;
 }
+/* The cook under the title. A label, so it speaks in the sign face per the Sign Rule,
+   but tracked small and tinted from the green so it never competes with the title.
+   The negative gap cancels the card's 10px flex gap: the byline belongs TO the title. */
+.plate-byline {
+  font-family: var(--sign);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-top: -6px;
+}
 
 .vault-note {
   color: var(--on-wall-soft);

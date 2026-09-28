@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { listPublicRecipes } from "../lib/api/recipes";
+import { listCoverPhotoUrls } from "../lib/api/photos";
 import { getBylines } from "../lib/api/profile";
 import { listFollowedCookIds } from "../lib/api/follows";
 import type { Byline, Recipe } from "../lib/api/types";
@@ -10,6 +11,7 @@ const PAGE_SIZE = 24;
 export default function Potluck() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [bylines, setBylines] = useState<Map<string, Byline>>(new Map());
+  const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map());
   const [scope, setScope] = useState<"all" | "following">("all");
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -66,6 +68,20 @@ export default function Potluck() {
     };
   }, [scope, submitted, offset]);
 
+  // Public recipes' photos need no new policy: recipe_photos and the storage bucket both
+  // gate on can_read_recipe(), which is true for 'public'. Same shape as the vault's own
+  // grid, one select plus one batch signing call, and a failure leaves the monograms in
+  // place because a photo is decoration and must never stop Potluck rendering.
+  useEffect(() => {
+    let ignore = false;
+    listCoverPhotoUrls(recipes.map((r) => r.id))
+      .then((urls) => { if (!ignore) setPhotoUrls(urls); })
+      .catch(() => { if (!ignore) setPhotoUrls(new Map()); });
+    return () => {
+      ignore = true;
+    };
+  }, [recipes]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setOffset(0);
@@ -114,18 +130,17 @@ export default function Potluck() {
         <p className="vault-note">No public recipes yet.</p>
       ) : (
         <>
-          <ul className="recipe-grid">
+          <ul className="plate-grid">
             {recipes.map((r) => {
               const b = bylines.get(r.id);
               return (
-                <Fragment key={r.id}>
-                  <RecipeCard recipe={r} showVisibility={false} />
-                  {b && (
-                    <span className="vault-note">
-                      {b.public_name ?? "A cook"} &middot; {b.family_name}
-                    </span>
-                  )}
-                </Fragment>
+                <RecipeCard
+                  key={r.id}
+                  recipe={r}
+                  showVisibility={false}
+                  photoUrl={photoUrls.get(r.id) ?? null}
+                  byline={b ? (b.public_name ?? "A cook") + " · " + b.family_name : undefined}
+                />
               );
             })}
           </ul>

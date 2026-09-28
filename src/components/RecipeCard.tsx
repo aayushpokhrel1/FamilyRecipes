@@ -7,10 +7,15 @@ export default function RecipeCard({
   // In Potluck every card is public, so the chip would be the same word on every tile. It
   // still earns its place in your own vault, where the three values differ.
   showVisibility = true,
+  // Whose recipe this is, shown only where the vault is not the answer (Potluck). It renders
+  // INSIDE the link on purpose: as a sibling of the card it became its own cell of the grid,
+  // which is exactly the bug this prop replaced.
+  byline,
 }: {
   recipe: Recipe;
   photoUrl?: string | null;
   showVisibility?: boolean;
+  byline?: string;
 }) {
   const monogram = recipe.title.trim().charAt(0).toUpperCase() || "?";
   return (
@@ -26,6 +31,7 @@ export default function RecipeCard({
           </span>
         )}
         <span className="plate-title">{recipe.title}</span>
+        {byline && <span className="plate-byline">{byline}</span>}
         {showVisibility && <span className="chip">{recipe.visibility}</span>}
       </Link>
     </li>
