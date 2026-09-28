@@ -137,3 +137,66 @@ test("a non-member gets no rows from search_recipes (RLS holds through the RPC)"
   expect(error).toBeNull();
   expect(titles(data)).toEqual([]);
 });
+
+// ---------------------------------------------------------------- 0025: public search ----
+// A null family id means the public catalogue rather than one household's vault, so Potluck
+// and the vault share one matching rule. The family branch above must be unaffected, which
+// is what the last test in this file checks: 0009 exists only because 0006 redefined an RPC
+// and silently dropped a column.
+
+test("search_recipes with a null family id finds a public recipe from a family you are not in", async () => {
+  const { fam, alice } = await famWithRecipes("sr-pub");
+  const term = `Momo${Date.now()}`;
+  await admin.from("recipes").insert({
+    family_id: fam.id, author_id: alice.id, title: term, visibility: "public",
+  });
+  const stranger = await makeUser(`sr-stranger-${Date.now()}@t.dev`);
+  const { data, error } = await stranger.client.rpc("search_recipes", {
+    p_family_id: null, p_search: term, p_tag_id: null,
+  });
+  expect(error).toBeNull();
+  // Containment, not equality: a null family id searches the WHOLE public catalogue, so any
+  // other test file that publishes a recipe can fuzzy-match this term too. Asserting an
+  // exact list here passes alone and fails in the suite, which is what it did.
+  expect(titles(data)).toContain(term);
+});
+
+test("search_recipes with a null family id never returns family or private recipes", async () => {
+  const { fam, alice } = await famWithRecipes("sr-priv");
+  const tag = `Secret${Date.now()}`;
+  await admin.from("recipes").insert([
+    { family_id: fam.id, author_id: alice.id, title: `${tag} family`, visibility: "family" },
+    { family_id: fam.id, author_id: alice.id, title: `${tag} private`, visibility: "private" },
+  ]);
+  const stranger = await makeUser(`sr-priv-stranger-${Date.now()}@t.dev`);
+  const { data } = await stranger.client.rpc("search_recipes", {
+    p_family_id: null, p_search: tag, p_tag_id: null,
+  });
+  expect(titles(data)).toEqual([]);
+});
+
+test("search_recipes with a null family id hides a member's OWN family recipes too", async () => {
+  // The visibility filter is in the query, not only in RLS. Without it a signed-in member
+  // browsing the public catalogue would see their own household's private recipes mixed in,
+  // because RLS happily returns those to them.
+  const { fam, alice } = await famWithRecipes("sr-own");
+  const tag = `Mine${Date.now()}`;
+  await admin.from("recipes").insert({
+    family_id: fam.id, author_id: alice.id, title: `${tag} family only`, visibility: "family",
+  });
+  const { data } = await alice.client.rpc("search_recipes", {
+    p_family_id: null, p_search: tag, p_tag_id: null,
+  });
+  expect(titles(data)).toEqual([]);
+});
+
+test("search_recipes still behaves exactly as before for a family id", async () => {
+  // Regression guard for the 0006 trap: redefining an RPC is where this project has silently
+  // lost behaviour before. Blank search returns the family's recipes, newest first.
+  const { alice, fam } = await famWithRecipes("sr-regress");
+  const { data, error } = await alice.client.rpc("search_recipes", {
+    p_family_id: fam.id, p_search: null, p_tag_id: null,
+  });
+  expect(error).toBeNull();
+  expect(titles(data)).toEqual(["Dal", "Tomato Soup", "Chicken Curry"]);
+});
