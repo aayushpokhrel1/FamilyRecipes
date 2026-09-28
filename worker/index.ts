@@ -6,7 +6,7 @@
 // exactly what the assets-only config did before. Keep it that way: a recipe page must never
 // fail to load because a preview could not be built.
 import { checkExtract, HEALTH_PATH } from "./health";
-import { buildTags, ogIdFromPath, recipeIdFromPath, type Tags } from "./meta";
+import { avatarHandleFromPath, buildTags, ogIdFromPath, recipeIdFromPath, type Tags } from "./meta";
 
 export interface Env {
   ASSETS: Fetcher;
@@ -86,6 +86,43 @@ async function serveOgImage(env: Env, id: string): Promise<Response> {
     const imageResponse = await fetch(`${env.SUPABASE_URL}/storage/v1${signed.signedURL}`);
     if (!imageResponse.ok) return notFound();
 
+    return new Response(imageResponse.body, {
+      headers: {
+        "Content-Type": imageResponse.headers.get("content-type") ?? "image/jpeg",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  } catch {
+    return notFound();
+  }
+}
+
+// Same shape and the same security model as serveOgImage: the anon key is the only
+// credential, so a row coming back from public_cooks IS the proof this cook publishes, and
+// a signable avatar object IS the proof the 0022 policy allows it. The image is proxied
+// rather than redirected, so clearing a handle revokes this URL on the next request instead
+// of leaving a signed URL working in someone's cache.
+async function serveAvatar(env: Env, handle: string): Promise<Response> {
+  try {
+    const cookUrl = `${env.SUPABASE_URL}/rest/v1/public_cooks?handle=eq.${handle}&select=avatar_url&limit=1`;
+    const cookResponse = await fetch(cookUrl, { headers: supabaseHeaders(env) });
+    if (!cookResponse.ok) return notFound();
+    const cooks = (await cookResponse.json()) as Array<{ avatar_url: string | null }>;
+    const path = cooks.length > 0 ? cooks[0].avatar_url : null;
+    if (!path) return notFound();
+
+    const signUrl = `${env.SUPABASE_URL}/storage/v1/object/sign/avatars/${path}`;
+    const signResponse = await fetch(signUrl, {
+      method: "POST",
+      headers: { ...supabaseHeaders(env), "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn: 3600 }),
+    });
+    if (!signResponse.ok) return notFound();
+    const signed = (await signResponse.json()) as { signedURL?: string };
+    if (!signed.signedURL) return notFound();
+
+    const imageResponse = await fetch(`${env.SUPABASE_URL}/storage/v1${signed.signedURL}`);
+    if (!imageResponse.ok) return notFound();
     return new Response(imageResponse.body, {
       headers: {
         "Content-Type": imageResponse.headers.get("content-type") ?? "image/jpeg",
@@ -187,6 +224,9 @@ export default {
 
     const ogId = ogIdFromPath(pathname);
     if (ogId) return serveOgImage(env, ogId);
+
+    const avatarHandle = avatarHandleFromPath(pathname);
+    if (avatarHandle) return serveAvatar(env, avatarHandle);
 
     const id = recipeIdFromPath(pathname);
     if (id) return enrichRecipePage(request, env, id);

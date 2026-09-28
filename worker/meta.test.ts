@@ -1,5 +1,5 @@
-import { test, expect } from "vitest";
-import { buildTags, escapeAttr, ogIdFromPath, recipeIdFromPath } from "./meta";
+import { test, expect, describe, it } from "vitest";
+import { avatarHandleFromPath, buildTags, escapeAttr, ogIdFromPath, recipeIdFromPath } from "./meta";
 
 const ID = "3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b";
 const ORIGIN = "https://recipes.enamelvault.com";
@@ -113,4 +113,20 @@ test("buildTags leaves values raw for the caller to escape", () => {
   });
   expect(tags.title).toBe(`Ben & Jerry's "best" - The Enamel Vault`);
   expect(tags.imageAlt).toBe(`Ben & Jerry's "best" - a photo of the recipe`);
+});
+
+describe("avatarHandleFromPath", () => {
+  it("matches a handle", () => {
+    expect(avatarHandleFromPath("/avatar/aayush.jpg")).toBe("aayush");
+    expect(avatarHandleFromPath("/avatar/cook_2.jpg")).toBe("cook_2");
+  });
+  it("refuses anything that is not a handle", () => {
+    // Anchored, and the same character class as the DB constraint, so a path cannot smuggle
+    // a traversal or a query into the PostgREST filter this value is interpolated into.
+    expect(avatarHandleFromPath("/avatar/../secret.jpg")).toBeNull();
+    expect(avatarHandleFromPath("/avatar/Aayush.jpg")).toBeNull();
+    expect(avatarHandleFromPath("/avatar/a.jpg")).toBeNull();
+    expect(avatarHandleFromPath("/avatar/aayush.png")).toBeNull();
+    expect(avatarHandleFromPath("/avatar/aayush.jpg/more")).toBeNull();
+  });
 });

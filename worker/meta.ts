@@ -7,6 +7,10 @@ const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-
 // app-only routes with nothing worth previewing.
 const RECIPE_PATH = new RegExp(`^/recipes/(${UUID})/?$`);
 const OG_PATH = new RegExp(`^/og/recipe/(${UUID})\\.jpg$`);
+// Same character class as the handle check constraint in 0020, and anchored. This value is
+// interpolated into a PostgREST filter, so the pattern is the sanitiser: nothing outside
+// [a-z0-9_] can reach it.
+const AVATAR_PATH = new RegExp("^/avatar/([a-z0-9_]{3,30})\\.jpg$");
 
 const TITLE_SUFFIX = " - The Enamel Vault";
 const STOCK_DESCRIPTION = "A recipe from The Enamel Vault.";
@@ -20,6 +24,11 @@ export function recipeIdFromPath(pathname: string): string | null {
 
 export function ogIdFromPath(pathname: string): string | null {
   const match = OG_PATH.exec(pathname);
+  return match ? match[1] : null;
+}
+
+export function avatarHandleFromPath(pathname: string): string | null {
+  const match = AVATAR_PATH.exec(pathname);
   return match ? match[1] : null;
 }
 
