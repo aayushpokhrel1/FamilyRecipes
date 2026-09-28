@@ -3,15 +3,24 @@ import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import Settings from "./Settings";
 
-vi.mock("../lib/api/profile", () => ({
-  getMyProfile: vi.fn().mockResolvedValue({
-    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
-  }),
-  updateDisplayName: vi.fn().mockResolvedValue(undefined),
-  updatePreferences: vi.fn().mockResolvedValue({}),
-  uploadAvatar: vi.fn().mockResolvedValue("u1/new-avatar"),
-  getAvatarUrl: vi.fn().mockResolvedValue("https://example.test/signed"),
-}));
+vi.mock("../lib/api/profile", async () => {
+  // handleError is the real validator, not a stub: the test that an invalid handle never
+  // reaches the API is only meaningful if the thing doing the rejecting is the real one.
+  const actual = await vi.importActual<typeof import("../lib/api/profile")>("../lib/api/profile");
+  return {
+    getMyProfile: vi.fn().mockResolvedValue({
+      id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+      handle: null, public_name: null, bio: null,
+    }),
+    updateDisplayName: vi.fn().mockResolvedValue(undefined),
+    updatePreferences: vi.fn().mockResolvedValue({}),
+    uploadAvatar: vi.fn().mockResolvedValue("u1/new-avatar"),
+    getAvatarUrl: vi.fn().mockResolvedValue("https://example.test/signed"),
+    handleError: actual.handleError,
+    updatePublicProfile: vi.fn().mockResolvedValue(undefined),
+    unpublishProfile: vi.fn().mockResolvedValue(undefined),
+  };
+});
 vi.mock("../lib/api/account", () => ({
   deleteAccount: vi.fn().mockResolvedValue(undefined),
 }));
@@ -121,4 +130,26 @@ test("an oversized picture reports the size error and never uploads", async () =
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Images must be under 2 MB.");
   expect(profile.uploadAvatar).toHaveBeenCalledTimes(1);
+});
+
+test("claims a handle and reports a taken one", async () => {
+  const profile = await import("../lib/api/profile");
+  (profile.updatePublicProfile as any).mockClear();
+  vi.mocked(profile.updatePublicProfile).mockRejectedValueOnce(new Error("That handle is taken."));
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  const input = await screen.findByLabelText(/handle/i);
+  fireEvent.change(input, { target: { value: "aayush" } });
+  fireEvent.click(screen.getByRole("button", { name: /publish my profile/i }));
+  expect(await screen.findByText(/that handle is taken/i)).toBeInTheDocument();
+});
+
+test("rejects an invalid handle before calling the API", async () => {
+  const profile = await import("../lib/api/profile");
+  (profile.updatePublicProfile as any).mockClear();
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  const input = await screen.findByLabelText(/handle/i);
+  fireEvent.change(input, { target: { value: "Aayush" } });
+  fireEvent.click(screen.getByRole("button", { name: /publish my profile/i }));
+  expect(await screen.findByText(/lowercase/i)).toBeInTheDocument();
+  expect(profile.updatePublicProfile).not.toHaveBeenCalled();
 });

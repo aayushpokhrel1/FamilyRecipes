@@ -1,6 +1,9 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAvatarUrl, getMyProfile, updateDisplayName, updatePreferences, uploadAvatar } from "../lib/api/profile";
+import {
+  getAvatarUrl, getMyProfile, handleError, unpublishProfile, updateDisplayName,
+  updatePreferences, updatePublicProfile, uploadAvatar,
+} from "../lib/api/profile";
 import { deleteAccount } from "../lib/api/account";
 import { changePassword } from "../lib/api/auth";
 import FamilyDataPanel from "../components/FamilyDataPanel";
@@ -31,11 +34,21 @@ export default function Settings() {
   const [deleteStatus, setDeleteStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [handle, setHandle] = useState("");
+  const [publicName, setPublicName] = useState("");
+  const [bio, setBio] = useState("");
+  const [savedHandle, setSavedHandle] = useState<string | null>(null);
+  const [publicError, setPublicError] = useState<string | null>(null);
 
   useEffect(() => {
     getMyProfile().then((p) => {
       setProfile(p);
       setName(p.display_name);
+      // The handle IS the opt-in, so a non-null one is what "already publishing" means.
+      setHandle(p.handle ?? "");
+      setPublicName(p.public_name ?? "");
+      setBio(p.bio ?? "");
+      setSavedHandle(p.handle);
     }).catch((err: unknown) => {
       setLoadError(err instanceof Error ? err.message : String(err));
     });
@@ -136,6 +149,31 @@ export default function Settings() {
   function handleTheme(choice: ThemeChoice) {
     setThemeChoice(choice);
     setTheme(choice);
+  }
+
+  async function handlePublish() {
+    setPublicError(null);
+    // Validate before calling out: the API layer would reject the same handle, but a round
+    // trip to be told what a local check already knows is a wasted one.
+    const problem = handleError(handle);
+    if (problem) { setPublicError(problem); return; }
+    try {
+      await updatePublicProfile({ handle, public_name: publicName, bio });
+      setSavedHandle(handle);
+    } catch (err) {
+      setPublicError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleUnpublish() {
+    setPublicError(null);
+    try {
+      await unpublishProfile();
+      setSavedHandle(null);
+      setHandle("");
+    } catch (err) {
+      setPublicError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   async function savePreference(patch: Preferences, success: string) {
@@ -296,6 +334,39 @@ export default function Settings() {
         </div>
 
         {statusLine(prefStatus)}
+      </section>
+
+      <section className="plate panel">
+        <h2>Public profile</h2>
+        <p className="vault-note">
+          A handle publishes you. Recipes you set to Public show your public name and family,
+          and get a page anyone can open. Clearing your handle takes all of that back.
+        </p>
+        <div className="settings-field">
+          <label htmlFor="handle">Handle</label>
+          <input
+            id="handle"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            placeholder="aayush"
+          />
+        </div>
+        <p className="vault-note">Your page will be at /cooks/{handle || "your-handle"}</p>
+        <div className="settings-field">
+          <label htmlFor="public-name">Public name</label>
+          <input id="public-name" value={publicName} onChange={(e) => setPublicName(e.target.value)} />
+        </div>
+        <div className="settings-field">
+          <label htmlFor="bio">Bio</label>
+          <textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} />
+        </div>
+        {publicError && <p className="form-error" role="alert">{publicError}</p>}
+        <div className="recipe-actions">
+          <button type="button" onClick={handlePublish}>Publish my profile</button>
+          {savedHandle && (
+            <button type="button" onClick={handleUnpublish}>Stop publishing</button>
+          )}
+        </div>
       </section>
 
       <section className="plate panel">
