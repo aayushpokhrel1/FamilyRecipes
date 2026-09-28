@@ -96,20 +96,7 @@ grant select on public_recipe_bylines to anon, authenticated;
 handle, and that must render as the family name alone rather than break the page. The UI will
 require a handle before allowing publish, but the DB must not assume the UI is the only writer.
 
-### Two existing-policy fixes ride along
-
-Both are live RLS behaviour changes, so both get integration tests, and the first is run red
-against the current policy before it is fixed.
-
-```sql
--- was: for all using (can_read_recipe(...)), a READ predicate guarding WRITES. Any stranger
--- who could see a public recipe could insert or DELETE its tag rows. Harmless while nothing
--- is public; a real hole the moment this sub-project ships.
-drop policy rtags_write on recipe_tags;
-create policy rtags_write on recipe_tags for all
-  using  (exists (select 1 from recipes r where r.id = recipe_id and is_family_member(r.family_id)))
-  with check (exists (select 1 from recipes r where r.id = recipe_id and is_family_member(r.family_id)));
-```
+### One existing-policy fix rides along
 
 ```sql
 -- Comments must be readable on FAMILY or PRIVATE grounds, never on PUBLIC ones. Publishing a
@@ -117,17 +104,35 @@ create policy rtags_write on recipe_tags for all
 create function can_read_recipe_privately(rid uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from recipes r where r.id = rid and (
-    (r.visibility = 'family'  and is_family_member(r.family_id))
+    (r.visibility in ('family','public') and is_family_member(r.family_id))
     or (r.visibility = 'private' and r.author_id = auth.uid())
-    or (r.visibility = 'public'  and is_family_member(r.family_id))
   ));
 $$;
 drop policy comments_read on comments;
 create policy comments_read on comments for select using (can_read_recipe_privately(recipe_id));
 ```
 
-Note the third arm: a family member must keep reading comments on their own recipe after it is
-published. Dropping public entirely would have taken the conversation away from the family too.
+The family arm covers `public` too: a family must keep reading comments on its own recipe
+after publishing it. What must never grant access is PUBLIC-ness alone. This is a second
+predicate rather than a change to `can_read_recipe`, which stays correct for ingredients,
+steps and photos, since those are exactly what a stranger is meant to read.
+
+### CORRECTION: the `recipe_tags` hole in this spec's first draft was NOT real
+
+This spec originally claimed `rtags_write` guarded writes with a read predicate, so any
+stranger who could see a public recipe could delete its tags. **That was wrong, and it was
+found by writing the test and watching it pass.** `0003` really is written that way, but
+`0005_join_rpc_and_tag_fix.sql` already replaced the policy with an author-or-family-owner
+predicate, and its own comment says so. The mistake was reading `0003` and never grepping
+for a later migration that supersedes it.
+
+**The planned "fix" would have been a regression:** it used `is_family_member`, which is
+looser than `0005`'s author-or-owner, so it would have let any family member retag a recipe
+they do not own. The tests are kept as regression pins, because nothing else covered that
+policy.
+
+**The lesson, which this project keeps relearning: a policy's definition is the LAST migration
+that touches it, not the one that created it.** Grep every migration for the policy name.
 
 ### Avatars
 

@@ -196,10 +196,10 @@ column gate; profiles keeps having no anon policy at all."
 
 ---
 
-### Task 2: Close the two RLS holes
+### Task 2: DONE (corrected). Close the one real RLS hole
 
 **Files:**
-- Create: `supabase/migrations/0021_tighten_public_access.sql`
+- Created: `supabase/migrations/0021_private_comments.sql` (renamed: it fixes one thing, not two)
 - Create: `tests/integration/public_access.test.ts`
 
 **Interfaces:**
