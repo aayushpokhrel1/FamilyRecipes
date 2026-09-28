@@ -204,14 +204,17 @@ against `git log --since="<updated_at>" -- supabase/functions/extract-recipe/`.
 - **vitest's forks pool crashes on Node 20** (`webidl.util.markAsUncloneable`). CI uses Node 22.
 - **jsdom leaks supabase-js auth sessions between clients.** Integration tests use
   `// @vitest-environment node` plus `{ auth: { persistSession: false, autoRefreshToken: false } }`.
-- **The supabase-js storage client HANGS in CI, and a longer timeout does not fix it.**
-  `admin.storage.from(...).upload(path, new Blob(["x"]))` never completes on the Linux CI
-  runner while passing on Windows locally. Proven, not assumed: the two affected tests timed
-  out at vitest's default 5s, were given 30s, and timed out again at 30s. **Integration tests
-  that need a storage object use raw `fetch` against `/storage/v1/...` instead**, which is what
-  `worker/index.ts` does in production anyway, so the test exercises the real path. The cause
-  is still unknown; only the synthetic-Blob-in-Node case is known to hang, and a real browser
-  `File` through `uploadAvatar` is a different path that has worked in the app.
+- **Every integration test MUST start with `// @vitest-environment node`.** `vitest.config.ts`
+  sets `environment: "jsdom"` globally for the app's component tests, so a file without the
+  pragma gets jsdom. In jsdom a `Blob` is a *jsdom* Blob, which undici's `fetch` cannot consume
+  as a request body: a storage upload then **never completes**, and the test dies on whatever
+  timeout it has rather than erroring.
+  Four files added on 2026-09-28 omitted the pragma and cost two red CI runs. It passed on
+  Windows and hung on the Linux runner, which made it look environmental.
+  **Reproduced and isolated** in a `node:22` container against the same database, with the
+  environment as the only variable: `@vitest-environment node` passed in 298ms, the jsdom
+  default hung until timeout. Raising the timeout does not help, because it is not slowness.
+  Integration tests touch a database and never a DOM, so jsdom is wrong for them anyway.
 - **Storage treats replacing a file as an UPDATE.** A bucket policy with only
   insert/select/delete lets the first upload succeed and fails every replacement after it.
 - **Joining a family** goes through the `join_family_by_code` SECURITY DEFINER RPC, because RLS
