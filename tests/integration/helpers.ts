@@ -14,3 +14,10 @@ export async function makeUser(email: string) {
   await anon.auth.signInWithPassword({ email, password: "password123" });
   return { id: data.user!.id, client: anon };
 }
+
+// A client with the anon key and NO session, which is what a stranger on the internet is.
+// makeUser's client is also built from the anon key but is signed in, so it cannot prove
+// anything about anonymous access.
+export function anonClient() {
+  return createClient(process.env.SB_URL!, process.env.SB_ANON_KEY!, noPersist);
+}
