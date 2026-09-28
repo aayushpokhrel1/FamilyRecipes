@@ -145,7 +145,13 @@ export default function RecipeDetail() {
 
       {byline && (
         <p className="vault-note">
-          {byline.public_name ?? "A cook"} &middot; {byline.family_name}
+          {/* A handle can be null: public_recipe_bylines left-joins the profile precisely so
+              a recipe published by a cook who never claimed one still renders. Plain text
+              then, rather than a link to /cooks/null. */}
+          {byline.handle
+            ? <Link to={"/cooks/" + byline.handle}>{byline.public_name ?? "A cook"}</Link>
+            : (byline.public_name ?? "A cook")}
+          {" "}&middot; {byline.family_name}
         </p>
       )}
 

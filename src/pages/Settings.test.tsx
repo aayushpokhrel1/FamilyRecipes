@@ -153,3 +153,15 @@ test("rejects an invalid handle before calling the API", async () => {
   expect(await screen.findByText(/lowercase/i)).toBeInTheDocument();
   expect(profile.updatePublicProfile).not.toHaveBeenCalled();
 });
+
+test("links to your own public page once a handle exists", async () => {
+  // A cook page reachable only by typing its URL is a feature with no entry point.
+  const profile = await import("../lib/api/profile");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: "Aayush", bio: null,
+  });
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  expect(await screen.findByRole("link", { name: /view my public page/i }))
+    .toHaveAttribute("href", "/cooks/yusha");
+});

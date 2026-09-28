@@ -144,3 +144,33 @@ test("still shows the owner controls when signed in", async () => {
   expect(await screen.findByRole("link", { name: /cook mode/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
 });
+
+test("a visitor's byline links to the cook page", async () => {
+  mockAuth = { userId: null, loading: false };
+  vi.mocked(getByline).mockResolvedValue({
+    handle: "aayush", public_name: "Aayush", family_name: "Pokhrel",
+  });
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("link", { name: "Aayush" }))
+    .toHaveAttribute("href", "/cooks/aayush");
+});
+
+test("a byline with no handle stays plain text, not a link to /cooks/null", async () => {
+  // public_recipe_bylines left-joins the profile, so a recipe published by a cook who never
+  // claimed a handle has a null one and must still render.
+  mockAuth = { userId: null, loading: false };
+  vi.mocked(getByline).mockResolvedValue({
+    handle: null, public_name: null, family_name: "Pokhrel",
+  });
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText(/A cook/)).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /A cook/ })).not.toBeInTheDocument();
+});

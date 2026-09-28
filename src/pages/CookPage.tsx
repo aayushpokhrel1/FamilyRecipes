@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPublicCook } from "../lib/api/profile";
 import { listPublicRecipesByAuthor } from "../lib/api/recipes";
+import { follow, isFollowing, unfollow } from "../lib/api/follows";
+import { useAuth } from "../context/AuthContext";
 import type { PublicCook, Recipe } from "../lib/api/types";
 
 export default function CookPage() {
@@ -9,6 +11,8 @@ export default function CookPage() {
   const [cook, setCook] = useState<PublicCook | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const { userId } = useAuth();
+  const [following, setFollowing] = useState(false);
 
   useEffect(() => {
     if (!handle) {
@@ -46,6 +50,25 @@ export default function CookPage() {
     };
   }, [handle]);
 
+  // Kept above the early returns below. A hook after a conditional return throws "Rendered
+  // more hooks than during the previous render", which this repo has shipped once already.
+  useEffect(() => {
+    if (!cook || !userId || cook.id === userId) { setFollowing(false); return; }
+    let ignore = false;
+    isFollowing(cook.id)
+      .then((f) => { if (!ignore) setFollowing(f); })
+      .catch(() => { if (!ignore) setFollowing(false); });
+    return () => { ignore = true; };
+  }, [cook?.id, userId]);
+
+  async function toggleFollow() {
+    if (!cook) return;
+    // Optimistic would be wrong here: a refused follow (an unpublished cook) must not leave
+    // the button claiming a relationship the database does not have.
+    if (following) { await unfollow(cook.id); setFollowing(false); }
+    else { await follow(cook.id); setFollowing(true); }
+  }
+
   if (loading) return <p className="vault-note">Loading...</p>;
   if (!cook) return <p className="vault-note">Cook not found.</p>;
 
@@ -56,6 +79,13 @@ export default function CookPage() {
       <img className="avatar" src={"/avatar/" + cook.handle + ".jpg"} alt="" />
       <h1>{cook.public_name ?? cook.handle}</h1>
       {cook.bio && <p>{cook.bio}</p>}
+      {/* Signed in, and never on your own page: following yourself is refused by a check
+          constraint, so offering it would be a button that can only fail. */}
+      {userId && cook.id !== userId && (
+        <button type="button" className="action" onClick={toggleFollow}>
+          {following ? "Following" : "Follow"}
+        </button>
+      )}
       {recipes.length > 0 ? (
         <ul className="stack">
           {recipes.map((r) => (

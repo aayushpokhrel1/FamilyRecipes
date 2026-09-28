@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   getAvatarUrl, getMyProfile, handleError, unpublishProfile, updateDisplayName,
   updatePreferences, updatePublicProfile, uploadAvatar,
@@ -365,6 +365,11 @@ export default function Settings() {
           <button type="button" onClick={handlePublish}>Publish my profile</button>
           {savedHandle && (
             <button type="button" onClick={handleUnpublish}>Stop publishing</button>
+          )}
+          {/* Until this existed, a cook page was reachable only by typing its URL. A feature
+              with no entry point does not exist, which is the cupboard bug's shape. */}
+          {savedHandle && (
+            <Link className="action" to={"/cooks/" + savedHandle}>View my public page</Link>
           )}
         </div>
       </section>
