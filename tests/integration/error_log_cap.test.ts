@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { admin, anonClient } from "./helpers";
 
 // error_log has NO select policy by design, so row counts here go through the admin client.
@@ -11,6 +11,14 @@ import { admin, anonClient } from "./helpers";
 // of that minute. The honest-single-error case therefore has to run first, on a quiet
 // minute, and the suppression it causes is pinned as its own test below.
 describe("error_log rate limit", () => {
+  // The cap counts rows in the last minute, so these tests are only meaningful starting from
+  // an empty window. Without this they pass on a fresh database and fail whenever the file is
+  // run twice inside a minute, which is the same re-runnability trap the handle tests hit.
+  // admin bypasses RLS, and error_log is a local/CI-only table in these runs.
+  beforeAll(async () => {
+    await admin.from("error_log").delete().gte("created_at", "1970-01-01");
+  });
+
   it("records an ordinary single failure", async () => {
     const anon = anonClient();
     const context = `single-${Date.now()}`;
