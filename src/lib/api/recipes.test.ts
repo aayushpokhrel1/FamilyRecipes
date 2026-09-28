@@ -6,7 +6,7 @@ vi.mock("../supabaseClient", () => ({ supabase: {
   rpc: (...a: any[]) => rpc(...a),
   auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "me" } } }) },
 }}));
-import { createRecipe, listRecipes, updateRecipe } from "./recipes";
+import { createRecipe, listPublicRecipesByAuthor, listRecipes, updateRecipe } from "./recipes";
 test("createRecipe inserts the recipe then ingredients with positions 0,1", async () => {
   const inserted: any[] = [];
   from.mockImplementation((table: string) => ({
@@ -59,4 +59,27 @@ test("updateRecipe sends only the provided child list to replace_recipe_children
     p_ingredients: [{ quantity: "1", unit: "cup", item: "rice" }],
     p_steps: null,
   });
+});
+test("listPublicRecipesByAuthor filters on both author_id and visibility", async () => {
+  const filters: Array<[string, string]> = [];
+  let order: [string, any] | null = null;
+  from.mockImplementation((table: string) => {
+    expect(table).toBe("recipes");
+    const builder: any = {
+      select: () => builder,
+      eq: (column: string, value: string) => {
+        filters.push([column, value]);
+        return builder;
+      },
+      order: (column: string, opts: any) => {
+        order = [column, opts];
+        return Promise.resolve({ data: [{ id: "r1", title: "Momo" }], error: null });
+      },
+    };
+    return builder;
+  });
+  const rows = await listPublicRecipesByAuthor("c1");
+  expect(filters).toEqual([["author_id", "c1"], ["visibility", "public"]]);
+  expect(order).toEqual(["created_at", { ascending: false }]);
+  expect(rows.map((r: any) => r.id)).toEqual(["r1"]);
 });

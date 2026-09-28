@@ -86,6 +86,17 @@ export async function listRecipes(
   return (data ?? []) as Recipe[];
 }
 
+// Both filters are stated even though RLS would refuse a non-public row anyway. RLS decides
+// what a stranger MAY see; this decides what the cook page IS, which is their published work
+// and not their whole vault as it would appear to a family member calling this.
+export async function listPublicRecipesByAuthor(authorId: string): Promise<Recipe[]> {
+  const { data, error } = await supabase.from("recipes")
+    .select("*").eq("author_id", authorId).eq("visibility", "public")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Recipe[];
+}
+
 export async function deleteRecipe(id: string) {
   const { error } = await supabase.from("recipes").delete().eq("id", id);
   if (error) throw new Error(error.message);
