@@ -89,9 +89,33 @@ future design should protect each of them, not trade one for another.
   the marinade") and is the cook's judgement, so it is never auto-filled. The editor offers the
   sections used in that recipe, then the family's own past sections, then a short curated list.
 
+- **A public identity for a cook**, opt in. A `handle` is the opt-in itself: null means "I do not
+  publish", so there is no second flag that can disagree with it. A published cook gets a page at
+  `/cooks/:handle` showing their public name, bio and published recipes, readable signed out.
+- **A published recipe is readable signed out**, at the same URL it has signed in, with the cook
+  and family as a byline. What a stranger sees is deliberate: title, ingredients, steps, photos,
+  story and provenance yes; **comments never**, on any recipe, published or not.
+- **Potluck**, at `/potluck`: browse and search every public recipe, narrowable to the cooks you
+  follow. **Signed in only for now.** Following is private to the follower, so there is no
+  follower list and no follower count anywhere.
+
 Explicitly undecided or deferred (future work must not present these as done):
 
-- The **public community feed** (follow / save / fork with link-back) is designed, not built.
+- The **public feed is now PART built.** Browsing, searching and following shipped as Potluck.
+  **Save and fork with attribution and lineage are designed, not built**, and are the next
+  chunk: a save copies a recipe into your vault rather than pointing at it, so unpublishing
+  cannot empty someone else's vault.
+- **Moderation does not exist**: no report, no block, no takedown path, and no handling of a
+  handle that impersonates someone. Acceptable only while the published set is this small, and
+  it is the thing that must be built before Potluck is opened to the public.
+- **Potluck is signed in only, and that is a discovery brake rather than a privacy boundary.**
+  Public rows stay readable to the anon role through the API, which is what makes the public
+  recipe pages and the link previews work at all. Opening Potluck up later is a one-line route
+  change; what cannot be undone is what crawlers cache once it is open, which is why it starts
+  closed.
+- **Follower counts, follower lists and any notification of being followed** are deliberately
+  absent. One RLS policy instead of a denormalised counter, and no vanity metric in an app about
+  family cooking. Easy to add later; hard to remove once people have seen numbers.
 - A **family-editable ingredient catalog** is not built. A family can tag an ingredient's aisle,
   which is enough to empty the "Other" group over time, but they cannot add, rename or remove
   catalog entries or invent an aisle from the UI.

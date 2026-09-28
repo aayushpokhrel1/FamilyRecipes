@@ -204,6 +204,14 @@ against `git log --since="<updated_at>" -- supabase/functions/extract-recipe/`.
 - **vitest's forks pool crashes on Node 20** (`webidl.util.markAsUncloneable`). CI uses Node 22.
 - **jsdom leaks supabase-js auth sessions between clients.** Integration tests use
   `// @vitest-environment node` plus `{ auth: { persistSession: false, autoRefreshToken: false } }`.
+- **The supabase-js storage client HANGS in CI, and a longer timeout does not fix it.**
+  `admin.storage.from(...).upload(path, new Blob(["x"]))` never completes on the Linux CI
+  runner while passing on Windows locally. Proven, not assumed: the two affected tests timed
+  out at vitest's default 5s, were given 30s, and timed out again at 30s. **Integration tests
+  that need a storage object use raw `fetch` against `/storage/v1/...` instead**, which is what
+  `worker/index.ts` does in production anyway, so the test exercises the real path. The cause
+  is still unknown; only the synthetic-Blob-in-Node case is known to hang, and a real browser
+  `File` through `uploadAvatar` is a different path that has worked in the app.
 - **Storage treats replacing a file as an UPDATE.** A bucket policy with only
   insert/select/delete lets the first upload succeed and fails every replacement after it.
 - **Joining a family** goes through the `join_family_by_code` SECURITY DEFINER RPC, because RLS
