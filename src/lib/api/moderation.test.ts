@@ -153,7 +153,7 @@ test("listOpenReports filters to open reports, newest first", async () => {
   expect(got.map((r) => r.id)).toEqual(["rep1"]);
   // The queue shows the recipe title, so the select has to embed it. Without this the
   // page renders "Untitled" for every row and nothing else complains.
-  expect(select).toHaveBeenCalledWith("*, recipes(title)");
+  expect(select).toHaveBeenCalledWith("*, recipes(title), profiles:cook_id(handle,public_name)");
   expect(got[0].recipes?.title).toBe("Dal");
   expect(eq).toHaveBeenCalledWith("status", "open");
   expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
