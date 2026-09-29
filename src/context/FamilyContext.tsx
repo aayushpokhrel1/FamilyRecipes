@@ -1,11 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { listMyFamilies } from "../lib/api/families";
-import type { Family } from "../lib/api/types";
+import type { MyFamily } from "../lib/api/types";
 
 type FamilyState = {
-  families: Family[];
-  activeFamily: Family | null;
-  setActiveFamily: (family: Family) => void;
+  families: MyFamily[];
+  activeFamily: MyFamily | null;
+  setActiveFamily: (family: MyFamily) => void;
   reload: () => Promise<void>;
 };
 
@@ -33,15 +33,15 @@ function writeStoredId(id: string) {
   }
 }
 
-function pickActive(families: Family[]): Family | null {
+function pickActive(families: MyFamily[]): MyFamily | null {
   const storedId = readStoredId();
   const stored = storedId ? families.find((f) => f.id === storedId) : undefined;
   return stored ?? families[0] ?? null;
 }
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [activeFamily, setActive] = useState<Family | null>(null);
+  const [families, setFamilies] = useState<MyFamily[]>([]);
+  const [activeFamily, setActive] = useState<MyFamily | null>(null);
 
   async function reload() {
     const list = await listMyFamilies();
@@ -49,7 +49,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setActive(pickActive(list));
   }
 
-  function setActiveFamily(family: Family) {
+  function setActiveFamily(family: MyFamily) {
     setActive(family);
     writeStoredId(family.id);
   }

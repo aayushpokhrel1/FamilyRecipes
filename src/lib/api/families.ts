@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import type { Family } from "./types";
+import type { MyFamily, Family } from "./types";
 
 async function myId(): Promise<string> {
   const { data } = await supabase.auth.getUser();
@@ -26,14 +26,21 @@ export async function joinByCode(code: string): Promise<Family> {
   return data as Family;
 }
 
-export async function listMyFamilies(): Promise<Family[]> {
-  const { data: memberships, error } = await supabase.from("family_members").select("family_id");
+export async function listMyFamilies(): Promise<MyFamily[]> {
+  // role comes back with the membership and is CARRIED THROUGH: it used to be selected and
+  // then dropped here, which is why RecipeDetail offered Edit and Delete on recipes the
+  // viewer could not touch. The buttons need the same rule recipes_update enforces.
+  const { data: memberships, error } = await supabase
+    .from("family_members").select("family_id,role");
   if (error) throw new Error(error.message);
-  const ids = (memberships ?? []).map((m: any) => m.family_id);
+  const roles = new Map<string, "owner" | "member">(
+    (memberships ?? []).map((m: any) => [m.family_id, m.role]),
+  );
+  const ids = [...roles.keys()];
   if (ids.length === 0) return [];
   const { data, error: fErr } = await supabase.from("families").select("*").in("id", ids);
   if (fErr) throw new Error(fErr.message);
-  return (data ?? []) as Family[];
+  return (data ?? []).map((f: any) => ({ ...f, role: roles.get(f.id) ?? "member" })) as MyFamily[];
 }
 
 export async function rotateInviteCode(familyId: string): Promise<string> {

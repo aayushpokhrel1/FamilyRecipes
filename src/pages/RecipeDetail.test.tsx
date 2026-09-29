@@ -47,11 +47,16 @@ vi.mock("../lib/api/moderation", () => ({
 // The active family is where a save lands, and its absence is what removes the button.
 // Hoisted and stable so the object identity never changes between renders.
 const family = vi.hoisted(() => ({
-  active: { id: "f2", name: "Fam", invite_code: "x", created_by: "u" } as
-    { id: string; name: string; invite_code: string; created_by: string } | null,
+  active: { id: "f2", name: "Fam", invite_code: "x", created_by: "u", role: "owner" } as
+    { id: string; name: string; invite_code: string; created_by: string;
+      role: "owner" | "member" } | null,
+  // The families the viewer belongs to, WITH their role. Edit and Delete are offered to the
+  // author or a family owner, which is exactly what recipes_update and recipes_delete allow.
+  mine: [] as { id: string; name: string; invite_code: string; created_by: string;
+    role: "owner" | "member" }[],
 }));
 vi.mock("../context/FamilyContext", () => ({
-  useFamily: () => ({ activeFamily: family.active }),
+  useFamily: () => ({ activeFamily: family.active, families: family.mine }),
 }));
 
 vi.mock("../lib/api/mealPlans", () => ({
@@ -78,6 +83,7 @@ vi.mock("../context/AuthContext", () => ({ useAuth: () => mockAuth }));
 // Reset between tests so a visitor test cannot leak into the next one.
 beforeEach(() => {
   mockAuth = { userId: "u1", loading: false };
+  family.mine = [];
   reportRecipe.mockClear();
 });
 
@@ -171,7 +177,11 @@ test("does not ask for plans when there is no session", async () => {
 });
 
 test("still shows the owner controls when signed in", async () => {
-  mockAuth = { userId: "u1", loading: false };
+  // "u" is baseRecipe's author_id. This previously said "u1", so the viewer was NOT the
+  // owner and the test asserted owner controls for someone who had none: it passed only
+  // because the controls rendered for every signed-in viewer, which was the bug. The
+  // visitor case is covered by the test above.
+  mockAuth = { userId: "u", loading: false };
   render(
     <MemoryRouter initialEntries={["/recipes/r1"]}>
       <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
@@ -366,4 +376,55 @@ test("a recipe that was never removed shows no banner", async () => {
   );
   await screen.findByText("Dal");
   expect(screen.queryByText(/removed from potluck/i)).not.toBeInTheDocument();
+});
+
+// Edit and Delete used to render for ANY signed-in viewer, so a stranger reading a published
+// recipe was offered controls the database would refuse. RLS was never the hole; the UI was
+// simply lying about what it would let you do.
+test("a signed-in stranger is not offered Edit or Delete on someone else's recipe", async () => {
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+});
+
+test("the author is offered Edit and Delete", async () => {
+  mockAuth = { userId: "u", loading: false };   // baseRecipe's author_id
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("link", { name: "Edit" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+});
+
+// An owner of the recipe's family may edit it even without having written it, because
+// recipes_update allows exactly that. Hiding it from them would be the opposite bug.
+test("an owner of the recipe's family is offered Edit and Delete", async () => {
+  family.mine = [{ id: "f1", name: "Theirs", invite_code: "x", created_by: "u",
+                   role: "owner" }];
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("link", { name: "Edit" })).toBeInTheDocument();
+});
+
+// A plain member is not an owner, and recipes_update would refuse them.
+test("a non-owner member of the recipe's family is not offered Edit", async () => {
+  family.mine = [{ id: "f1", name: "Theirs", invite_code: "x", created_by: "u",
+                   role: "member" }];
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
 });

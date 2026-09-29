@@ -23,6 +23,11 @@ export interface Byline {
   handle: string | null; public_name: string | null; family_name: string;
 }
 export interface Family { id: string; name: string; invite_code: string; created_by: string; }
+// A family I belong to, carrying MY role in it. Role lives on family_members, not on
+// families, so it does not belong on Family itself. The UI needs it to know whether to offer
+// Edit and Delete, which recipes_update and recipes_delete allow to the author OR a family
+// owner. Anything that renders those controls must use this, not Family.
+export interface MyFamily extends Family { role: "owner" | "member"; }
 export interface FamilyMember { family_id: string; user_id: string; role: "owner" | "member"; }
 export interface Ingredient { id?: string; position: number; quantity: string | null; unit: string | null; item: string; section?: string | null; optional?: boolean; alt_group?: string | null; }
 export interface Step { id?: string; position: number; text: string; }

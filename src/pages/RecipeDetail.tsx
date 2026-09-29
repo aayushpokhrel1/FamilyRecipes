@@ -25,7 +25,7 @@ export default function RecipeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userId } = useAuth();
-  const { activeFamily } = useFamily();
+  const { activeFamily, families } = useFamily();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -166,6 +166,16 @@ export default function RecipeDetail() {
   if (loading) return <Skeleton shape="plate" count={4} />;
   if (!recipe) return <p className="vault-note">Recipe not found.</p>;
 
+  // Mirrors recipes_update and recipes_delete EXACTLY: the author, or an owner of the
+  // recipe's family. These controls used to render for any signed-in viewer, so a stranger
+  // reading a published recipe was offered a Delete the database would refuse. RLS was never
+  // the hole; the UI was lying about what it would let you do. If that policy changes, change
+  // this with it.
+  const canEdit = !!userId && (
+    recipe.author_id === userId ||
+    families.some((f) => f.id === recipe.family_id && f.role === "owner")
+  );
+
   const meta: Array<[string, number]> = [];
   if (recipe.servings) meta.push(["Serves", recipe.servings]);
   if (recipe.prep_minutes) meta.push(["Prep min", recipe.prep_minutes]);
@@ -224,9 +234,11 @@ export default function RecipeDetail() {
           <Link to={"/recipes/" + id + "/cook"} className="action">
             Cook Mode
           </Link>
-          <Link to={"/recipes/" + id + "/edit"} className="btn">
-            Edit
-          </Link>
+          {canEdit && (
+            <Link to={"/recipes/" + id + "/edit"} className="btn">
+              Edit
+            </Link>
+          )}
           {plans.length > 0 && (
             <>
               <select aria-label="plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
@@ -237,9 +249,11 @@ export default function RecipeDetail() {
             </>
           )}
           <span className="spacer" />
-          <button type="button" onClick={handleDelete}>
-            Delete
-          </button>
+          {canEdit && (
+            <button type="button" onClick={handleDelete}>
+              Delete
+            </button>
+          )}
         </div>
       )}
       {recipe.visibility === "public" && activeFamily && recipe.family_id !== activeFamily.id && (
