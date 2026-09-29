@@ -1,0 +1,118 @@
+import { expect, test, vi, beforeEach } from "vitest";
+
+const rpc = vi.fn();
+const getUser = vi.fn();
+const insert = vi.fn();
+const inFilter = vi.fn();
+const order = vi.fn();
+const eq = vi.fn();
+vi.mock("../supabaseClient", () => ({
+  supabase: {
+    rpc: (...a: any[]) => rpc(...a),
+    auth: { getUser: (...a: any[]) => getUser(...a) },
+    from: () => ({
+      insert: (...a: any[]) => insert(...a),
+      select: () => ({
+        in: (...a: any[]) => inFilter(...a),
+        eq: (...a: any[]) => eq(...a),
+      }),
+    }),
+  },
+}));
+
+beforeEach(() => {
+  rpc.mockReset();
+  getUser.mockReset();
+  insert.mockReset();
+  inFilter.mockReset();
+  order.mockReset();
+  eq.mockReset();
+  getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+  // listOpenReports chains .eq(...).order(...), so eq has to hand back the order spy.
+  eq.mockReturnValue({ order });
+});
+
+test("reportRecipe sends the current user as reporter_id", async () => {
+  const { reportRecipe } = await import("./moderation");
+  insert.mockResolvedValue({ error: null });
+  await expect(reportRecipe("r1", "offensive", "rude")).resolves.toBeUndefined();
+  expect(insert).toHaveBeenCalledWith({
+    recipe_id: "r1", reporter_id: "u1", reason: "offensive", note: "rude",
+  });
+});
+
+// An empty note is the common case and must land as null, not as an empty string.
+test("reportRecipe sends an empty note as null", async () => {
+  const { reportRecipe } = await import("./moderation");
+  insert.mockResolvedValue({ error: null });
+  await reportRecipe("r1", "other", "   ");
+  expect(insert).toHaveBeenCalledWith({
+    recipe_id: "r1", reporter_id: "u1", reason: "other", note: null,
+  });
+});
+
+test("reportRecipe throws the database message", async () => {
+  const { reportRecipe } = await import("./moderation");
+  insert.mockResolvedValue({ error: { message: "reports_one_open_per_reporter" } });
+  await expect(reportRecipe("r1", "offensive", "")).rejects.toThrow(
+    "reports_one_open_per_reporter",
+  );
+});
+
+// One call for the whole page, never one per card. Potluck already holds this rule for
+// bylines and saves, and it is pinned by a test there for the same reason.
+test("myReportedIds asks once for every id and returns a set", async () => {
+  const { myReportedIds } = await import("./moderation");
+  inFilter.mockResolvedValue({ data: [{ recipe_id: "a" }, { recipe_id: "c" }], error: null });
+  const got = await myReportedIds(["a", "b", "c"]);
+  expect(got).toEqual(new Set(["a", "c"]));
+  expect(inFilter).toHaveBeenCalledTimes(1);
+  expect(inFilter).toHaveBeenCalledWith("recipe_id", ["a", "b", "c"]);
+});
+
+test("myReportedIds does not query at all for an empty list", async () => {
+  const { myReportedIds } = await import("./moderation");
+  const got = await myReportedIds([]);
+  expect(got).toEqual(new Set());
+  expect(inFilter).not.toHaveBeenCalled();
+});
+
+test("myReportedIds throws the database message", async () => {
+  const { myReportedIds } = await import("./moderation");
+  inFilter.mockResolvedValue({ data: null, error: { message: "nope" } });
+  await expect(myReportedIds(["a"])).rejects.toThrow("nope");
+});
+
+test("listOpenReports filters to open reports, newest first", async () => {
+  const { listOpenReports } = await import("./moderation");
+  order.mockResolvedValue({
+    data: [{ id: "rep1", recipe_id: "r1", reporter_id: "u2", reason: "offensive",
+             note: null, status: "open", created_at: "2026-09-28T00:00:00Z" }],
+    error: null,
+  });
+  const got = await listOpenReports();
+  expect(got.map((r) => r.id)).toEqual(["rep1"]);
+  expect(eq).toHaveBeenCalledWith("status", "open");
+  expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
+});
+
+test("listOpenReports throws the database message", async () => {
+  const { listOpenReports } = await import("./moderation");
+  order.mockResolvedValue({ data: null, error: { message: "nope" } });
+  await expect(listOpenReports()).rejects.toThrow("nope");
+});
+
+test("resolveReport calls the rpc with the report, action and reason", async () => {
+  const { resolveReport } = await import("./moderation");
+  rpc.mockResolvedValue({ data: null, error: null });
+  await expect(resolveReport("rep1", "unpublish", "offensive")).resolves.toBeUndefined();
+  expect(rpc).toHaveBeenCalledWith("resolve_report", {
+    p_report_id: "rep1", p_action: "unpublish", p_reason: "offensive",
+  });
+});
+
+test("resolveReport throws the database message", async () => {
+  const { resolveReport } = await import("./moderation");
+  rpc.mockResolvedValue({ data: null, error: { message: "not a moderator" } });
+  await expect(resolveReport("rep1", "dismiss", "other")).rejects.toThrow("not a moderator");
+});

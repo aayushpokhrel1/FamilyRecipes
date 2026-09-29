@@ -9,6 +9,7 @@ const recipe: any = {
   servings: 2, prep_minutes: null, cook_minutes: null, visibility: "public",
   source_url: null, created_at: "", updated_at: "",
   source_recipe_id: null, source_cook_name: null, adapted_at: null,
+  removed_at: null, removed_reason: null,
 };
 
 const draw = (props: any = {}) =>

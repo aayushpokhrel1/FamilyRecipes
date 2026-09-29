@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 import RecipeDetail from "./RecipeDetail";
@@ -14,6 +15,7 @@ const baseRecipe = {
   cook_minutes: null, visibility: "family", source_url: null,
   created_at: "", updated_at: "",
   source_recipe_id: null, source_cook_name: null, adapted_at: null,
+  removed_at: null, removed_reason: null,
 };
 
 vi.mock("../lib/api/recipes", () => ({
@@ -24,6 +26,7 @@ vi.mock("../lib/api/recipes", () => ({
       cook_minutes: null, visibility: "family", source_url: null,
       created_at: "", updated_at: "",
       source_recipe_id: null, source_cook_name: null, adapted_at: null,
+      removed_at: null, removed_reason: null,
     },
     ingredients: [{ position: 0, quantity: "1", unit: "cup", item: "flour" }],
     steps: [{ position: 0, text: "mix well" }],
@@ -34,6 +37,11 @@ vi.mock("../lib/api/recipes", () => ({
 const saveToVault = vi.fn().mockResolvedValue("new-id");
 vi.mock("../lib/api/saves", () => ({
   saveToVault: (...a: any[]) => saveToVault(...a),
+}));
+
+const reportRecipe = vi.fn().mockResolvedValue(undefined);
+vi.mock("../lib/api/moderation", () => ({
+  reportRecipe: (...a: any[]) => reportRecipe(...a),
 }));
 
 // The active family is where a save lands, and its absence is what removes the button.
@@ -70,6 +78,7 @@ vi.mock("../context/AuthContext", () => ({ useAuth: () => mockAuth }));
 // Reset between tests so a visitor test cannot leak into the next one.
 beforeEach(() => {
   mockAuth = { userId: "u1", loading: false };
+  reportRecipe.mockClear();
 });
 
 test("renders the recipe title, ingredients and steps", async () => {
@@ -212,6 +221,8 @@ test("an ingredient whose item carries a leaked quantity reads without it", asyn
       story: null, provenance: null, servings: 2, prep_minutes: null,
       cook_minutes: null, visibility: "public", source_url: null,
       created_at: "", updated_at: "",
+      source_recipe_id: null, source_cook_name: null, adapted_at: null,
+      removed_at: null, removed_reason: null,
     },
     ingredients: [{ position: 0, quantity: "1.5", unit: "kg", item: "(1.5 kg) boneless pork ribs" }],
     steps: [{ position: 0, text: "cook" }],
@@ -265,4 +276,94 @@ test("a recipe that is nobody's copy shows no credit line", async () => {
   );
   await screen.findByText("Dal");
   expect(screen.queryByText(/from /i)).not.toBeInTheDocument();
+});
+
+// Reporting is the gate on Potluck opening to strangers, and it is only offered on someone
+// else's published recipe: the same condition the Save button uses.
+test("a public recipe that is not yours shows a Report control", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, visibility: "public" },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("button", { name: "Report" })).toBeInTheDocument();
+});
+
+test("your own recipe shows no Report control", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, visibility: "public", family_id: "f2" },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  expect(screen.queryByRole("button", { name: "Report" })).not.toBeInTheDocument();
+});
+
+test("choosing a reason and submitting reports the recipe", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, visibility: "public" },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Report" }));
+  await user.selectOptions(screen.getByLabelText("reason"), "offensive");
+  await user.type(screen.getByLabelText("note"), "rude");
+  await user.click(screen.getByRole("button", { name: /submit report/i }));
+  expect(reportRecipe).toHaveBeenCalledWith("r1", "offensive", "rude");
+});
+
+test("once reported the control reads Reported and is disabled", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, visibility: "public" },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Report" }));
+  await user.click(screen.getByRole("button", { name: /submit report/i }));
+  const done = await screen.findByRole("button", { name: "Reported" });
+  expect(done).toBeDisabled();
+});
+
+// Silent removal is the thing people find most unfair, so the author is told why.
+test("a removed recipe shows the banner and its reason", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, visibility: "family", removed_at: "2026-09-28T00:00:00Z",
+              removed_reason: "offensive" },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText(/removed from potluck/i)).toBeInTheDocument();
+  expect(screen.getByText(/Offensive/)).toBeInTheDocument();
+});
+
+test("a recipe that was never removed shows no banner", async () => {
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  expect(screen.queryByText(/removed from potluck/i)).not.toBeInTheDocument();
 });

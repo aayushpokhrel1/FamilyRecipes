@@ -31,7 +31,29 @@ export interface Recipe {
   source_recipe_id: string | null;
   source_cook_name: string | null;
   adapted_at: string | null;
+  removed_at: string | null;
+  removed_reason: string | null;
 }
+export type ReportReason =
+  | "not_a_recipe" | "offensive" | "not_theirs" | "impersonation" | "other";
+// The five labels live here ONCE. The report form and the removed banner both read them,
+// and a second copy is how the two drift apart.
+export const REASON_LABELS: Record<ReportReason, string> = {
+  not_a_recipe: "Not a recipe",
+  offensive: "Offensive",
+  not_theirs: "Not theirs to publish",
+  impersonation: "Impersonation",
+  other: "Something else",
+};
+export type Report = {
+  id: string;
+  recipe_id: string;
+  reporter_id: string;
+  reason: ReportReason;
+  note: string | null;
+  status: "open" | "actioned" | "dismissed";
+  created_at: string;
+};
 export interface RecipePhoto { id: string; recipe_id: string; storage_path: string; is_cover: boolean; }
 export interface Comment { id: string; recipe_id: string; author_id: string; body: string; created_at: string; }
 export interface Tag { id: string; family_id: string; name: string; }

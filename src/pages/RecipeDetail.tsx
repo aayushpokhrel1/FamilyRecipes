@@ -6,7 +6,8 @@ import { listPlans, addRecipe } from "../lib/api/mealPlans";
 import { listRecipeTags } from "../lib/api/tags";
 import { listCategoryOverrides } from "../lib/api/ingredientCategories";
 import { getByline } from "../lib/api/profile";
-import type { Byline, Ingredient, Recipe, Step, MealPlan, Tag } from "../lib/api/types";
+import type { Byline, Ingredient, Recipe, ReportReason, Step, MealPlan, Tag } from "../lib/api/types";
+import { REASON_LABELS } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
@@ -15,6 +16,7 @@ import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf }
 import { useAuth } from "../context/AuthContext";
 import { useFamily } from "../context/FamilyContext";
 import { saveToVault } from "../lib/api/saves";
+import { reportRecipe } from "../lib/api/moderation";
 import Skeleton from "../components/Skeleton";
 
 
@@ -40,6 +42,10 @@ export default function RecipeDetail() {
   const [groupBy, setGroupBy] = useState<"recipe" | "category">("recipe");
   const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
   const [byline, setByline] = useState<Byline | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>("not_a_recipe");
+  const [reportNote, setReportNote] = useState("");
+  const [reported, setReported] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -145,6 +151,18 @@ export default function RecipeDetail() {
     }
   }
 
+  async function handleReport() {
+    if (!id) return;
+    try {
+      await reportRecipe(id, reportReason, reportNote);
+      // The button is what disables itself, so a second report cannot be sent from here.
+      setReported(true);
+      setReportOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   if (loading) return <Skeleton shape="plate" count={4} />;
   if (!recipe) return <p className="vault-note">Recipe not found.</p>;
 
@@ -159,6 +177,17 @@ export default function RecipeDetail() {
         <h1>{recipe.title}</h1>
         {userId && <span className="chip">{recipe.visibility}</span>}
       </div>
+
+      {recipe.removed_at && (
+        // Silent removal is the thing people find most unfair, and this costs one field
+        // rendered on a page the author already visits. The recipe is still theirs and still
+        // in their vault.
+        <p className="removed-banner">
+          Removed from Potluck{recipe.removed_reason
+            ? `: ${REASON_LABELS[recipe.removed_reason as ReportReason]}`
+            : ""}. It is still in your vault.
+        </p>
+      )}
 
       {recipe.source_cook_name && (
         recipe.adapted_at
@@ -217,6 +246,43 @@ export default function RecipeDetail() {
         <button type="button" onClick={handleSave} disabled={savedId !== null}>
           {savedId ? "In your vault" : "Save to my vault"}
         </button>
+      )}
+      {/* Same visibility condition as the Save button above, deliberately: both are things
+          you may only do to someone else's published recipe. */}
+      {recipe.visibility === "public" && activeFamily && recipe.family_id !== activeFamily.id && (
+        <div className="report-control">
+          <button
+            type="button"
+            onClick={() => setReportOpen((open) => !open)}
+            disabled={reported}
+          >
+            {reported ? "Reported" : "Report"}
+          </button>
+          {reportOpen && !reported && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleReport();
+              }}
+            >
+              <select
+                aria-label="reason"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value as ReportReason)}
+              >
+                {(Object.keys(REASON_LABELS) as ReportReason[]).map((r) => (
+                  <option key={r} value={r}>{REASON_LABELS[r]}</option>
+                ))}
+              </select>
+              <textarea
+                aria-label="note"
+                value={reportNote}
+                onChange={(e) => setReportNote(e.target.value)}
+              />
+              <button type="submit">Submit report</button>
+            </form>
+          )}
+        </div>
       )}
       {error && (
         <p className="vault-note" role="alert">
