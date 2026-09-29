@@ -12,6 +12,8 @@ export interface Profile {
   // null handle means "I do not publish". It IS the opt-in.
   handle: string | null; public_name: string | null; bio: string | null;
   is_moderator: boolean;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
 }
 export interface PublicCook {
   id: string; handle: string; public_name: string | null;

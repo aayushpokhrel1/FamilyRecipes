@@ -5,9 +5,20 @@ export async function getMyProfile(): Promise<Profile> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in");
   const { data: profile, error } = await supabase.from("profiles")
-    .select("id,display_name,avatar_url,preferences,handle,public_name,bio,is_moderator").eq("id", data.user.id).single();
+    .select("id,display_name,avatar_url,preferences,handle,public_name,bio,is_moderator,terms_accepted_at,terms_version").eq("id", data.user.id).single();
   if (error) throw new Error(error.message);
   return profile as Profile;
+}
+
+// Recorded so the gate can stop asking, and versioned so a change to the terms can ask
+// everyone again.
+export async function acceptTerms(version: string): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("Not signed in");
+  const { error } = await supabase.from("profiles")
+    .update({ terms_accepted_at: new Date().toISOString(), terms_version: version })
+    .eq("id", data.user.id);
+  if (error) throw new Error(error.message);
 }
 
 export async function updateDisplayName(name: string): Promise<void> {

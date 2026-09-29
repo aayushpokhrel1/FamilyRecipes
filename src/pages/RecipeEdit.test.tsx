@@ -83,7 +83,10 @@ test("optional, alternatives and sections survive an edit that touches only the 
     expect.objectContaining({ item: "basil", optional: true, alt_group: null }),
   ]);
   unmockAll();
-});
+  // This one renders the whole editor with a full ingredient list and measured 5337ms against
+  // vitest's 5000ms default on a dev machine, failing as a TIMEOUT that reads exactly like an
+  // assertion failure. CI is slower, so the headroom is deliberate.
+}, 30000);
 
 // The same batched-setDraft collision RecipeCreate is pinned against. StepEditor calls
 // onChange (steps) and onIngredientsFound in one tick; a `{ ...draft }` spread off the render

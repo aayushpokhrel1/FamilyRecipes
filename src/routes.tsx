@@ -19,11 +19,16 @@ import MealPlanDetail from "./pages/MealPlanDetail";
 import Settings from "./pages/Settings";
 import Potluck from "./pages/Potluck";
 import Moderation from "./pages/Moderation";
+import Terms from "./pages/Terms";
+import TermsGate from "./components/TermsGate";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/signin" element={<SignIn />} />
+      {/* Public, beside /signin: the gate links here, and someone deciding whether to
+          sign up must be able to read the terms first. */}
+      <Route path="/terms" element={<Terms />} />
       <Route path="/signup" element={<SignUp />} />
       {/* Outside RequireAuth on purpose: a recovery session is not a normal
           sign-in, and the guard would bounce the reset link to /signin. */}
@@ -44,7 +49,9 @@ export default function AppRoutes() {
       <Route
         element={
           <RequireAuth>
-            <AppLayout />
+            <TermsGate>
+              <AppLayout />
+            </TermsGate>
           </RequireAuth>
         }
       >
