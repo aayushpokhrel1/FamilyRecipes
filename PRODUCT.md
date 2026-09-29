@@ -142,6 +142,17 @@ Explicitly undecided or deferred (future work must not present these as done):
 - **Sorting tags by how often the family uses them** is deferred. The picker caps its height and
   filters above 12 tags, which solves crowding; ordering by use would solve *hunting*, but needs
   usage counts. Worth doing only if the filter proves insufficient in real use.
+- **Citing a cookbook is an idea, not a design yet, and needs a brainstorm before it is built.**
+  Noticed 2026-09-28: the only published recipe carried `Smoky BBQ Sauce (page 341)` inside an
+  ingredient, and `displayItem()` now strips it, because the rule that removes a leaked quantity
+  drops any parenthetical containing a digit. That is the right call for `(1.5 kg)` and the wrong
+  one for a page reference, which is provenance a family would want kept. The recipe already has
+  a `provenance` field and a `source_url`, so the open questions are whether a cookbook is a
+  first-class thing (title, author, edition, page) or just richer free text, whether a page
+  reference belongs on the recipe or on the individual ingredient that points at another recipe,
+  and whether "page 341" should one day LINK to that other recipe once it is in the vault. Do not
+  build it from this paragraph.
+
 - A **React Native app** is planned later, sharing the same API. It does not exist yet.
 - **Email confirmation is ON** (since 2026-09-26), delivered through Resend on
   `mail.enamelvault.com`, and Google sign-in is live alongside it. This line previously said
