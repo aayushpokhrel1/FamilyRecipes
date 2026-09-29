@@ -158,3 +158,63 @@ test("taking a recipe down leaves copies of it untouched", async () => {
     .select("item").eq("recipe_id", copyId);
   expect(ings!.map((i: any) => i.item)).toEqual(["rice"]);
 }, 30000);
+
+// 0030: a report may name a COOK instead of a recipe, and the remedy for a public name that
+// pretends to be someone else.
+test("a cook can be reported, and one reporter cannot flood cook reports", async () => {
+  const { cook } = await cookWithPublicRecipe("cr-target");
+  const reporter = await makeUser(`cr-rep-${rand()}@t.dev`);
+  const row = { cook_id: cook.id, reporter_id: reporter.id, reason: "impersonation" };
+  const first = await reporter.client.from("reports").insert(row);
+  expect(first.error).toBeNull();
+  const second = await reporter.client.from("reports").insert(row);
+  expect(second.error).not.toBeNull();
+}, 30000);
+
+// Exactly one target. A report naming both, or neither, is a bug in whatever wrote it.
+test("a report must name exactly one target", async () => {
+  const { cook, rec } = await cookWithPublicRecipe("cr-both");
+  const reporter = await makeUser(`cr-both-r-${rand()}@t.dev`);
+  const both = await reporter.client.from("reports")
+    .insert({ recipe_id: rec.id, cook_id: cook.id, reporter_id: reporter.id, reason: "other" });
+  expect(both.error).not.toBeNull();
+  const neither = await reporter.client.from("reports")
+    .insert({ reporter_id: reporter.id, reason: "other" });
+  expect(neither.error).not.toBeNull();
+}, 30000);
+
+test("a moderator can clear an impersonating public name, and the cook is told", async () => {
+  const { cook } = await cookWithPublicRecipe("cr-clear");
+  await admin.from("profiles").update({ public_name: "Someone Else" }).eq("id", cook.id);
+  const reporter = await makeUser(`cr-clear-r-${rand()}@t.dev`);
+  const { data: rep } = await reporter.client.from("reports")
+    .insert({ cook_id: cook.id, reporter_id: reporter.id, reason: "impersonation" })
+    .select().single();
+  const mod = await moderator("cr-clear");
+  const { error } = await mod.client.rpc("resolve_report", {
+    p_report_id: rep!.id, p_action: "clear_name", p_reason: "impersonation",
+  });
+  expect(error).toBeNull();
+  const { data: p } = await admin.from("profiles")
+    .select("public_name,name_cleared_at,name_cleared_reason").eq("id", cook.id).single();
+  expect(p!.public_name).toBeNull();
+  expect(p!.name_cleared_at).not.toBeNull();
+  expect(p!.name_cleared_reason).toBe("impersonation");
+}, 30000);
+
+// The handle is the identity in every public URL, so it is deliberately NOT released.
+test("clearing a name leaves the handle alone", async () => {
+  const { cook } = await cookWithPublicRecipe("cr-handle");
+  await admin.from("profiles").update({ handle: `keep${rand()}` }).eq("id", cook.id);
+  const { data: before } = await admin.from("profiles").select("handle").eq("id", cook.id).single();
+  const reporter = await makeUser(`cr-handle-r-${rand()}@t.dev`);
+  const { data: rep } = await reporter.client.from("reports")
+    .insert({ cook_id: cook.id, reporter_id: reporter.id, reason: "impersonation" })
+    .select().single();
+  const mod = await moderator("cr-handle");
+  await mod.client.rpc("resolve_report", {
+    p_report_id: rep!.id, p_action: "clear_name", p_reason: "impersonation",
+  });
+  const { data: after } = await admin.from("profiles").select("handle").eq("id", cook.id).single();
+  expect(after!.handle).toBe(before!.handle);
+}, 30000);
