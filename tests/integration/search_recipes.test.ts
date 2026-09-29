@@ -33,6 +33,18 @@ async function famWithRecipes(prefix: string) {
 
 const titles = (data: any[] | null) => (data ?? []).map((r: any) => r.title);
 
+// A title token for the tests below that search the WHOLE public catalogue. It must be
+// unique AND trigram-DISSIMILAR from every other test's token, which `prefix + Date.now()`
+// is not: search_recipes matches with pg_trgm's `%`, so two tests a moment apart share up
+// to 13 digits of timestamp and match each other. similarity('Momo<ts>','Mine<ts>') is
+// 0.565 against a threshold of 0.3 when the timestamps are equal, and 0.29 when they are a
+// few milliseconds apart, so this passed on dev machines for weeks and went red the first
+// time a fast CI runner produced the same millisecond twice. Random letters score 0.04.
+// Any new test that asserts on the public catalogue must use this, not a timestamp.
+const searchToken = (prefix: string) =>
+  prefix + Array.from({ length: 10 }, () =>
+    String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+
 test("search_recipes finds a recipe by exact title match", async () => {
   const { alice, fam } = await famWithRecipes("sr-title");
   const { data, error } = await alice.client.rpc("search_recipes", {
@@ -146,7 +158,7 @@ test("a non-member gets no rows from search_recipes (RLS holds through the RPC)"
 
 test("search_recipes with a null family id finds a public recipe from a family you are not in", async () => {
   const { fam, alice } = await famWithRecipes("sr-pub");
-  const term = `Momo${Date.now()}`;
+  const term = searchToken("Momo");
   await admin.from("recipes").insert({
     family_id: fam.id, author_id: alice.id, title: term, visibility: "public",
   });
@@ -163,7 +175,7 @@ test("search_recipes with a null family id finds a public recipe from a family y
 
 test("search_recipes with a null family id never returns family or private recipes", async () => {
   const { fam, alice } = await famWithRecipes("sr-priv");
-  const tag = `Secret${Date.now()}`;
+  const tag = searchToken("Secret");
   await admin.from("recipes").insert([
     { family_id: fam.id, author_id: alice.id, title: `${tag} family`, visibility: "family" },
     { family_id: fam.id, author_id: alice.id, title: `${tag} private`, visibility: "private" },
@@ -180,7 +192,7 @@ test("search_recipes with a null family id hides a member's OWN family recipes t
   // browsing the public catalogue would see their own household's private recipes mixed in,
   // because RLS happily returns those to them.
   const { fam, alice } = await famWithRecipes("sr-own");
-  const tag = `Mine${Date.now()}`;
+  const tag = searchToken("Mine");
   await admin.from("recipes").insert({
     family_id: fam.id, author_id: alice.id, title: `${tag} family only`, visibility: "family",
   });
