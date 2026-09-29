@@ -3,8 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import { getPublicCook } from "../lib/api/profile";
 import { listPublicRecipesByAuthor } from "../lib/api/recipes";
 import { follow, isFollowing, unfollow } from "../lib/api/follows";
+import { listMyBlocks, removeBlock, setBlock } from "../lib/api/blocks";
+import { reportCook } from "../lib/api/moderation";
 import { useAuth } from "../context/AuthContext";
-import type { PublicCook, Recipe } from "../lib/api/types";
+import { REASON_LABELS, type PublicCook, type Recipe, type ReportReason } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
 export default function CookPage() {
@@ -14,6 +16,14 @@ export default function CookPage() {
   const [loading, setLoading] = useState(true);
   const { userId } = useAuth();
   const [following, setFollowing] = useState(false);
+  // null means neither muted nor blocked. One piece of state, not two booleans: the table is
+  // one row with a kind, so two flags could disagree with it and with each other.
+  const [blockKind, setBlockKind] = useState<"mute" | "block" | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>("impersonation");
+  const [reportNote, setReportNote] = useState("");
+  const [reported, setReported] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!handle) {
@@ -62,12 +72,50 @@ export default function CookPage() {
     return () => { ignore = true; };
   }, [cook?.id, userId]);
 
+  // Kept above the early returns for the same reason as the follow effect above. A revisited
+  // page has to read back as Muted or Blocked rather than offering it again.
+  useEffect(() => {
+    if (!cook || !userId || cook.id === userId) { setBlockKind(null); return; }
+    let ignore = false;
+    listMyBlocks()
+      .then((rows) => {
+        if (ignore) return;
+        const mine = rows.find((b) => b.blocked_id === cook.id);
+        setBlockKind(mine ? mine.kind : null);
+      })
+      .catch(() => { if (!ignore) setBlockKind(null); });
+    return () => { ignore = true; };
+  }, [cook?.id, userId]);
+
   async function toggleFollow() {
     if (!cook) return;
     // Optimistic would be wrong here: a refused follow (an unpublished cook) must not leave
     // the button claiming a relationship the database does not have.
     if (following) { await unfollow(cook.id); setFollowing(false); }
     else { await follow(cook.id); setFollowing(true); }
+  }
+
+  // Not optimistic, for the same reason as toggleFollow: a refused write must not leave the
+  // control claiming a mute or a block the database does not have.
+  async function toggleBlock(kind: "mute" | "block") {
+    if (!cook) return;
+    try {
+      if (blockKind === kind) { await removeBlock(cook.id); setBlockKind(null); }
+      else { await setBlock(cook.id, kind); setBlockKind(kind); }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleReport() {
+    if (!cook) return;
+    try {
+      await reportCook(cook.id, reportReason, reportNote);
+      setReported(true);
+      setReportOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   if (loading) return <Skeleton shape="plate" count={4} />;
@@ -87,6 +135,52 @@ export default function CookPage() {
           {following ? "Following" : "Follow"}
         </button>
       )}
+      {/* Signed in, and never on your own page: the same condition as Follow above, and for
+          the same reason. A self-block is refused by a check constraint. */}
+      {userId && cook.id !== userId && (
+        <div className="report-control">
+          <button type="button" className="action" onClick={() => toggleBlock("mute")}>
+            {blockKind === "mute" ? "Muted" : "Mute"}
+          </button>
+          <p className="vault-note">You will not see their recipes in Potluck.</p>
+          <button type="button" className="action" onClick={() => toggleBlock("block")}>
+            {blockKind === "block" ? "Blocked" : "Block"}
+          </button>
+          {/* "will not see", NEVER "cannot see". Their public recipes stay readable to anyone
+              signed out, so the stronger claim would be a promise the architecture cannot
+              keep. Pinned by the CookPage test "the block copy promises only what the
+              architecture can keep". */}
+          <p className="vault-note">They will not see your recipes in Potluck.</p>
+          <button
+            type="button"
+            className="action"
+            onClick={() => setReportOpen((open) => !open)}
+            disabled={reported}
+          >
+            {reported ? "Reported" : "Report"}
+          </button>
+          {reportOpen && !reported && (
+            <form onSubmit={(e) => { e.preventDefault(); handleReport(); }}>
+              <select
+                aria-label="reason"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value as ReportReason)}
+              >
+                {(Object.keys(REASON_LABELS) as ReportReason[]).map((r) => (
+                  <option key={r} value={r}>{REASON_LABELS[r]}</option>
+                ))}
+              </select>
+              <textarea
+                aria-label="note"
+                value={reportNote}
+                onChange={(e) => setReportNote(e.target.value)}
+              />
+              <button type="submit">Submit report</button>
+            </form>
+          )}
+        </div>
+      )}
+      {error && <p className="vault-note" role="alert">{error}</p>}
       {recipes.length > 0 ? (
         <ul className="stack">
           {recipes.map((r) => (
