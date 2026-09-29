@@ -102,6 +102,14 @@ future design should protect each of them, not trade one for another.
 
 Explicitly undecided or deferred (future work must not present these as done):
 
+- **The visual pass on the new surfaces is deliberately LAST.** Potluck and the cook page work
+  and are documented, but they are not yet dressed in the Enamel Vault world: the byline is
+  plain text rather than a maker's mark, the scope toggle is two generic buttons, and the cook
+  page is a plate with a bulleted list. This is a sequencing decision made on 2026-09-28, not an
+  oversight: design lands after the features are built, so the pass is done once against a
+  finished surface instead of repeatedly against a moving one. Do not re-propose it as the next
+  piece of work; the ideas are in this session's brainstorm and in `DESIGN.md`.
+
 - The **public feed is now PART built.** Browsing, searching and following shipped as Potluck.
   **Save and fork with attribution and lineage are designed, not built**, and are the next
   chunk: a save copies a recipe into your vault rather than pointing at it, so unpublishing
