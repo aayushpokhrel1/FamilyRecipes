@@ -3,13 +3,15 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   getAvatarUrl, getMyProfile, handleError, unpublishProfile, updateDisplayName,
   updatePreferences, updatePublicProfile, uploadAvatar,
+  getPublicCooks,
 } from "../lib/api/profile";
 import { deleteAccount } from "../lib/api/account";
 import { changePassword } from "../lib/api/auth";
+import { listMyBlocks, removeBlock } from "../lib/api/blocks";
 import FamilyDataPanel from "../components/FamilyDataPanel";
 import IdentitiesPanel from "../components/IdentitiesPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
-import type { Preferences, Profile } from "../lib/api/types";
+import { REASON_LABELS, type Block, type Preferences, type Profile, type PublicCook, type ReportReason } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
 // Mirrors LENGTHS in MealPlanDetail: the plan lengths the app actually offers.
@@ -40,6 +42,8 @@ export default function Settings() {
   const [bio, setBio] = useState("");
   const [savedHandle, setSavedHandle] = useState<string | null>(null);
   const [publicError, setPublicError] = useState<string | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [blockedCooks, setBlockedCooks] = useState<Map<string, PublicCook>>(new Map());
 
   useEffect(() => {
     getMyProfile().then((p) => {
@@ -53,6 +57,27 @@ export default function Settings() {
     }).catch((err: unknown) => {
       setLoadError(err instanceof Error ? err.message : String(err));
     });
+  }, []);
+
+  // A block you cannot find again is a trap: nothing else in the app lists these rows, so
+  // without this list the only way back from a mute or a block is to remember who it was.
+  // ONE call for the whole list, never one per row, and a failed load falls back to an empty
+  // list rather than an error: the rest of Settings is still usable without it.
+  useEffect(() => {
+    let ignore = false;
+    listMyBlocks()
+      .then(async (rows) => {
+        if (ignore) return;
+        setBlocks(rows);
+        // A list of uuids is not a list of people. One more call for the whole list, never
+        // one per row, and a cook who has since cleared their handle is simply absent.
+        const cooks = await getPublicCooks(rows.map((b) => b.blocked_id)).catch(
+          () => new Map<string, PublicCook>(),
+        );
+        if (!ignore) setBlockedCooks(cooks);
+      })
+      .catch(() => { if (!ignore) setBlocks([]); });
+    return () => { ignore = true; };
   }, []);
 
   // The bucket is private, so the stored path has to be exchanged for a signed URL.
@@ -182,6 +207,19 @@ export default function Settings() {
       const merged = await updatePreferences(patch);
       setProfile((p) => (p ? { ...p, preferences: merged } : p));
     }, success);
+  }
+
+  // Not optimistic: the row leaves the list only once removeBlock resolves, so a refused
+  // delete cannot leave the list claiming a mute or a block that is still in force.
+  async function handleUndo(cookId: string) {
+    await removeBlock(cookId);
+    setBlocks((prev) => prev.filter((b) => b.blocked_id !== cookId));
+  }
+
+  // The five labels live in types.ts ONCE. A stored reason that is not one of those keys is
+  // shown as it was written rather than dropped, so a reason added later still reads.
+  function reasonLabel(reason: string): string {
+    return REASON_LABELS[reason as ReportReason] ?? reason;
   }
 
   if (loadError) return <p className="form-error" role="alert">{loadError}</p>;
@@ -339,6 +377,17 @@ export default function Settings() {
 
       <section className="plate panel">
         <h2>Public profile</h2>
+        {profile.name_cleared_at && (
+          // The handle is deliberately left alone by the remedy, so this notice is the only
+          // trace the cook gets that their public name was taken down, and why.
+          <p className="vault-note">
+            Your public name was removed by a moderator
+            {profile.name_cleared_reason
+              ? `: ${reasonLabel(profile.name_cleared_reason)}`
+              : ""}
+            . Your handle and your page are unchanged.
+          </p>
+        )}
         <p className="vault-note">
           A handle publishes you. Recipes you set to Public show your public name and family,
           and get a page anyone can open. Clearing your handle takes all of that back.
@@ -373,6 +422,29 @@ export default function Settings() {
             <Link className="action" to={"/cooks/" + savedHandle}>View my public page</Link>
           )}
         </div>
+      </section>
+
+      <section className="plate panel">
+        <h2>Muted and blocked</h2>
+        {blocks.length === 0 ? (
+          <p className="vault-note">You have not muted or blocked anyone.</p>
+        ) : (
+          <ul className="stack">
+            {blocks.map((b) => (
+              <li key={b.blocked_id} className="plate plate-row">
+                <span className="row-title">
+                  {blockedCooks.get(b.blocked_id)?.public_name
+                    ?? blockedCooks.get(b.blocked_id)?.handle
+                    ?? "A cook who no longer publishes"}
+                </span>
+                <span className="chip">{b.kind === "mute" ? "muted" : "blocked"}</span>
+                <button type="button" className="action" onClick={() => handleUndo(b.blocked_id)}>
+                  Undo
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="plate panel">

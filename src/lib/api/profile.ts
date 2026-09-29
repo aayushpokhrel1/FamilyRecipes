@@ -4,8 +4,11 @@ import type { Byline, Preferences, Profile, PublicCook } from "./types";
 export async function getMyProfile(): Promise<Profile> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in");
+  // ANY NEW COLUMN ON Profile MUST BE ADDED TO THIS LIST TOO. The select is explicit, so a
+  // column missing here reads back as undefined rather than failing, and the UI that depends
+  // on it silently never renders. name_cleared_at was added in 0030 for exactly that reason.
   const { data: profile, error } = await supabase.from("profiles")
-    .select("id,display_name,avatar_url,preferences,handle,public_name,bio,is_moderator,terms_accepted_at,terms_version").eq("id", data.user.id).single();
+    .select("id,display_name,avatar_url,preferences,handle,public_name,bio,is_moderator,terms_accepted_at,terms_version,name_cleared_at,name_cleared_reason").eq("id", data.user.id).single();
   if (error) throw new Error(error.message);
   return profile as Profile;
 }
@@ -119,6 +122,17 @@ export async function getPublicCook(handle: string): Promise<PublicCook | null> 
     .select("id,handle,public_name,bio,avatar_url").eq("handle", handle).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as PublicCook | null) ?? null;
+}
+
+// Several published cooks by id, in ONE call. public_cooks is the only path into profiles for
+// anyone but yourself, so a cook who has since cleared their handle is simply absent from the
+// map rather than an error: the caller decides what to render for them.
+export async function getPublicCooks(ids: string[]): Promise<Map<string, PublicCook>> {
+  if (ids.length === 0) return new Map();
+  const { data, error } = await supabase.from("public_cooks")
+    .select("id,handle,public_name,bio,avatar_url").in("id", ids);
+  if (error) throw new Error(error.message);
+  return new Map(((data ?? []) as PublicCook[]).map((c) => [c.id, c]));
 }
 
 // A missing byline is normal, not an error: the recipe may not be public, and the caller

@@ -19,10 +19,16 @@ vi.mock("../lib/api/profile", async () => {
     handleError: actual.handleError,
     updatePublicProfile: vi.fn().mockResolvedValue(undefined),
     unpublishProfile: vi.fn().mockResolvedValue(undefined),
+    getPublicCooks: vi.fn().mockResolvedValue(new Map()),
   };
 });
 vi.mock("../lib/api/account", () => ({
   deleteAccount: vi.fn().mockResolvedValue(undefined),
+}));
+// The list is loaded with ONE listMyBlocks() call, so the mock hands back the whole list.
+vi.mock("../lib/api/blocks", () => ({
+  listMyBlocks: vi.fn().mockResolvedValue([]),
+  removeBlock: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../lib/api/auth", () => ({
   changePassword: vi.fn().mockResolvedValue(undefined),
@@ -164,4 +170,90 @@ test("links to your own public page once a handle exists", async () => {
   render(<MemoryRouter><Settings /></MemoryRouter>);
   expect(await screen.findByRole("link", { name: /view my public page/i }))
     .toHaveAttribute("href", "/cooks/yusha");
+});
+
+// A block you cannot find again is a trap: the only way back is a list like this one, so
+// every row has to say which it is and carry its own Undo.
+test("lists the muted and blocked cooks, each labelled and each with an Undo", async () => {
+  const blocks = await import("../lib/api/blocks");
+  const profile = await import("../lib/api/profile");
+  (blocks.listMyBlocks as any).mockResolvedValue([
+    { blocker_id: "u1", blocked_id: "c1", kind: "block", created_at: "2026-09-28T00:00:00Z" },
+    { blocker_id: "u1", blocked_id: "c2", kind: "mute", created_at: "2026-09-27T00:00:00Z" },
+  ]);
+  // public_name when there is one, the handle otherwise.
+  (profile.getPublicCooks as any).mockResolvedValue(new Map([
+    ["c1", { id: "c1", handle: "mei", public_name: "Mei", bio: null, avatar_url: null }],
+    ["c2", { id: "c2", handle: "bo", public_name: null, bio: null, avatar_url: null }],
+  ]));
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  // Names, never the raw uuids: a list of ids is not a list of people.
+  expect(await screen.findByText("Mei")).toBeInTheDocument();
+  expect(screen.getByText("bo")).toBeInTheDocument();
+  expect(screen.queryByText("c1")).not.toBeInTheDocument();
+  expect(screen.getByText("blocked")).toBeInTheDocument();
+  expect(screen.getByText("muted")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Undo" })).toHaveLength(2);
+  // One call for the whole list, never one per row.
+  expect(blocks.listMyBlocks).toHaveBeenCalledTimes(1);
+});
+
+test("Undo calls removeBlock and the row leaves the list", async () => {
+  const blocks = await import("../lib/api/blocks");
+  const profile = await import("../lib/api/profile");
+  (blocks.removeBlock as any).mockClear();
+  // No public_cooks row for this id: an earlier test left one in the mock, so say so here.
+  (profile.getPublicCooks as any).mockResolvedValue(new Map());
+  (blocks.listMyBlocks as any).mockResolvedValue([
+    { blocker_id: "u1", blocked_id: "c1", kind: "block", created_at: "2026-09-28T00:00:00Z" },
+  ]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  // No public_cooks row for this id, so the row renders the honest fallback rather than a uuid.
+  await screen.findByText(/no longer publishes/i);
+
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+  await waitFor(() => expect(blocks.removeBlock).toHaveBeenCalledWith("c1"));
+  // Dropped from local state, not refetched: the list must not be asked for again.
+  await waitFor(() => expect(screen.queryByText(/no longer publishes/i)).not.toBeInTheDocument());
+  expect(blocks.listMyBlocks).toHaveBeenCalledTimes(1);
+});
+
+test("an empty list is a plain line of text, not an empty box", async () => {
+  const blocks = await import("../lib/api/blocks");
+  (blocks.listMyBlocks as any).mockResolvedValue([]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(await screen.findByText(/not muted or blocked anyone/i)).toBeInTheDocument();
+  expect(screen.queryByRole("list")).not.toBeInTheDocument();
+});
+
+test("a cleared public name says so and shows the reason label", async () => {
+  const profile = await import("../lib/api/profile");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: "2026-09-28T00:00:00Z", name_cleared_reason: "impersonation",
+  });
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(await screen.findByText(/public name was removed/i)).toBeInTheDocument();
+  expect(screen.getByText(/Impersonation/)).toBeInTheDocument();
+});
+
+test("a profile whose name was never cleared shows no such notice", async () => {
+  const profile = await import("../lib/api/profile");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: "Aayush", bio: null,
+    name_cleared_at: null, name_cleared_reason: null,
+  });
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(screen.queryByText(/public name was removed/i)).not.toBeInTheDocument();
 });

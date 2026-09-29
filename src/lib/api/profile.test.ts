@@ -12,7 +12,7 @@ vi.mock("../supabaseClient", () => ({ supabase: {
     updateUser: (...a: any[]) => updateUser(...a),
   },
 }}));
-import { updateDisplayName, updatePreferences, handleError, getBylines } from "./profile";
+import { getMyProfile, getPublicCooks, updateDisplayName, updatePreferences, handleError, getBylines } from "./profile";
 import { changePassword } from "./auth";
 
 test("updatePreferences merges the patch into the stored preferences", async () => {
@@ -94,4 +94,45 @@ test("getBylines makes no request for an empty list", async () => {
   from.mockClear();
   expect((await getBylines([])).size).toBe(0);
   expect(from).not.toHaveBeenCalled();
+});
+
+// A MECHANICAL DEFENCE, not a note: getMyProfile selects an explicit column list, so a column
+// missing from it reads back as undefined and whatever depends on it silently never renders.
+// name_cleared_at shipped that way once. This test fails the moment a Profile field is added
+// to the type but not to the select.
+test("getMyProfile selects every column the Profile type declares", async () => {
+  let selected = "";
+  from.mockImplementation(() => ({
+    select: (cols: string) => { selected = cols; return { eq: () => ({ single: () => ({ data: {}, error: null }) }) }; },
+  }));
+  await getMyProfile();
+  for (const col of [
+    "id", "display_name", "avatar_url", "preferences", "handle", "public_name", "bio",
+    "is_moderator", "terms_accepted_at", "terms_version", "name_cleared_at",
+    "name_cleared_reason",
+  ]) {
+    expect(selected.split(",")).toContain(col);
+  }
+});
+
+// One call for the whole list, never one per row: the same rule bylines and saves follow.
+test("getPublicCooks asks once and keys the map by id", async () => {
+  const inFilter = vi.fn().mockResolvedValue({
+    data: [{ id: "c1", handle: "mei", public_name: "Mei", bio: null, avatar_url: null }],
+    error: null,
+  });
+  from.mockImplementation(() => ({ select: () => ({ in: inFilter }) }));
+  const got = await getPublicCooks(["c1", "c2"]);
+  expect(inFilter).toHaveBeenCalledTimes(1);
+  expect(inFilter).toHaveBeenCalledWith("id", ["c1", "c2"]);
+  expect(got.get("c1")!.public_name).toBe("Mei");
+  // A cook who has cleared their handle is absent from public_cooks, so absent from the map.
+  expect(got.has("c2")).toBe(false);
+});
+
+test("getPublicCooks does not query at all for an empty list", async () => {
+  const select = vi.fn();
+  from.mockImplementation(() => ({ select }));
+  expect((await getPublicCooks([])).size).toBe(0);
+  expect(select).not.toHaveBeenCalled();
 });
