@@ -1,7 +1,7 @@
 # Moderation: report, review, take down (Phase 2, sub-project 4a)
 
 Date: 2026-09-28
-Status: designed, not built
+Status: built and deployed, 2026-09-29
 Follows: `docs/superpowers/specs/2026-09-28-save-and-fork-design.md` (sub-project 3, SHIPPED)
 
 ## Why this exists

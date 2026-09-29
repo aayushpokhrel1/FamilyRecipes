@@ -116,9 +116,15 @@ Explicitly undecided or deferred (future work must not present these as done):
   A copy **cannot be published**, held by one check constraint, because moderation does not
   exist yet; dropping that constraint is the whole change when it does. The credit line is
   permanent and goes quiet once you have edited the copy. Photos do not travel.
-- **Moderation does not exist**: no report, no block, no takedown path, and no handling of a
-  handle that impersonates someone. Acceptable only while the published set is this small, and
-  it is the thing that must be built before Potluck is opened to the public.
+- **Moderation: the spine is BUILT** (2026-09-29, sub-project 4a). A signed-in cook can report
+  a public recipe; the moderator reviews at `/moderation` and can unpublish, suspend the cook,
+  or dismiss; the author is told on their own recipe why it came down, and cannot re-publish it.
+  A takedown leaves already-saved copies alone, which is sub-project 3's promise. Terms are at
+  `/terms` behind a gate that sits after authentication, so Google sign-in and existing accounts
+  are caught too.
+  **Still missing, and deliberately 4b:** block and mute a cook, and the handle rules that
+  impersonation needs. Reporting targets a recipe, not a cook. There is no appeal path and no
+  audit log of moderator actions. Aayush is the only moderator and the flag is set by hand.
 - **Potluck is signed in only, and that is a discovery brake rather than a privacy boundary.**
   Public rows stay readable to the anon role through the API, which is what makes the public
   recipe pages and the link previews work at all. Opening Potluck up later is a one-line route
