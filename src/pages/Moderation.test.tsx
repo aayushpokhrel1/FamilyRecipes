@@ -37,6 +37,18 @@ function report(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
+// A cook report names a cook instead of a recipe: cook_id is set, recipe_id is null and
+// there is no embedded recipe, only the embedded cook profile.
+function cookReport(id: string, overrides: Record<string, unknown> = {}) {
+  return report(id, {
+    recipe_id: null,
+    cook_id: "c1",
+    recipes: null,
+    profiles: { handle: "nana", public_name: "Nana Rose" },
+    ...overrides,
+  });
+}
+
 // The row contains a Link, so every render needs a router.
 function renderPage() {
   return render(
@@ -109,4 +121,58 @@ test("clicking Dismiss calls resolveReport with dismiss", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
 
   expect(resolveReport).toHaveBeenCalledWith("rep1", "dismiss", "other");
+});
+
+test("a cook report shows the public name and links to the cook, not a recipe", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenReports.mockResolvedValue([cookReport("rep1")]);
+  renderPage();
+
+  expect(await screen.findByRole("link", { name: "Nana Rose" })).toHaveAttribute(
+    "href",
+    "/cooks/nana",
+  );
+  expect(screen.queryByRole("link", { name: "Untitled" })).not.toBeInTheDocument();
+});
+
+test("a cook report with no public name falls back to the handle", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenReports.mockResolvedValue([
+    cookReport("rep1", { profiles: { handle: "nana", public_name: null } }),
+  ]);
+  renderPage();
+
+  expect(await screen.findByRole("link", { name: "nana" })).toHaveAttribute("href", "/cooks/nana");
+});
+
+test("a cook report offers Clear name, Suspend cook and Dismiss, but not Unpublish", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenReports.mockResolvedValue([cookReport("rep1")]);
+  renderPage();
+
+  expect(await screen.findByRole("button", { name: "Clear name" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Suspend cook" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
+});
+
+test("a recipe report still offers Unpublish and not Clear name", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenReports.mockResolvedValue([report("rep1")]);
+  renderPage();
+
+  expect(await screen.findByRole("button", { name: "Unpublish" })).toBeInTheDocument();
+  // Suspend cook belongs to BOTH kinds of report. It was dropped from this branch once.
+  expect(screen.getByRole("button", { name: "Suspend cook" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Clear name" })).not.toBeInTheDocument();
+});
+
+test("clicking Clear name calls resolveReport with clear_name", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenReports.mockResolvedValue([cookReport("rep1", { reason: "impersonation" })]);
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Clear name" }));
+
+  expect(resolveReport).toHaveBeenCalledWith("rep1", "clear_name", "impersonation");
 });

@@ -80,7 +80,7 @@ export async function myReportedIds(recipeIds: string[]): Promise<Set<string>> {
 export async function listOpenReports(): Promise<ReportRow[]> {
   const { data, error } = await supabase
     .from("reports")
-    .select("*, recipes(title)")
+    .select("*, recipes(title), profiles:cook_id(handle,public_name)")
     .eq("status", "open")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -91,7 +91,7 @@ export async function listOpenReports(): Promise<ReportRow[]> {
 // moderator check lives. The client never updates reports or recipes directly.
 export async function resolveReport(
   reportId: string,
-  action: "unpublish" | "suspend" | "dismiss",
+  action: "unpublish" | "suspend" | "dismiss" | "clear_name",
   reason: string,
 ): Promise<void> {
   const { error } = await supabase.rpc("resolve_report", {

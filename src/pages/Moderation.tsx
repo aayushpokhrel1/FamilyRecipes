@@ -31,7 +31,10 @@ export default function Moderation() {
     };
   }, []);
 
-  async function act(r: ReportRow, action: "unpublish" | "suspend" | "dismiss") {
+  async function act(
+    r: ReportRow,
+    action: "unpublish" | "suspend" | "dismiss" | "clear_name",
+  ) {
     await resolveReport(r.id, action, r.reason);
     // Drop the row locally rather than refetching: the only thing that changed is this
     // one report's status, and a refetch would also throw away the moderator's place.
@@ -54,12 +57,36 @@ export default function Moderation() {
         <ul className="report-list">
           {reports.map((r) => (
             <li key={r.id} className="plate panel">
-              <Link to={"/recipes/" + r.recipe_id}>{r.recipes?.title ?? "Untitled"}</Link>
+              {r.cook_id ? (
+                // A cook who has cleared their handle has no public page, so there is nothing
+                // to link to: a link to /cooks/undefined is worse than plain text.
+                r.profiles?.handle ? (
+                  <Link to={"/cooks/" + r.profiles.handle}>
+                    {r.profiles.public_name ?? r.profiles.handle}
+                  </Link>
+                ) : (
+                  <span>Unknown cook</span>
+                )
+              ) : (
+                <Link to={"/recipes/" + r.recipe_id}>{r.recipes?.title ?? "Untitled"}</Link>
+              )}
               <p className="vault-note">{REASON_LABELS[r.reason]}</p>
               {r.note && <p>{r.note}</p>}
               <div className="recipe-actions">
-                <button type="button" onClick={() => act(r, "unpublish")}>Unpublish</button>
-                <button type="button" onClick={() => act(r, "suspend")}>Suspend cook</button>
+                {r.cook_id ? (
+                  <>
+                    {/* Clear name deliberately leaves the handle alone: the handle is the
+                        identity in every /cooks/<handle> URL, so nulling it would break
+                        every link to this cook. Only the display name is the impersonation. */}
+                    <button type="button" onClick={() => act(r, "clear_name")}>Clear name</button>
+                    <button type="button" onClick={() => act(r, "suspend")}>Suspend cook</button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => act(r, "unpublish")}>Unpublish</button>
+                    <button type="button" onClick={() => act(r, "suspend")}>Suspend cook</button>
+                  </>
+                )}
                 <button type="button" onClick={() => act(r, "dismiss")}>Dismiss</button>
               </div>
             </li>
