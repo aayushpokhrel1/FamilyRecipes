@@ -332,7 +332,6 @@ test("deleting the original leaves the copy and its children intact", async () =
 // someone rewrites the copy to name columns, this test is what catches it.
 test("a column added to recipe_ingredients is carried by the copy without touching the RPC",
   async () => {
-    await admin.rpc("exec_sql_for_test", {}).catch(() => {});
     const { rec } = await famWithRecipe("cp-col");
     await admin.from("recipe_ingredients").insert({
       recipe_id: rec.id, position: 0, quantity: "1", unit: "cup", item: "oats",
@@ -350,8 +349,6 @@ test("a column added to recipe_ingredients is carried by the copy without touchi
     expect(ings!.alt_group).toBe("g1");
   });
 ```
-
-Delete the stray `await admin.rpc("exec_sql_for_test", {}).catch(() => {});` line: it is a leftover and there is no such RPC. The test works without it.
 
 - [ ] **Step 2: Run the tests and watch them fail**
 
