@@ -34,10 +34,13 @@ vi.mock("../context/FamilyContext", () => ({
 
 beforeEach(() => vi.clearAllMocks());
 
-function recipe(id: string, title: string) {
+// Potluck shows other households' recipes, so the default fixture belongs to f2, NOT to the
+// active family f1. A recipe from your own family is the case that must show no button, and
+// it has its own test below.
+function recipe(id: string, title: string, familyId = "f2") {
   return {
     id,
-    family_id: "f1",
+    family_id: familyId,
     author_id: "a1",
     title,
     story: null,
@@ -147,4 +150,15 @@ test("saving a card marks it as in your vault without a reload", async () => {
   await userEvent.click(btn);
   expect(saveToVault).toHaveBeenCalledWith("r1", "f1");
   expect(await screen.findByRole("button", { name: /is in your vault/i })).toBeDisabled();
+});
+
+// The browser caught this one and the tests did not: Potluck shows everything published,
+// "yours included", so your own household's recipes appear in the grid with a Save button
+// that would copy a recipe you already own into the vault it already lives in.
+test("a recipe from your own family has no save button", async () => {
+  const recipes = await import("../lib/api/recipes");
+  (recipes.listPublicRecipes as any).mockResolvedValue([recipe("mine", "My Own Dal", "f1")]);
+  render(<MemoryRouter><Potluck /></MemoryRouter>);
+  await screen.findByText("My Own Dal");
+  expect(screen.queryByRole("button", { name: /save my own dal/i })).not.toBeInTheDocument();
 });

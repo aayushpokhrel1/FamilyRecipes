@@ -164,7 +164,12 @@ export default function Potluck() {
                   showVisibility={false}
                   photoUrl={photoUrls.get(r.id) ?? null}
                   byline={b ? (b.public_name ?? "A cook") + " · " + b.family_name : undefined}
-                  onSave={activeFamily ? () => handleSave(r.id) : undefined}
+                  // No button on your own household's recipes: Potluck shows everything
+                  // published, yours included, and a recipe already in your vault has
+                  // nothing to save. RecipeDetail hides it on the same condition.
+                  onSave={activeFamily && r.family_id !== activeFamily.id
+                    ? () => handleSave(r.id)
+                    : undefined}
                   saved={savedIds.has(r.id)}
                 />
               );
