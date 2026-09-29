@@ -1,7 +1,7 @@
 # Save and fork: copying a recipe into your vault (Phase 2, sub-project 3)
 
 Date: 2026-09-28
-Status: designed, not built
+Status: built and deployed, 2026-09-28
 Follows: `docs/superpowers/specs/2026-09-27-potluck-feed-and-follows-design.md` (sub-project 2, SHIPPED and live)
 
 ## Why this exists

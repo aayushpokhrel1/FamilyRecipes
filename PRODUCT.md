@@ -110,10 +110,12 @@ Explicitly undecided or deferred (future work must not present these as done):
   finished surface instead of repeatedly against a moving one. Do not re-propose it as the next
   piece of work; the ideas are in this session's brainstorm and in `DESIGN.md`.
 
-- The **public feed is now PART built.** Browsing, searching and following shipped as Potluck.
-  **Save and fork with attribution and lineage are designed, not built**, and are the next
-  chunk: a save copies a recipe into your vault rather than pointing at it, so unpublishing
-  cannot empty someone else's vault.
+- The **public feed is now PART built.** Browsing, searching and following shipped as Potluck,
+  and **save with attribution and lineage is BUILT** (2026-09-28): a save copies a recipe into
+  your vault rather than pointing at it, so unpublishing cannot empty someone else's vault.
+  A copy **cannot be published**, held by one check constraint, because moderation does not
+  exist yet; dropping that constraint is the whole change when it does. The credit line is
+  permanent and goes quiet once you have edited the copy. Photos do not travel.
 - **Moderation does not exist**: no report, no block, no takedown path, and no handling of a
   handle that impersonates someone. Acceptable only while the published set is this small, and
   it is the thing that must be built before Potluck is opened to the public.
