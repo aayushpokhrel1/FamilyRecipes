@@ -33,6 +33,36 @@ export async function reportRecipe(
   }
 }
 
+// Report a public cook. Same shape as reportRecipe above, and the same reason for reading
+// the reporter from the session rather than taking an id. The difference is the target: a
+// cook report carries cook_id and NO recipe_id key at all, because the database check is
+// num_nonnulls(recipe_id, cook_id) = 1 and an explicit null would still be a key.
+export async function reportCook(
+  cookId: string,
+  reason: ReportReason,
+  note: string,
+): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("Not signed in");
+  // .select("id").single() so the nudge below can name the report, same as reportRecipe.
+  const { data: row, error } = await supabase.from("reports").insert({
+    cook_id: cookId,
+    reporter_id: data.user.id,
+    reason,
+    note: note.trim() || null,
+  }).select("id").single();
+  if (error) throw new Error(error.message);
+
+  // ponytail: best-effort notify, identical to reportRecipe. The report ROW above is the
+  // record; this is only a nudge, so a failure here must never fail the report, hence the
+  // catch that swallows everything.
+  try {
+    await supabase.functions.invoke("notify-report", { body: { reportId: row.id } });
+  } catch {
+    // deliberately ignored, see above
+  }
+}
+
 // Which of these recipes the current user has already reported. ONE call for a whole page of
 // cards, never one per card: the same rule Potluck already follows for bylines and saves.
 export async function myReportedIds(recipeIds: string[]): Promise<Set<string>> {

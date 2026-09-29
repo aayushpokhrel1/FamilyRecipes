@@ -75,6 +75,48 @@ test("reportRecipe throws the database message", async () => {
   );
 });
 
+// A cook report names a cook, so it must NOT carry a recipe_id key at all: the database
+// check is num_nonnulls(recipe_id, cook_id) = 1, and an explicit null would still be a key
+// the insert policy has to reason about. Absent, not null.
+test("reportCook inserts with cook_id and no recipe_id key", async () => {
+  const { reportCook } = await import("./moderation");
+  await expect(reportCook("cook-1", "impersonation", "pretends to be me")).resolves.toBeUndefined();
+  expect(insert).toHaveBeenCalledWith({
+    cook_id: "cook-1", reporter_id: "u1", reason: "impersonation", note: "pretends to be me",
+  });
+  expect(insert.mock.calls[0][0]).not.toHaveProperty("recipe_id");
+});
+
+test("reportCook sends an empty note as null", async () => {
+  const { reportCook } = await import("./moderation");
+  await reportCook("cook-1", "other", "   ");
+  expect(insert).toHaveBeenCalledWith({
+    cook_id: "cook-1", reporter_id: "u1", reason: "other", note: null,
+  });
+});
+
+test("reportCook throws the database message", async () => {
+  const { reportCook } = await import("./moderation");
+  insert.mockReturnValue({
+    select: () => ({
+      single: () => Promise.resolve({
+        data: null, error: { message: "reports_one_open_cook_per_reporter" },
+      }),
+    }),
+  });
+  await expect(reportCook("cook-1", "impersonation", "")).rejects.toThrow(
+    "reports_one_open_cook_per_reporter",
+  );
+});
+
+// Same best-effort rule as reportRecipe: the row is the record, the email is a nudge.
+test("a failing notify-report does not fail a cook report", async () => {
+  const { reportCook } = await import("./moderation");
+  invoke.mockRejectedValue(new Error("function is down"));
+  await expect(reportCook("cook-1", "impersonation", "")).resolves.toBeUndefined();
+  expect(insert).toHaveBeenCalledTimes(1);
+});
+
 // One call for the whole page, never one per card. Potluck already holds this rule for
 // bylines and saves, and it is pinned by a test there for the same reason.
 test("myReportedIds asks once for every id and returns a set", async () => {

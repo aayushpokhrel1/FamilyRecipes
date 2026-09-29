@@ -14,6 +14,10 @@ export interface Profile {
   is_moderator: boolean;
   terms_accepted_at: string | null;
   terms_version: string | null;
+  // set by a moderator clearing a public_name that impersonated someone: see 0030. The
+  // handle is deliberately left alone, so these two are the only trace of the remedy.
+  name_cleared_at: string | null;
+  name_cleared_reason: string | null;
 }
 export interface PublicCook {
   id: string; handle: string; public_name: string | null;
@@ -55,7 +59,11 @@ export const REASON_LABELS: Record<ReportReason, string> = {
 };
 export type Report = {
   id: string;
-  recipe_id: string;
+  // A report names exactly ONE target: a recipe or a cook, never both and never neither.
+  // The database enforces it with num_nonnulls(recipe_id, cook_id) = 1, so both are
+  // nullable here and the pair is the invariant.
+  recipe_id: string | null;
+  cook_id: string | null;
   reporter_id: string;
   reason: ReportReason;
   note: string | null;
@@ -63,8 +71,21 @@ export type Report = {
   created_at: string;
 };
 // A report as the moderator queue reads it: the embedded recipe title comes back from
-// PostgREST's `recipes(title)` select, and is null when the recipe is gone.
-export type ReportRow = Report & { recipes: { title: string } | null };
+// PostgREST's `recipes(title)` select, and is null when the recipe is gone. The embedded
+// cook comes back from `profiles(handle, public_name)` and is null for a recipe report.
+export type ReportRow = Report & {
+  recipes: { title: string } | null;
+  profiles: { handle: string | null; public_name: string | null } | null;
+};
+// A mute or a block. One table with a kind, not two: they differ in what they DO, not in
+// what they are. RLS keeps every row private to the blocker, so this is never read for
+// anyone else.
+export type Block = {
+  blocker_id: string;
+  blocked_id: string;
+  kind: "mute" | "block";
+  created_at: string;
+};
 export interface RecipePhoto { id: string; recipe_id: string; storage_path: string; is_cover: boolean; }
 export interface Comment { id: string; recipe_id: string; author_id: string; body: string; created_at: string; }
 export interface Tag { id: string; family_id: string; name: string; }

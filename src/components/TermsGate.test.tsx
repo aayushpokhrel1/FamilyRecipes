@@ -26,6 +26,8 @@ function profile(over: Partial<Profile>): Profile {
     is_moderator: false,
     terms_accepted_at: null,
     terms_version: null,
+    name_cleared_at: null,
+    name_cleared_reason: null,
     ...over,
   };
 }
