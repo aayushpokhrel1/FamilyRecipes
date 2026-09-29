@@ -13,6 +13,8 @@ import { scaleIngredientQty } from "../lib/api/quantity";
 import { displayItem } from "../lib/api/normalizeItem";
 import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "../lib/groupIngredients";
 import { useAuth } from "../context/AuthContext";
+import { useFamily } from "../context/FamilyContext";
+import { saveToVault } from "../lib/api/saves";
 import Skeleton from "../components/Skeleton";
 
 
@@ -21,7 +23,9 @@ export default function RecipeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userId } = useAuth();
+  const { activeFamily } = useFamily();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const isAlternative = alternativesOf(ingredients);
@@ -130,6 +134,17 @@ export default function RecipeDetail() {
     }
   }
 
+  async function handleSave() {
+    if (!id || !activeFamily) return;
+    try {
+      const newId = await saveToVault(id, activeFamily.id);
+      // The id is what disables the button, so a second click cannot save twice.
+      setSavedId(newId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   if (loading) return <Skeleton shape="plate" count={4} />;
   if (!recipe) return <p className="vault-note">Recipe not found.</p>;
 
@@ -144,6 +159,14 @@ export default function RecipeDetail() {
         <h1>{recipe.title}</h1>
         {userId && <span className="chip">{recipe.visibility}</span>}
       </div>
+
+      {recipe.source_cook_name && (
+        recipe.adapted_at
+          // Adapted: the title stands alone and the credit becomes a quiet note. Permanent
+          // either way, because lineage is a fact, not a decoration.
+          ? <p className="credit-quiet">from {recipe.source_cook_name}</p>
+          : <p className="credit">Saved from {recipe.source_cook_name}'s kitchen</p>
+      )}
 
       {byline && (
         <p className="vault-note">
@@ -189,6 +212,11 @@ export default function RecipeDetail() {
             Delete
           </button>
         </div>
+      )}
+      {recipe.visibility === "public" && activeFamily && recipe.family_id !== activeFamily.id && (
+        <button type="button" onClick={handleSave} disabled={savedId !== null}>
+          {savedId ? "In your vault" : "Save to my vault"}
+        </button>
       )}
       {error && (
         <p className="vault-note" role="alert">

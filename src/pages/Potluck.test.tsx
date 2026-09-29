@@ -14,6 +14,24 @@ vi.mock("../lib/api/follows", () => ({
   listFollowedCookIds: vi.fn().mockResolvedValue([]),
 }));
 
+const saveToVault = vi.fn().mockResolvedValue("new-id");
+const listSavedSourceIds = vi.fn().mockResolvedValue(new Set<string>());
+vi.mock("../lib/api/saves", () => ({
+  saveToVault: (...a: any[]) => saveToVault(...a),
+  listSavedSourceIds: (...a: any[]) => listSavedSourceIds(...a),
+}));
+
+// The active family is what a save lands in, and its absence is what removes the button.
+// Hoisted and stable: the recipes effect depends on activeFamily, so a fresh object on every
+// render would re-run that effect forever.
+const family = vi.hoisted(() => ({
+  active: { id: "f1", name: "Fam", invite_code: "x", created_by: "u" } as
+    { id: string; name: string; invite_code: string; created_by: string } | null,
+}));
+vi.mock("../context/FamilyContext", () => ({
+  useFamily: () => ({ activeFamily: family.active }),
+}));
+
 beforeEach(() => vi.clearAllMocks());
 
 function recipe(id: string, title: string) {
@@ -105,4 +123,28 @@ test("Show more is absent when fewer than 24 recipes come back", async () => {
   await screen.findByText("Dal");
 
   expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+});
+
+// One call for the page, never one per card. The byline rule above exists for the same
+// reason and is pinned the same way; a per-card query is an N+1 that only shows up in
+// production, where a feed has more than two cards.
+test("asks once for which recipes are already saved, not once per card", async () => {
+  const recipes = await import("../lib/api/recipes");
+  (recipes.listPublicRecipes as any).mockResolvedValueOnce([
+    recipe("r1", "Dal"),
+    recipe("r2", "Pilaf"),
+  ]);
+  renderPotluck();
+  await screen.findByText("Dal");
+  expect(listSavedSourceIds).toHaveBeenCalledTimes(1);
+});
+
+test("saving a card marks it as in your vault without a reload", async () => {
+  const recipes = await import("../lib/api/recipes");
+  (recipes.listPublicRecipes as any).mockResolvedValueOnce([recipe("r1", "Dal")]);
+  renderPotluck();
+  const btn = await screen.findByRole("button", { name: /save dal to my vault/i });
+  await userEvent.click(btn);
+  expect(saveToVault).toHaveBeenCalledWith("r1", "f1");
+  expect(await screen.findByRole("button", { name: /is in your vault/i })).toBeDisabled();
 });

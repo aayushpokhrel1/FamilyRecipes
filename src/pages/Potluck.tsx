@@ -3,6 +3,8 @@ import { listPublicRecipes } from "../lib/api/recipes";
 import { listCoverPhotoUrls } from "../lib/api/photos";
 import { getBylines } from "../lib/api/profile";
 import { listFollowedCookIds } from "../lib/api/follows";
+import { listSavedSourceIds, saveToVault } from "../lib/api/saves";
+import { useFamily } from "../context/FamilyContext";
 import type { Byline, Recipe } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
 import Skeleton from "../components/Skeleton";
@@ -10,9 +12,11 @@ import Skeleton from "../components/Skeleton";
 const PAGE_SIZE = 24;
 
 export default function Potluck() {
+  const { activeFamily } = useFamily();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [bylines, setBylines] = useState<Map<string, Byline>>(new Map());
   const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map());
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState<"all" | "following">("all");
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -52,10 +56,21 @@ export default function Potluck() {
       if (ignore) return;
       const map = await getBylines(rows.map((r) => r.id));
       if (ignore) return;
+      // ONE call for the page. Same rule as the bylines above: a per-card query is an N+1
+      // that only bites once a feed has more than a couple of cards.
+      const saved = activeFamily
+        ? await listSavedSourceIds(activeFamily.id, rows.map((r) => r.id))
+        : new Set<string>();
+      if (ignore) return;
       setRecipes((prev) => (offset === 0 ? rows : [...prev, ...rows]));
       setBylines((prev) => {
         const next = offset === 0 ? new Map<string, Byline>() : new Map(prev);
         for (const [id, b] of map) next.set(id, b);
+        return next;
+      });
+      setSavedIds((prev) => {
+        const next = offset === 0 ? new Set<string>() : new Set(prev);
+        for (const id of saved) next.add(id);
         return next;
       });
       setLoading(false);
@@ -67,7 +82,7 @@ export default function Potluck() {
     return () => {
       ignore = true;
     };
-  }, [scope, submitted, offset]);
+  }, [scope, submitted, offset, activeFamily]);
 
   // Public recipes' photos need no new policy: recipe_photos and the storage bucket both
   // gate on can_read_recipe(), which is true for 'public'. Same shape as the vault's own
@@ -92,6 +107,14 @@ export default function Potluck() {
   function handleScope(next: "all" | "following") {
     setScope(next);
     setOffset(0);
+  }
+
+  async function handleSave(id: string) {
+    if (!activeFamily) return;
+    await saveToVault(id, activeFamily.id);
+    // Mark it locally rather than refetching the page: the only thing that changed is
+    // this one card's state.
+    setSavedIds((prev) => new Set(prev).add(id));
   }
 
   return (
@@ -141,6 +164,8 @@ export default function Potluck() {
                   showVisibility={false}
                   photoUrl={photoUrls.get(r.id) ?? null}
                   byline={b ? (b.public_name ?? "A cook") + " · " + b.family_name : undefined}
+                  onSave={activeFamily ? () => handleSave(r.id) : undefined}
+                  saved={savedIds.has(r.id)}
                 />
               );
             })}

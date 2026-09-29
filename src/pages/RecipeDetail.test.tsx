@@ -6,6 +6,16 @@ import { listPlans } from "../lib/api/mealPlans";
 import { getRecipe } from "../lib/api/recipes";
 import { getByline } from "../lib/api/profile";
 
+// The one recipe every test starts from. Extracted so a test can spread it and change only
+// the field it is about, rather than restating twelve fields and drifting from the rest.
+const baseRecipe = {
+  id: "r1", family_id: "f1", author_id: "u", title: "Dal",
+  story: "a tale", provenance: null, servings: 2, prep_minutes: null,
+  cook_minutes: null, visibility: "family", source_url: null,
+  created_at: "", updated_at: "",
+  source_recipe_id: null, source_cook_name: null, adapted_at: null,
+};
+
 vi.mock("../lib/api/recipes", () => ({
   getRecipe: vi.fn().mockResolvedValue({
     recipe: {
@@ -13,11 +23,27 @@ vi.mock("../lib/api/recipes", () => ({
       story: "a tale", provenance: null, servings: 2, prep_minutes: null,
       cook_minutes: null, visibility: "family", source_url: null,
       created_at: "", updated_at: "",
+      source_recipe_id: null, source_cook_name: null, adapted_at: null,
     },
     ingredients: [{ position: 0, quantity: "1", unit: "cup", item: "flour" }],
     steps: [{ position: 0, text: "mix well" }],
     photos: [],
   }),
+}));
+
+const saveToVault = vi.fn().mockResolvedValue("new-id");
+vi.mock("../lib/api/saves", () => ({
+  saveToVault: (...a: any[]) => saveToVault(...a),
+}));
+
+// The active family is where a save lands, and its absence is what removes the button.
+// Hoisted and stable so the object identity never changes between renders.
+const family = vi.hoisted(() => ({
+  active: { id: "f2", name: "Fam", invite_code: "x", created_by: "u" } as
+    { id: string; name: string; invite_code: string; created_by: string } | null,
+}));
+vi.mock("../context/FamilyContext", () => ({
+  useFamily: () => ({ activeFamily: family.active }),
 }));
 
 vi.mock("../lib/api/mealPlans", () => ({
@@ -198,4 +224,45 @@ test("an ingredient whose item carries a leaked quantity reads without it", asyn
   );
   expect(await screen.findByText("boneless pork ribs")).toBeInTheDocument();
   expect(screen.queryByText("(1.5 kg) boneless pork ribs")).not.toBeInTheDocument();
+});
+
+// Lineage is a fact and cannot be cleared, but a recipe you have rewritten should read as
+// yours, so the header shrinks to a note after the first edit.
+test("an untouched copy says where it came from, in the header", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, source_recipe_id: "src-1", source_cook_name: "Mei",
+              adapted_at: null },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText(/saved from Mei's kitchen/i)).toBeInTheDocument();
+});
+
+test("an adapted copy keeps the credit but only as a quiet note", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: { ...baseRecipe, source_recipe_id: "src-1", source_cook_name: "Mei",
+              adapted_at: "2026-09-28T00:00:00Z" },
+    ingredients: [], steps: [], photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText(/from Mei/i)).toBeInTheDocument();
+  expect(screen.queryByText(/saved from Mei's kitchen/i)).not.toBeInTheDocument();
+});
+
+test("a recipe that is nobody's copy shows no credit line", async () => {
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  expect(screen.queryByText(/from /i)).not.toBeInTheDocument();
 });
