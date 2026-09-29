@@ -14,9 +14,10 @@ more families and open the app to decide what to cook, follow a recipe hands-fre
 The same person is often the **family recipe-keeper**, capturing and curating the
 family's recipes with their photos, story, and provenance.
 
-**Growing (planned, Phase 2): the food-lover community.** Individuals who will
-discover, follow, save, and fork public recipes through an opt-in public feed. The
-`Public` visibility flag already ships; the feed itself is designed, not built.
+**Growing (Phase 2, part shipped): the food-lover community.** Individuals who
+discover, follow, save, and fork public recipes through an opt-in public feed. Browsing,
+searching and following shipped as **Potluck**; save and fork are designed, not built.
+Potluck is signed in only for now.
 
 The product is family-first today and community-later by intent: private family use is
 the center, public sharing is additive.

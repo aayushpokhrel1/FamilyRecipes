@@ -202,6 +202,33 @@ press physically: they lift 1px on hover and sink with an inset shadow on `:acti
 **The Enamel Edge Rule.** Depth is a rim (dark keyline + inner highlight) plus one soft
 shadow. Never a zero-blur block shadow; this world is enamel, not neobrutalism.
 
+## Motion
+
+Motion in this world is physical, sparse, and mostly tactile. Controls press; almost
+nothing else moves. There is exactly **one** authored moment, and it is not an entrance
+applied to every panel: an identical arrival everywhere stops reading as a moment and
+starts reading as lag.
+
+- **Press** (`transform 0.08s ease, box-shadow 0.12s ease`): the enamel button, lifting 1px
+  on hover and sinking with an inset shadow on `:active`. The workhorse, on every control.
+- **Field** (`border-color 0.15s, box-shadow 0.15s`): focus settling into the vermilion ring.
+- **The Settle** (`plate-settle`, 0.42s, `cubic-bezier(0.16, 1, 0.3, 1)`, staggered 45ms to
+  the eighth tile): the one authored moment. Enamel plates being set down on the rack, as a
+  recipe grid arrives. It lives on `.plate-grid > *` and is deliberately not reused.
+- **The Breathe** (`enamel-breathe`, 1.8s, infinite): blank skeleton enamel catching the
+  light while content loads. A loading signal, not decoration.
+
+### Named Rules
+**The One Moment Rule.** The settle belongs to the recipe grid alone. Any new surface that
+wants an entrance is asking for a second moment, and the answer is no: reach for the press,
+or for nothing.
+
+**The Visible-Default Rule.** Every animation is declared inside
+`@media (prefers-reduced-motion: no-preference)`, so the resting state is the state a
+reader sees when motion is off or CSS animation never runs. Nothing starts at `opacity: 0`
+outside that guard. A global `prefers-reduced-motion: reduce` block collapses every
+duration in the stylesheet, including transitions written before this section existed.
+
 ## Shapes
 
 Generously rounded rectangles throughout: 14px for plates and cards, 10px for controls,
@@ -228,13 +255,34 @@ plaques (rounded squares); the wordmark is a bone sign inside a vermilion-border
 ### Cards / Plates
 - **Corner:** 14px. **Background:** bone. **Rim:** dark keyline + inner highlight.
 - **Shadow:** the Lift shadow (see Elevation). **Padding:** 18-24px.
-- **Recipe plate (grid):** a label-first tile, a large vermilion monogram, the title in
-  slab caps pushed to the bottom, a visibility chip. No stock photo stand-ins.
+- **Recipe plate (grid):** a label-first tile, a dish photo or a large vermilion monogram,
+  the title in slab caps pushed to the bottom, a visibility chip. No stock photo stand-ins.
+- **Byline** (`.plate-byline`, Potluck only): whose recipe this is, in tracked slab caps at
+  0.72rem in `--ink-soft`, tucked under the title. It renders INSIDE the card's link; as a
+  sibling it became its own cell of the grid.
 
 ### Inputs / Fields
 - **Style:** bone fill, rim keyline + inner highlight, 10px radius. Selects carry a drawn
   caret in ink (no OS chrome).
 - **Focus:** vermilion border plus a soft vermilion focus ring.
+
+### Loading (skeleton)
+Blank enamel standing in for content whose shape is already known. Three shapes only:
+**tiles** in a `.plate-grid`, a **bone plate** of ruled bars, and bare **bars** for use
+inside an existing plate (never a plate within a plate).
+
+- **Fill:** the surface mixed toward its ground at FULL opacity,
+  `color-mix(in srgb, var(--plate) 86%, var(--wall))`. Never the surface at reduced opacity:
+  that blends bone with the green into a murky sage, which is the generic grey placeholder
+  bar this world exists to refuse, and it washes the rim keyline out with it.
+- **On a plate:** bars take `--plate-2` and their own breathe mixing toward `--plate`. The
+  wall-ward mix would paint a green bar on bone.
+- **Count:** capped at three tiles below 720px. A count tuned for a multi-column grid is a
+  whole phone screen of identical blocks once that grid collapses to one column.
+- **Semantics:** `aria-busy` + `aria-live="polite"` + `aria-label`, NOT `role="status"`.
+  The app uses that role for its own save confirmations.
+- **When not to:** if the shape of what is coming is unknown, keep the sentence. A skeleton
+  that guesses wrong lies about what is about to appear.
 
 ### Navigation
 - **Style:** the header sign-rail (enamel-deep). Wordmark sign at left, tracked-caps tabs.
@@ -254,6 +302,8 @@ provenance panel. It is the emotional signature of the world: the hand behind th
 - **Do** give every surface the enamel rim (dark keyline + inner highlight) and lift it
   with one soft shadow.
 - **Do** tint secondary text from the green (`--ink-soft`, `--on-wall-soft`).
+- **Do** keep motion to the press, the field, and the one settle on the recipe grid, each
+  declared inside a `prefers-reduced-motion: no-preference` guard.
 - **Do** theme the browser surfaces (selection, caret, scrollbar, focus ring,
   `accent-color`) from the palette.
 
@@ -263,4 +313,8 @@ provenance panel. It is the emotional signature of the world: the hand behind th
   category default this world exists to refuse.
 - **Don't** use folksy script or heavy speckle; warmth here is sturdy, not saccharine.
 - **Don't** use glass, blur, gradient text, or zero-blur block shadows.
+- **Don't** give a skeleton or any placeholder reduced opacity over the green. Mix toward
+  the wall at full opacity, or it becomes the grey bar from someone else's design system.
+- **Don't** add a second entrance animation. The settle is the one moment; see The One
+  Moment Rule.
 - **Don't** float content directly on the green inside a container; make it a bone plate.

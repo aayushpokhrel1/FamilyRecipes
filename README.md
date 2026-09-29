@@ -33,6 +33,8 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   ingredient. The grocery list buys one of a swap pair, never both.
 - **Per-recipe visibility**: Private / Family / Public.
 - **In-family comments** and **Cook Mode** (big-text, screen stays awake).
+- **Potluck**: a signed-in space for other households' public recipes, with search, a public
+  cook page per handle, and following. Save and fork are not built yet.
 - **My Kitchen**: meal planning on a day-by-slot week grid (drag a meal's grip, or tap to
   assign), leftovers that fill a slot without buying twice, and a grocery list built from the
   plan, grouped by supermarket aisle and scaled to each plan item's servings.
@@ -67,13 +69,14 @@ Full setup, environment variables and the verify commands are in
 
 ## Roadmap
 
-Shipped, newest first: optional ingredients and alternatives · week-grid drag and drop · error
+Shipped, newest first: Potluck, the public feed (browse, search, follow) · public identity and
+public cook pages · optional ingredients and alternatives · week-grid drag and drop · error
 and uptime monitoring · verified email and Google sign-in · the cupboard and "cook now" ·
 ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scaling · My Kitchen
 meal planning · v1 private multi-family vault.
 
-Next: a public recipe-only community feed (follow, save, fork with link-back). The `public` flag
-already ships.
+Next: save and fork with attribution and lineage, then moderation, which must exist before
+Potluck is opened beyond signed-in users.
 
 Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,
 per-recipe link previews, and a native app.

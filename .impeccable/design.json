@@ -1,33 +1,156 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-19T00:00:00Z",
+  "generatedAt": "2026-09-29T00:50:08Z",
   "title": "Design System: Family Recipes",
   "extensions": {
     "colorMeta": {
-      "wall": { "role": "primary", "displayName": "Spruce Enamel", "canonical": "#1f3b34", "tonalRamp": ["#0b1613", "#102420", "#16302a", "#1f3b34", "#2c5348", "#3d6f60", "#6b9689", "#b7ccc4"] },
-      "action": { "role": "secondary", "displayName": "Vermilion Signal", "canonical": "#d6431f", "tonalRamp": ["#3e130a", "#5e1c0e", "#8a2c14", "#b53514", "#d6431f", "#e4633f", "#ee9276", "#f6c6b6"] },
-      "spark": { "role": "tertiary", "displayName": "Enamel Yellow", "canonical": "#e7c24a", "tonalRamp": ["#3a2f0d", "#5a4914", "#87701f", "#b3962c", "#d4b23e", "#e7c24a", "#efd57e", "#f7ebbf"] },
-      "plate": { "role": "neutral", "displayName": "Bone Enamel", "canonical": "#f3ede1", "tonalRamp": ["#2a2820", "#454135", "#63604f", "#8b8674", "#b3ad99", "#d7d0bd", "#e9e1d0", "#f3ede1"] },
-      "ink": { "role": "neutral", "displayName": "Enamel Ink", "canonical": "#182b25", "tonalRamp": ["#0c1512", "#182b25", "#2a413a", "#3d574e", "#556d64", "#7a8f86", "#a9b8b0", "#d6ded9"] }
+      "wall": {
+        "role": "primary",
+        "displayName": "Spruce Enamel",
+        "canonical": "#1f3b34",
+        "tonalRamp": [
+          "#0b1613",
+          "#102420",
+          "#16302a",
+          "#1f3b34",
+          "#2c5348",
+          "#3d6f60",
+          "#6b9689",
+          "#b7ccc4"
+        ]
+      },
+      "action": {
+        "role": "secondary",
+        "displayName": "Vermilion Signal",
+        "canonical": "#d6431f",
+        "tonalRamp": [
+          "#3e130a",
+          "#5e1c0e",
+          "#8a2c14",
+          "#b53514",
+          "#d6431f",
+          "#e4633f",
+          "#ee9276",
+          "#f6c6b6"
+        ]
+      },
+      "spark": {
+        "role": "tertiary",
+        "displayName": "Enamel Yellow",
+        "canonical": "#e7c24a",
+        "tonalRamp": [
+          "#3a2f0d",
+          "#5a4914",
+          "#87701f",
+          "#b3962c",
+          "#d4b23e",
+          "#e7c24a",
+          "#efd57e",
+          "#f7ebbf"
+        ]
+      },
+      "plate": {
+        "role": "neutral",
+        "displayName": "Bone Enamel",
+        "canonical": "#f3ede1",
+        "tonalRamp": [
+          "#2a2820",
+          "#454135",
+          "#63604f",
+          "#8b8674",
+          "#b3ad99",
+          "#d7d0bd",
+          "#e9e1d0",
+          "#f3ede1"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Enamel Ink",
+        "canonical": "#182b25",
+        "tonalRamp": [
+          "#0c1512",
+          "#182b25",
+          "#2a413a",
+          "#3d574e",
+          "#556d64",
+          "#7a8f86",
+          "#a9b8b0",
+          "#d6ded9"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display / Sign", "purpose": "Page and recipe titles, set as full-width enamel signs in caps." },
-      "title": { "displayName": "Panel Title", "purpose": "Panel headings (Ingredients, Steps), uppercase and tracked." },
-      "label": { "displayName": "Label / Control", "purpose": "Buttons, nav tabs, chips, meta tags, grid plate titles." },
-      "body": { "displayName": "Body", "purpose": "Recipe text, stories, comments; the system sans." }
+      "display": {
+        "displayName": "Display / Sign",
+        "purpose": "Page and recipe titles, set as full-width enamel signs in caps."
+      },
+      "title": {
+        "displayName": "Panel Title",
+        "purpose": "Panel headings (Ingredients, Steps), uppercase and tracked."
+      },
+      "label": {
+        "displayName": "Label / Control",
+        "purpose": "Buttons, nav tabs, chips, meta tags, grid plate titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Recipe text, stories, comments; the system sans."
+      }
     },
     "shadows": [
-      { "name": "rim", "value": "inset 0 1.5px 0 rgba(255,255,255,0.6)", "purpose": "The rolled enamel edge: inner top highlight on every plate and control." },
-      { "name": "lift", "value": "0 14px 26px -14px rgba(6,18,15,0.55)", "purpose": "Plates and cards floated off the wall at rest." },
-      { "name": "lift-sm", "value": "0 4px 10px -4px rgba(6,18,15,0.4)", "purpose": "Buttons and controls at rest." }
+      {
+        "name": "rim",
+        "value": "inset 0 1.5px 0 rgba(255,255,255,0.6)",
+        "purpose": "The rolled enamel edge: inner top highlight on every plate and control."
+      },
+      {
+        "name": "lift",
+        "value": "0 14px 26px -14px rgba(6,18,15,0.55)",
+        "purpose": "Plates and cards floated off the wall at rest."
+      },
+      {
+        "name": "lift-sm",
+        "value": "0 4px 10px -4px rgba(6,18,15,0.4)",
+        "purpose": "Buttons and controls at rest."
+      }
     ],
     "motion": [
-      { "name": "press", "value": "transform 0.08s ease, box-shadow 0.12s ease", "purpose": "Tactile enamel-button press: lift on hover, sink on :active." },
-      { "name": "field", "value": "border-color 0.15s, box-shadow 0.15s", "purpose": "Input focus transition to the vermilion ring." }
+      {
+        "name": "press",
+        "value": "transform 0.08s ease, box-shadow 0.12s ease",
+        "purpose": "Tactile enamel-button press: lift on hover, sink on :active."
+      },
+      {
+        "name": "field",
+        "value": "border-color 0.15s, box-shadow 0.15s",
+        "purpose": "Input focus transition to the vermilion ring."
+      },
+      {
+        "name": "settle",
+        "value": "plate-settle 0.42s cubic-bezier(0.16, 1, 0.3, 1) backwards, staggered 45ms to the 8th tile",
+        "purpose": "The one authored moment: enamel plates set down on the rack as a recipe grid arrives. Scoped to .plate-grid > * and deliberately not reused as a generic section entrance."
+      },
+      {
+        "name": "breathe",
+        "value": "enamel-breathe 1.8s ease-in-out infinite",
+        "purpose": "Blank skeleton enamel catching the light while content loads. Animates the fill mix, not opacity."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: no-preference) around every animation, plus a global reduce block collapsing all durations",
+        "purpose": "The resting state is what a reader sees when motion is off. Nothing starts at opacity 0 outside the guard."
+      }
     ],
     "breakpoints": [
-      { "name": "stack", "value": "720px" },
-      { "name": "compact", "value": "1024px" }
+      {
+        "name": "stack",
+        "value": "720px"
+      },
+      {
+        "name": "compact",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -86,6 +209,14 @@
       "description": "Numbered vermilion enamel plaque for recipe steps.",
       "html": "<span class=\"ds-step\">1</span>",
       "css": ".ds-step { display:grid; place-items:center; width:34px; height:34px; font-family:'Zilla Slab',Rockwell,serif; font-weight:700; color:#fdf3ec; background:#d6431f; border:1.5px solid #b53514; border-radius:8px; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.28); }"
+    },
+    {
+      "name": "Skeleton Plate",
+      "kind": "loading",
+      "refersTo": "plate",
+      "description": "Blank enamel standing in for content whose shape is known. Fill is the surface mixed toward its ground at full opacity, never the surface at reduced opacity, which blends to a murky sage and washes out the rim.",
+      "html": "<ul class=\"ds-skel-grid\" aria-busy=\"true\" aria-live=\"polite\" aria-label=\"Loading\"><li class=\"ds-skel-tile\"></li><li class=\"ds-skel-tile\"></li><li class=\"ds-skel-tile\"></li></ul>",
+      "css": ".ds-skel-grid { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:18px; } .ds-skel-tile { min-height:148px; border:1.5px solid #16302a; border-radius:14px; background:color-mix(in srgb,#f3ede1 86%,#1f3b34); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), 0 14px 26px -14px rgba(6,18,15,0.55); } @media (prefers-reduced-motion: no-preference) { .ds-skel-tile { animation: ds-breathe 1.8s ease-in-out infinite; } } @keyframes ds-breathe { 50% { background:color-mix(in srgb,#f3ede1 98%,#1f3b34); } } @media (max-width:719px) { .ds-skel-tile:nth-child(n+4) { display:none; } }"
     }
   ],
   "narrative": {
@@ -99,11 +230,31 @@
       "Provenance shown as a stamped maker's mark, not a footnote."
     ],
     "rules": [
-      { "name": "The One Signal Rule", "body": "Vermilion is only ever the committing action, at most one per viewport. It is never decoration; when it appears, it is the thing to press.", "section": "colors" },
-      { "name": "The Wall Rule", "body": "The enamel green owns the ground and chrome. Content does not float on it inside a container without becoming a bone plate; only plain running text sits directly on the wall, in bone.", "section": "colors" },
-      { "name": "The Tinted-Secondary Rule", "body": "Secondary text is tinted from the green, never neutral gray. Gray on this world reads as an accident.", "section": "colors" },
-      { "name": "The Sign Rule", "body": "Every title, label, and control is Zilla Slab in caps. A title shrunk to a timid mixed-case label has left the world; the type carries the composition.", "section": "typography" },
-      { "name": "The Enamel Edge Rule", "body": "Depth is a rim (dark keyline + inner highlight) plus one soft shadow. Never a zero-blur block shadow; this world is enamel, not neobrutalism.", "section": "elevation" }
+      {
+        "name": "The One Signal Rule",
+        "body": "Vermilion is only ever the committing action, at most one per viewport. It is never decoration; when it appears, it is the thing to press.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wall Rule",
+        "body": "The enamel green owns the ground and chrome. Content does not float on it inside a container without becoming a bone plate; only plain running text sits directly on the wall, in bone.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tinted-Secondary Rule",
+        "body": "Secondary text is tinted from the green, never neutral gray. Gray on this world reads as an accident.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sign Rule",
+        "body": "Every title, label, and control is Zilla Slab in caps. A title shrunk to a timid mixed-case label has left the world; the type carries the composition.",
+        "section": "typography"
+      },
+      {
+        "name": "The Enamel Edge Rule",
+        "body": "Depth is a rim (dark keyline + inner highlight) plus one soft shadow. Never a zero-blur block shadow; this world is enamel, not neobrutalism.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do reserve vermilion (#d6431f) for the one committing action in a view; everything else is bone, green, or tin.",
