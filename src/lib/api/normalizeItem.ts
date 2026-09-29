@@ -50,6 +50,19 @@ export function stripLeakedQuantity(s: string): string {
   return s.replace(/\([^)]*\d[^)]*\)/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// What a human should READ for an ingredient, as opposed to the grouping key.
+// Extraction sometimes writes the amount into the item field ("(1.5 kg) boneless
+// pork ribs"), and the quantity column next to it already says the amount, so the
+// parenthetical is noise on screen as well as in the key.
+// EVERY place that renders an ingredient's item to a reader goes through here:
+// RecipeDetail, CookMode and the grocery list. Editors are the exception on
+// purpose, because they edit the stored value and must show it unaltered.
+// The `|| item` guard matters: an item that is ONLY a leaked quantity would
+// otherwise render as an empty line, and a wrong label beats no label.
+export function displayItem(item: string): string {
+  return stripLeakedQuantity(item) || item;
+}
+
 export function normalizeItem(item: string): string {
   let s = stripLeakedQuantity(item.toLowerCase().split(",")[0]);
   s = s.replace(/-/g, " ").replace(/\s+/g, " ").trim();

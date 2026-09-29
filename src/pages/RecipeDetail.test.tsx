@@ -3,6 +3,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 import RecipeDetail from "./RecipeDetail";
 import { listPlans } from "../lib/api/mealPlans";
+import { getRecipe } from "../lib/api/recipes";
 import { getByline } from "../lib/api/profile";
 
 vi.mock("../lib/api/recipes", () => ({
@@ -173,4 +174,28 @@ test("a byline with no handle stays plain text, not a link to /cooks/null", asyn
   );
   expect(await screen.findByText(/A cook/)).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /A cook/ })).not.toBeInTheDocument();
+});
+
+// Extraction sometimes writes the amount into the item field, and the quantity column
+// right beside it already says the amount. The only recipe ever published read
+// "(1.5 kg) boneless pork ribs" to every stranger who opened it.
+test("an ingredient whose item carries a leaked quantity reads without it", async () => {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: {
+      id: "r1", family_id: "f1", author_id: "u", title: "Ribs",
+      story: null, provenance: null, servings: 2, prep_minutes: null,
+      cook_minutes: null, visibility: "public", source_url: null,
+      created_at: "", updated_at: "",
+    },
+    ingredients: [{ position: 0, quantity: "1.5", unit: "kg", item: "(1.5 kg) boneless pork ribs" }],
+    steps: [{ position: 0, text: "cook" }],
+    photos: [],
+  } as any);
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("boneless pork ribs")).toBeInTheDocument();
+  expect(screen.queryByText("(1.5 kg) boneless pork ribs")).not.toBeInTheDocument();
 });

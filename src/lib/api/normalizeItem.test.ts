@@ -1,6 +1,6 @@
 // src/lib/api/normalizeItem.test.ts
 import { test, expect } from "vitest";
-import { normalizeItem } from "./normalizeItem";
+import { displayItem, normalizeItem } from "./normalizeItem";
 
 test("lowercases, trims, and collapses whitespace", () => {
   expect(normalizeItem("  Flour ")).toBe("flour");
@@ -53,4 +53,15 @@ test("a quantity that leaked into the item name does not break the match", () =>
 // away would silently drop an ingredient. That is the worse failure, so it stays.
 test("a parenthetical with no number is left alone", () => {
   expect(normalizeItem("chicken (thighs)")).toBe("chicken (thighs)");
+});
+
+// The same leak, on screen rather than in the key. The first published recipe read
+// "(1.5 kg) boneless pork ribs" to every stranger who opened it, next to a quantity
+// column that already said 1.5 kg.
+test("displayItem drops a leaked quantity but keeps the ingredient readable", () => {
+  expect(displayItem("(1.5 kg) boneless pork ribs")).toBe("boneless pork ribs");
+  expect(displayItem("salt (2 mL)")).toBe("salt");
+  expect(displayItem("chicken (thighs)")).toBe("chicken (thighs)");
+  // only a quantity: an empty line would be worse than the noise
+  expect(displayItem("(2 mL)")).toBe("(2 mL)");
 });

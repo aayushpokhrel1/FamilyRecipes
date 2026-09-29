@@ -8,7 +8,7 @@ import { scaleIngredientQty } from "../lib/api/quantity";
 import { groupIngredientsBySection, alternativesOf } from "../lib/groupIngredients";
 import { useFamily } from "../context/FamilyContext";
 import { listPantry, setState as setItemState, type PantryItem } from "../lib/api/pantry";
-import { normalizeItem } from "../lib/api/normalizeItem";
+import { normalizeItem, displayItem } from "../lib/api/normalizeItem";
 import Skeleton from "../components/Skeleton";
 
 
@@ -135,7 +135,7 @@ export default function CookMode() {
                   return (
                     <li key={i} className={isAlt ? "alt-line" : undefined}>
                       {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}{" "}
-                      <span>{isAlt ? "or " + g.item : g.item}</span>
+                      <span>{isAlt ? "or " + displayItem(g.item) : displayItem(g.item)}</span>
                       {g.optional === true && <span className="optional">optional</span>}
                     </li>
                   );

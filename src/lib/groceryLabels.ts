@@ -1,4 +1,4 @@
-import { stripLeakedQuantity } from "./api/normalizeItem";
+import { displayItem } from "./api/normalizeItem";
 import type { GroceryLine } from "./api/types";
 
 // Shared by GroceryPanel and UpcomingGroceryPanel, which render the same rows from
@@ -13,7 +13,7 @@ export function totalLabel(t: { quantity: string; unit: string }): string {
 // The shopping line's own name. "(2 mL) salt" is a quantity extraction put in the
 // item field; it is noise next to the totals, which already say the amount.
 export function lineName(line: GroceryLine): string {
-  return stripLeakedQuantity(line.name) || line.name;
+  return displayItem(line.name);
 }
 
 // A contribution says which recipe wants this and how much that recipe asks for.

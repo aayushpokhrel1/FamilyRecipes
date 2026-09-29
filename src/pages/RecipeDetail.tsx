@@ -10,6 +10,7 @@ import type { Byline, Ingredient, Recipe, Step, MealPlan, Tag } from "../lib/api
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
+import { displayItem } from "../lib/api/normalizeItem";
 import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "../lib/groupIngredients";
 import { useAuth } from "../context/AuthContext";
 import Skeleton from "../components/Skeleton";
@@ -236,7 +237,7 @@ export default function RecipeDetail() {
                     return (
                       <li key={i} className="alt-line">
                         <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
-                        <span>or {g.item}</span>
+                        <span>or {displayItem(g.item)}</span>
                         {g.optional === true && <span className="optional">optional</span>}
                       </li>
                     );
@@ -244,7 +245,7 @@ export default function RecipeDetail() {
                   return (
                     <li key={i}>
                       <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
-                      <span>{g.item}</span>
+                      <span>{displayItem(g.item)}</span>
                       {g.optional === true && <span className="optional">optional</span>}
                     </li>
                   );
