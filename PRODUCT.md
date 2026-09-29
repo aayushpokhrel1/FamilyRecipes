@@ -136,6 +136,21 @@ Explicitly undecided or deferred (future work must not present these as done):
 - A **family-editable ingredient catalog** is not built. A family can tag an ingredient's aisle,
   which is enough to empty the "Other" group over time, but they cannot add, rename or remove
   catalog entries or invent an aisle from the UI.
+  **The aisle tag is also in the wrong places** (raised 2026-09-29). `setCategoryOverride` is
+  reachable from the grocery list (`GroceryPanel`) and from Settings (`FamilyDataPanel`), but
+  NOT from the recipe ingredient editor and NOT from the Cupboard, which are the two screens
+  where you actually notice something has landed in "Other". The capability exists; the
+  affordance is missing from the places that would use it. Needs a design pass, not a feature.
+
+- **The Cupboard has no "Add from list"** (raised 2026-09-29). `IngredientEditor` has a picker
+  behind an "Add from list" button; the Cupboard makes you type every staple by hand. The same
+  picker should serve both, which is a component-extraction question rather than new logic.
+
+- **Cook Mode wants a rethink** (raised 2026-09-29, Aayush). It works but it is a plain list.
+  Ideas he floated: hovering an ingredient shows its scaled proportion; the recipe stays
+  visible on the side rather than scrolling away. This is a design brainstorm, not a ticket:
+  the question is what a person actually needs while their hands are busy, and the answer may
+  be neither of those. Do not build it from this paragraph.
 - **Ingredient normalization** for grocery lists now adds a curated synonym map on top of the
   cheap key-based grouping, so "all-purpose flour" and "flour" become one line. **LLM / entity
   canonicalization is still deferred** and remains the unbuilt half: anything the map has never
