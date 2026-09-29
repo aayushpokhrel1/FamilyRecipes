@@ -90,12 +90,15 @@ So the copy names no ingredient columns:
 ```sql
 insert into recipe_ingredients
 select (jsonb_populate_record(null::recipe_ingredients,
-        to_jsonb(ri) || jsonb_build_object('recipe_id', v_new))).*
+        to_jsonb(ri) || jsonb_build_object(
+          'id', gen_random_uuid(), 'recipe_id', v_new))).*
 from recipe_ingredients ri
 where ri.recipe_id = p_source;
 ```
 
-Steps copy the same way. A future column is carried automatically, with no migration to
+Steps copy the same way. Both child tables have their own `id` primary key, so the copy
+overrides `id` as well as `recipe_id`; overriding only the parent link inserts the source
+row's id and fails on `recipe_steps_pkey`. A future column is carried automatically, with no migration to
 remember and no way to forget.
 
 ### What travels, and what does not

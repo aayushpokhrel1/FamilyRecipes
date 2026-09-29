@@ -406,12 +406,16 @@ begin
 
   insert into recipe_ingredients
   select (jsonb_populate_record(null::recipe_ingredients,
-          to_jsonb(ri) || jsonb_build_object('recipe_id', v_new))).*
+          to_jsonb(ri) || jsonb_build_object(
+            'id', gen_random_uuid(),   -- children carry their OWN id primary key
+            'recipe_id', v_new))).*
   from recipe_ingredients ri where ri.recipe_id = p_source;
 
   insert into recipe_steps
   select (jsonb_populate_record(null::recipe_steps,
-          to_jsonb(rs) || jsonb_build_object('recipe_id', v_new))).*
+          to_jsonb(rs) || jsonb_build_object(
+            'id', gen_random_uuid(),   -- children carry their OWN id primary key
+            'recipe_id', v_new))).*
   from recipe_steps rs where rs.recipe_id = p_source;
 
   -- Photos, tags, comments and the cook log deliberately do NOT travel. Photos are foldered
