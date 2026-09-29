@@ -11,6 +11,7 @@ export interface Profile {
   preferences: Preferences;
   // null handle means "I do not publish". It IS the opt-in.
   handle: string | null; public_name: string | null; bio: string | null;
+  is_moderator: boolean;
 }
 export interface PublicCook {
   id: string; handle: string; public_name: string | null;
@@ -54,6 +55,9 @@ export type Report = {
   status: "open" | "actioned" | "dismissed";
   created_at: string;
 };
+// A report as the moderator queue reads it: the embedded recipe title comes back from
+// PostgREST's `recipes(title)` select, and is null when the recipe is gone.
+export type ReportRow = Report & { recipes: { title: string } | null };
 export interface RecipePhoto { id: string; recipe_id: string; storage_path: string; is_cover: boolean; }
 export interface Comment { id: string; recipe_id: string; author_id: string; body: string; created_at: string; }
 export interface Tag { id: string; family_id: string; name: string; }

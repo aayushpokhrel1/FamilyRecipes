@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import type { Report, ReportReason } from "./types";
+import type { ReportReason, ReportRow } from "./types";
 
 // Report a public recipe. The reporter is the signed-in user, never a caller-supplied id:
 // the insert policy checks reporter_id = auth.uid(), so a forged one is refused anyway.
@@ -33,14 +33,14 @@ export async function myReportedIds(recipeIds: string[]): Promise<Set<string>> {
 
 // The moderator queue. RLS decides who actually sees rows here; a non-moderator gets an
 // empty list rather than an error, which is why the page checks the flag separately.
-export async function listOpenReports(): Promise<Report[]> {
+export async function listOpenReports(): Promise<ReportRow[]> {
   const { data, error } = await supabase
     .from("reports")
-    .select("*")
+    .select("*, recipes(title)")
     .eq("status", "open")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as Report[];
+  return (data ?? []) as ReportRow[];
 }
 
 // Every moderator action goes through the one RPC, which is also the only place the

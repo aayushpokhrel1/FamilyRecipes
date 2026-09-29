@@ -18,6 +18,7 @@ import Cupboard from "./pages/Cupboard";
 import MealPlanDetail from "./pages/MealPlanDetail";
 import Settings from "./pages/Settings";
 import Potluck from "./pages/Potluck";
+import Moderation from "./pages/Moderation";
 
 export default function AppRoutes() {
   return (
@@ -58,6 +59,10 @@ export default function AppRoutes() {
             can still read public rows through the API, which is what makes the public recipe
             pages and the OpenGraph previews work. */}
         <Route path="potluck" element={<Potluck />} />
+        {/* Deliberately absent from the nav. The page checks is_moderator itself, so the
+            route is safe to exist for everyone; hiding the link is a courtesy, not the
+            permission. */}
+        <Route path="moderation" element={<Moderation />} />
         <Route path="kitchen" element={<MyKitchen />} />
         {/* Above kitchen/:id deliberately. React Router ranks a static segment
             over a dynamic one, so this wins, but the ordering says so out loud

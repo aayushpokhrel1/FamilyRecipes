@@ -5,7 +5,7 @@ export async function getMyProfile(): Promise<Profile> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in");
   const { data: profile, error } = await supabase.from("profiles")
-    .select("id,display_name,avatar_url,preferences,handle,public_name,bio").eq("id", data.user.id).single();
+    .select("id,display_name,avatar_url,preferences,handle,public_name,bio,is_moderator").eq("id", data.user.id).single();
   if (error) throw new Error(error.message);
   return profile as Profile;
 }

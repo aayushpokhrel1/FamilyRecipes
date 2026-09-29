@@ -6,16 +6,14 @@ const insert = vi.fn();
 const inFilter = vi.fn();
 const order = vi.fn();
 const eq = vi.fn();
+const select = vi.fn();
 vi.mock("../supabaseClient", () => ({
   supabase: {
     rpc: (...a: any[]) => rpc(...a),
     auth: { getUser: (...a: any[]) => getUser(...a) },
     from: () => ({
       insert: (...a: any[]) => insert(...a),
-      select: () => ({
-        in: (...a: any[]) => inFilter(...a),
-        eq: (...a: any[]) => eq(...a),
-      }),
+      select: (...a: any[]) => select(...a),
     }),
   },
 }));
@@ -27,7 +25,11 @@ beforeEach(() => {
   inFilter.mockReset();
   order.mockReset();
   eq.mockReset();
+  select.mockReset();
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+  // myReportedIds chains .select(...).in(...); listOpenReports chains
+  // .select(...).eq(...).order(...), so select has to hand back both.
+  select.mockReturnValue({ in: inFilter, eq });
   // listOpenReports chains .eq(...).order(...), so eq has to hand back the order spy.
   eq.mockReturnValue({ order });
 });
@@ -87,11 +89,16 @@ test("listOpenReports filters to open reports, newest first", async () => {
   const { listOpenReports } = await import("./moderation");
   order.mockResolvedValue({
     data: [{ id: "rep1", recipe_id: "r1", reporter_id: "u2", reason: "offensive",
-             note: null, status: "open", created_at: "2026-09-28T00:00:00Z" }],
+             note: null, status: "open", created_at: "2026-09-28T00:00:00Z",
+             recipes: { title: "Dal" } }],
     error: null,
   });
   const got = await listOpenReports();
   expect(got.map((r) => r.id)).toEqual(["rep1"]);
+  // The queue shows the recipe title, so the select has to embed it. Without this the
+  // page renders "Untitled" for every row and nothing else complains.
+  expect(select).toHaveBeenCalledWith("*, recipes(title)");
+  expect(got[0].recipes?.title).toBe("Dal");
   expect(eq).toHaveBeenCalledWith("status", "open");
   expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
 });
