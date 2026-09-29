@@ -10,13 +10,27 @@ export async function reportRecipe(
 ): Promise<void> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in");
-  const { error } = await supabase.from("reports").insert({
+  // .select("id").single() so the nudge below can name the report. Without it we would have
+  // to re-query for a row we just wrote.
+  const { data: row, error } = await supabase.from("reports").insert({
     recipe_id: recipeId,
     reporter_id: data.user.id,
     reason,
     note: note.trim() || null,
-  });
+  }).select("id").single();
   if (error) throw new Error(error.message);
+
+  // ponytail: best-effort notify. The report ROW above is the record; this is only a nudge,
+  // so a failure here must never fail the report, hence the catch that swallows everything.
+  // Calling from the client avoids pg_net, a service key stored in the database and a
+  // webhook. The cost is that a tab closed at the wrong moment loses the EMAIL, never the
+  // report, and /moderation still shows it. Move this to a database trigger only if a missed
+  // email ever actually matters.
+  try {
+    await supabase.functions.invoke("notify-report", { body: { reportId: row.id } });
+  } catch {
+    // deliberately ignored, see above
+  }
 }
 
 // Which of these recipes the current user has already reported. ONE call for a whole page of

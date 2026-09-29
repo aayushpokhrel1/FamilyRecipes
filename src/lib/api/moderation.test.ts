@@ -7,10 +7,12 @@ const inFilter = vi.fn();
 const order = vi.fn();
 const eq = vi.fn();
 const select = vi.fn();
+const invoke = vi.fn();
 vi.mock("../supabaseClient", () => ({
   supabase: {
     rpc: (...a: any[]) => rpc(...a),
     auth: { getUser: (...a: any[]) => getUser(...a) },
+    functions: { invoke: (...a: any[]) => invoke(...a) },
     from: () => ({
       insert: (...a: any[]) => insert(...a),
       select: (...a: any[]) => select(...a),
@@ -26,17 +28,23 @@ beforeEach(() => {
   order.mockReset();
   eq.mockReset();
   select.mockReset();
+  invoke.mockReset();
+  invoke.mockResolvedValue({ data: null, error: null });
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   // myReportedIds chains .select(...).in(...); listOpenReports chains
   // .select(...).eq(...).order(...), so select has to hand back both.
   select.mockReturnValue({ in: inFilter, eq });
   // listOpenReports chains .eq(...).order(...), so eq has to hand back the order spy.
   eq.mockReturnValue({ order });
+  // reportRecipe chains .insert(...).select("id").single() so the nudge can name the report.
+  insert.mockReturnValue({
+    select: () => ({ single: () => Promise.resolve({ data: { id: "rep1" }, error: null }) }),
+  });
 });
 
 test("reportRecipe sends the current user as reporter_id", async () => {
   const { reportRecipe } = await import("./moderation");
-  insert.mockResolvedValue({ error: null });
+  // insert now chains, so the default chain from beforeEach is what resolves
   await expect(reportRecipe("r1", "offensive", "rude")).resolves.toBeUndefined();
   expect(insert).toHaveBeenCalledWith({
     recipe_id: "r1", reporter_id: "u1", reason: "offensive", note: "rude",
@@ -46,7 +54,7 @@ test("reportRecipe sends the current user as reporter_id", async () => {
 // An empty note is the common case and must land as null, not as an empty string.
 test("reportRecipe sends an empty note as null", async () => {
   const { reportRecipe } = await import("./moderation");
-  insert.mockResolvedValue({ error: null });
+  // insert now chains, so the default chain from beforeEach is what resolves
   await reportRecipe("r1", "other", "   ");
   expect(insert).toHaveBeenCalledWith({
     recipe_id: "r1", reporter_id: "u1", reason: "other", note: null,
@@ -55,7 +63,13 @@ test("reportRecipe sends an empty note as null", async () => {
 
 test("reportRecipe throws the database message", async () => {
   const { reportRecipe } = await import("./moderation");
-  insert.mockResolvedValue({ error: { message: "reports_one_open_per_reporter" } });
+  insert.mockReturnValue({
+    select: () => ({
+      single: () => Promise.resolve({
+        data: null, error: { message: "reports_one_open_per_reporter" },
+      }),
+    }),
+  });
   await expect(reportRecipe("r1", "offensive", "")).rejects.toThrow(
     "reports_one_open_per_reporter",
   );
@@ -122,4 +136,14 @@ test("resolveReport throws the database message", async () => {
   const { resolveReport } = await import("./moderation");
   rpc.mockResolvedValue({ data: null, error: { message: "not a moderator" } });
   await expect(resolveReport("rep1", "dismiss", "other")).rejects.toThrow("not a moderator");
+});
+
+// The email is a nudge, never the record. If notify-report is down, or the user's tab is
+// offline, the report must still have been filed: this is the whole point of best-effort and
+// it is the kind of thing a later refactor quietly turns into an await that throws.
+test("a failing notify-report does not fail the report", async () => {
+  const { reportRecipe } = await import("./moderation");
+  invoke.mockRejectedValue(new Error("function is down"));
+  await expect(reportRecipe("r1", "offensive", "")).resolves.toBeUndefined();
+  expect(insert).toHaveBeenCalledTimes(1);
 });
