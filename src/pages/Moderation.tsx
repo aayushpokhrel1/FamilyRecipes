@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getMyProfile } from "../lib/api/profile";
+import { getMyProfile, getPublicCooks } from "../lib/api/profile";
 import { listOpenReports, resolveReport } from "../lib/api/moderation";
-import { REASON_LABELS, type ReportRow } from "../lib/api/types";
+import { REASON_LABELS, type PublicCook, type ReportRow } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
 export default function Moderation() {
   const [profile, setProfile] = useState<{ is_moderator: boolean } | null>(null);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cooks, setCooks] = useState<Map<string, PublicCook>>(new Map());
 
   useEffect(() => {
     let ignore = false;
@@ -21,6 +22,12 @@ export default function Moderation() {
         const rows = await listOpenReports();
         if (ignore) return;
         setReports(rows);
+        // ONE call for every reported cook in the queue, never one per row. public_cooks is
+        // a security definer view, which is the only reason a moderator can read these names
+        // at all: profiles itself is readable only to its owner.
+        const ids = rows.map((r) => r.cook_id).filter((id): id is string => !!id);
+        const found = await getPublicCooks(ids).catch(() => new Map<string, PublicCook>());
+        if (!ignore) setCooks(found);
       }
       setLoading(false);
     })().catch(() => {
@@ -60,9 +67,9 @@ export default function Moderation() {
               {r.cook_id ? (
                 // A cook who has cleared their handle has no public page, so there is nothing
                 // to link to: a link to /cooks/undefined is worse than plain text.
-                r.profiles?.handle ? (
-                  <Link to={"/cooks/" + r.profiles.handle}>
-                    {r.profiles.public_name ?? r.profiles.handle}
+                cooks.get(r.cook_id)?.handle ? (
+                  <Link to={"/cooks/" + cooks.get(r.cook_id)!.handle}>
+                    {cooks.get(r.cook_id)!.public_name ?? cooks.get(r.cook_id)!.handle}
                   </Link>
                 ) : (
                   <span>Unknown cook</span>

@@ -95,43 +95,56 @@ test("listPublicRecipes with an empty authorIds makes NO request at all", async 
   expect(rpc).not.toHaveBeenCalled();
 });
 
+// A builder that records what was chained onto the RPC. The feed has ONE path now, so every
+// test below drives the same one.
+function rpcBuilder(rows: any[] = []) {
+  const seen: { in?: [string, any]; order?: [string, any]; range?: [number, number] } = {};
+  const builder: any = {
+    in: (c: string, v: any) => { seen.in = [c, v]; return builder; },
+    order: (c: string, o: any) => { seen.order = [c, o]; return builder; },
+    range: (a: number, b: number) => { seen.range = [a, b]; return Promise.resolve({ data: rows, error: null }); },
+  };
+  return { builder, seen };
+}
+
 test("listPublicRecipes routes a search through the RPC with a null family id", async () => {
   rpc.mockReset();
-  rpc.mockResolvedValue({ data: [{ id: "r1", author_id: "c1", title: "Momo" }], error: null });
+  const { builder, seen } = rpcBuilder([{ id: "r1", author_id: "c1", title: "Momo" }]);
+  rpc.mockReturnValue(builder);
   const rows = await listPublicRecipes({ search: " momo " });
   expect(rpc).toHaveBeenCalledWith("search_recipes", {
     p_family_id: null, p_search: "momo", p_tag_id: null,
   });
+  // A search is ranked by similarity INSIDE the function. Ordering it here would replace
+  // that ranking with a date sort, which is why only the unsearched feed orders.
+  expect(seen.order).toBeUndefined();
   expect(rows.map((r: any) => r.id)).toEqual(["r1"]);
 });
 
 test("listPublicRecipes filters a search by followed authors", async () => {
   rpc.mockReset();
-  rpc.mockResolvedValue({ data: [
-    { id: "r1", author_id: "c1" }, { id: "r2", author_id: "c2" },
-  ], error: null });
+  const { builder, seen } = rpcBuilder([{ id: "r2", author_id: "c2" }]);
+  rpc.mockReturnValue(builder);
   const rows = await listPublicRecipes({ search: "momo", authorIds: ["c2"] });
+  expect(seen.in).toEqual(["author_id", ["c2"]]);
   expect(rows.map((r: any) => r.id)).toEqual(["r2"]);
 });
 
-test("listPublicRecipes pages public recipes newest first", async () => {
+// THE RULE, not a note: an unsearched feed must go through search_recipes too. It used to
+// query `recipes` directly, which bypassed the mute and block filter, so a muted cook stayed
+// in Potluck until you typed something. The client cannot fix that, since RLS hides the rows
+// where someone blocked YOU, so this test guards the only place the rule can live.
+test("listPublicRecipes pages the unsearched feed through the RPC, newest first", async () => {
+  rpc.mockReset();
   from.mockReset();
-  const filters: Array<[string, string]> = [];
-  let range: [number, number] | null = null;
-  let order: [string, any] | null = null;
-  from.mockImplementation((table: string) => {
-    expect(table).toBe("recipes");
-    const builder: any = {
-      select: () => builder,
-      eq: (c: string, v: string) => { filters.push([c, v]); return builder; },
-      in: () => builder,
-      order: (c: string, o: any) => { order = [c, o]; return builder; },
-      range: (a: number, b: number) => { range = [a, b]; return Promise.resolve({ data: [], error: null }); },
-    };
-    return builder;
-  });
+  const { builder, seen } = rpcBuilder();
+  rpc.mockReturnValue(builder);
   await listPublicRecipes({ limit: 24, offset: 24 });
-  expect(filters).toEqual([["visibility", "public"]]);
-  expect(order).toEqual(["created_at", { ascending: false }]);
-  expect(range).toEqual([24, 47]);
+  expect(rpc).toHaveBeenCalledWith("search_recipes", {
+    p_family_id: null, p_search: null, p_tag_id: null,
+  });
+  // Never a direct table read: that is what silently skipped the block filter.
+  expect(from).not.toHaveBeenCalled();
+  expect(seen.order).toEqual(["created_at", { ascending: false }]);
+  expect(seen.range).toEqual([24, 47]);
 });

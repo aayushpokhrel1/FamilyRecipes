@@ -148,3 +148,21 @@ test("a blocked cook cannot see that they were blocked", async () => {
   const { data } = await them.u.client.from("blocks").select("*");
   expect(data).toEqual([]);
 }, 30000);
+
+// The bug this file's first two tests did NOT catch: they call search_recipes directly, but
+// Potluck's default view has no search term, and that path used to query `recipes` directly
+// and skip the filter entirely. A muted cook stayed in the feed until you typed something.
+// This asserts the UNSEARCHED catalogue, which is what the page actually shows.
+test("a muted cook leaves the unsearched catalogue too, not only a search", async () => {
+  const me = await cook("bq-me");
+  const them = await cook("bq-them");
+  await me.u.client.from("blocks")
+    .insert({ blocker_id: me.u.id, blocked_id: them.u.id, kind: "mute" });
+
+  // p_search null is exactly what the feed sends when nobody has typed anything.
+  const feed = await me.u.client.rpc("search_recipes", {
+    p_family_id: null, p_search: null, p_tag_id: null,
+  });
+  expect(titles(feed.data)).not.toContain(them.title);
+  expect(titles(feed.data)).toContain(me.title);
+}, 30000);

@@ -5,8 +5,10 @@ import { MemoryRouter } from "react-router-dom";
 import Moderation from "./Moderation";
 
 const getMyProfile = vi.fn();
+const getPublicCooks = vi.fn();
 vi.mock("../lib/api/profile", () => ({
   getMyProfile: (...a: any[]) => getMyProfile(...a),
+  getPublicCooks: (...a: any[]) => getPublicCooks(...a),
 }));
 
 const listOpenReports = vi.fn();
@@ -20,6 +22,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: false });
   listOpenReports.mockResolvedValue([]);
+  // public_cooks is how the queue turns a reported cook id into a name: profiles itself is
+  // readable only to its owner, so a PostgREST embed would be null for every cook report.
+  getPublicCooks.mockResolvedValue(new Map([
+    ["c1", { id: "c1", handle: "nana", public_name: "Nana Rose", bio: null, avatar_url: null }],
+  ]));
   resolveReport.mockResolvedValue(undefined);
 });
 
@@ -37,16 +44,10 @@ function report(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-// A cook report names a cook instead of a recipe: cook_id is set, recipe_id is null and
-// there is no embedded recipe, only the embedded cook profile.
+// A cook report names a cook instead of a recipe: cook_id is set and recipe_id is null. The
+// name is NOT on the row, it is looked up through public_cooks.
 function cookReport(id: string, overrides: Record<string, unknown> = {}) {
-  return report(id, {
-    recipe_id: null,
-    cook_id: "c1",
-    recipes: null,
-    profiles: { handle: "nana", public_name: "Nana Rose" },
-    ...overrides,
-  });
+  return report(id, { recipe_id: null, cook_id: "c1", recipes: null, ...overrides });
 }
 
 // The row contains a Link, so every render needs a router.
@@ -137,9 +138,10 @@ test("a cook report shows the public name and links to the cook, not a recipe", 
 
 test("a cook report with no public name falls back to the handle", async () => {
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
-  listOpenReports.mockResolvedValue([
-    cookReport("rep1", { profiles: { handle: "nana", public_name: null } }),
-  ]);
+  listOpenReports.mockResolvedValue([cookReport("rep1")]);
+  getPublicCooks.mockResolvedValue(new Map([
+    ["c1", { id: "c1", handle: "nana", public_name: null, bio: null, avatar_url: null }],
+  ]));
   renderPage();
 
   expect(await screen.findByRole("link", { name: "nana" })).toHaveAttribute("href", "/cooks/nana");
@@ -175,4 +177,17 @@ test("clicking Clear name calls resolveReport with clear_name", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Clear name" }));
 
   expect(resolveReport).toHaveBeenCalledWith("rep1", "clear_name", "impersonation");
+});
+
+// A cook with no public page (no handle) has nothing to link to, and a link to
+// /cooks/undefined is worse than plain text. This also covers the case the queue used to get
+// wrong for EVERY cook report, when the name came from a profiles embed RLS always emptied.
+test("a reported cook with no public page renders as plain text, not a broken link", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenReports.mockResolvedValue([cookReport("rep1")]);
+  getPublicCooks.mockResolvedValue(new Map());
+  renderPage();
+
+  expect(await screen.findByText("Unknown cook")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /unknown cook/i })).not.toBeInTheDocument();
 });

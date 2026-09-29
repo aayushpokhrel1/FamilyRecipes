@@ -20,17 +20,25 @@ export async function reportRecipe(
   }).select("id").single();
   if (error) throw new Error(error.message);
 
-  // ponytail: best-effort notify. The report ROW above is the record; this is only a nudge,
-  // so a failure here must never fail the report, hence the catch that swallows everything.
-  // Calling from the client avoids pg_net, a service key stored in the database and a
-  // webhook. The cost is that a tab closed at the wrong moment loses the EMAIL, never the
-  // report, and /moderation still shows it. Move this to a database trigger only if a missed
-  // email ever actually matters.
-  try {
-    await supabase.functions.invoke("notify-report", { body: { reportId: row.id } });
-  } catch {
+  notify(row.id);
+}
+
+// ponytail: best-effort notify. The report ROW is the record; this is only a nudge, so a
+// failure here must never fail the report, and it is NOT AWAITED so a slow or missing
+// function cannot hold up the acknowledgement either. Awaiting it left the Report button
+// unchanged while the report was already written, so the obvious next move was to click
+// again and hit the duplicate-report error. Pinned by "a report resolves even when the
+// notify never settles".
+// Calling from the client avoids pg_net, a service key stored in the database and a webhook.
+// The cost is that a tab closed at the wrong moment loses the EMAIL, never the report, and
+// /moderation still shows it. Move this to a database trigger only if a missed email ever
+// actually matters.
+function notify(reportId: string): void {
+  void Promise.resolve(
+    supabase.functions.invoke("notify-report", { body: { reportId } }),
+  ).catch(() => {
     // deliberately ignored, see above
-  }
+  });
 }
 
 // Report a public cook. Same shape as reportRecipe above, and the same reason for reading
@@ -53,14 +61,7 @@ export async function reportCook(
   }).select("id").single();
   if (error) throw new Error(error.message);
 
-  // ponytail: best-effort notify, identical to reportRecipe. The report ROW above is the
-  // record; this is only a nudge, so a failure here must never fail the report, hence the
-  // catch that swallows everything.
-  try {
-    await supabase.functions.invoke("notify-report", { body: { reportId: row.id } });
-  } catch {
-    // deliberately ignored, see above
-  }
+  notify(row.id);
 }
 
 // Which of these recipes the current user has already reported. ONE call for a whole page of
@@ -80,7 +81,11 @@ export async function myReportedIds(recipeIds: string[]): Promise<Set<string>> {
 export async function listOpenReports(): Promise<ReportRow[]> {
   const { data, error } = await supabase
     .from("reports")
-    .select("*, recipes(title), profiles:cook_id(handle,public_name)")
+    // recipes(title) embeds, but a COOK deliberately does not: profiles_self_read hides
+    // everyone else's row from a moderator too, so a profiles embed here comes back null on
+    // every cook report and the queue read "Unknown cook" for all of them. public_cooks is
+    // the only path into another profile, and the page resolves the names through it.
+    .select("*, recipes(title)")
     .eq("status", "open")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);

@@ -153,7 +153,9 @@ test("listOpenReports filters to open reports, newest first", async () => {
   expect(got.map((r) => r.id)).toEqual(["rep1"]);
   // The queue shows the recipe title, so the select has to embed it. Without this the
   // page renders "Untitled" for every row and nothing else complains.
-  expect(select).toHaveBeenCalledWith("*, recipes(title), profiles:cook_id(handle,public_name)");
+  // NO cook embed: profiles is readable only to its owner, so an embed would be null on
+  // every cook report. The queue resolves those names through public_cooks instead.
+  expect(select).toHaveBeenCalledWith("*, recipes(title)");
   expect(got[0].recipes?.title).toBe("Dal");
   expect(eq).toHaveBeenCalledWith("status", "open");
   expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
@@ -188,4 +190,16 @@ test("a failing notify-report does not fail the report", async () => {
   invoke.mockRejectedValue(new Error("function is down"));
   await expect(reportRecipe("r1", "offensive", "")).resolves.toBeUndefined();
   expect(insert).toHaveBeenCalledTimes(1);
+});
+
+// THE BUG, pinned: the notify is awaited nowhere. It used to be awaited, and when the
+// function was slow or missing the report was already written while the button still read
+// "Report", so the obvious next move was to click again and hit the duplicate-report error.
+// A promise that never settles must not hold up either report.
+test("a report resolves even when the notify never settles", async () => {
+  const { reportRecipe, reportCook } = await import("./moderation");
+  invoke.mockImplementation(() => new Promise(() => {}));
+  await expect(reportRecipe("r1", "offensive", "")).resolves.toBeUndefined();
+  await expect(reportCook("c1", "impersonation", "")).resolves.toBeUndefined();
+  expect(invoke).toHaveBeenCalledTimes(2);
 });

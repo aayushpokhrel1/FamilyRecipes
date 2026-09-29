@@ -167,25 +167,24 @@ export async function listPublicRecipes(
   // two apart. This is the single most load-bearing line in the feed.
   if (authorIds && authorIds.length === 0) return [];
 
-  const term = search?.trim();
-  if (term) {
-    // A null family id searches the public catalogue, so Potluck and the vault share one
-    // matching rule and one set of trigram indexes (0025).
-    const { data, error } = await supabase.rpc("search_recipes", {
-      p_family_id: null, p_search: term, p_tag_id: null,
-    });
-    if (error) throw new Error(error.message);
-    const rows = (data ?? []) as Recipe[];
-    // The RPC has no author parameter, so Following narrows the result here rather than
-    // growing a second search function.
-    return authorIds ? rows.filter((r) => authorIds.includes(r.author_id)) : rows;
-  }
-
-  let query = supabase.from("recipes").select("*").eq("visibility", "public");
+  // ONE path, always the RPC, even with no search term. There used to be a second path here
+  // that queried `recipes` directly when there was no term, and it silently bypassed every
+  // rule search_recipes holds: a muted cook's recipes stayed in the feed until you typed
+  // something. This is NOT fixable in the client, which is why the second path had to go
+  // rather than grow a filter: RLS hides the rows where someone blocked YOU, so the reverse
+  // half of a block is only knowable inside the database.
+  // A null term means "no search" to search_recipes, which then orders by created_at desc,
+  // exactly what the old direct query did. Paging and the author filter are PostgREST
+  // filters over the function's result, so both still happen server side.
+  const term = search?.trim() || null;
+  let query = supabase.rpc("search_recipes", {
+    p_family_id: null, p_search: term, p_tag_id: null,
+  });
   if (authorIds) query = query.in("author_id", authorIds);
-  const { data, error } = await query
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Only the unsearched feed orders by date. A SEARCH is ranked by trigram similarity inside
+  // the function, and an order here would silently replace that ranking with a date sort.
+  if (!term) query = query.order("created_at", { ascending: false });
+  const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw new Error(error.message);
   return (data ?? []) as Recipe[];
 }

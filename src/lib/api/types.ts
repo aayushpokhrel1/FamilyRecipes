@@ -71,12 +71,10 @@ export type Report = {
   created_at: string;
 };
 // A report as the moderator queue reads it: the embedded recipe title comes back from
-// PostgREST's `recipes(title)` select, and is null when the recipe is gone. The embedded
-// cook comes back from `profiles(handle, public_name)` and is null for a recipe report.
-export type ReportRow = Report & {
-  recipes: { title: string } | null;
-  profiles: { handle: string | null; public_name: string | null } | null;
-};
+// PostgREST's `recipes(title)` select, and is null when the recipe is gone. There is NO cook
+// embed: profiles is readable only to its owner, so an embed would be null for every cook
+// report. The queue resolves a reported cook through public_cooks instead.
+export type ReportRow = Report & { recipes: { title: string } | null };
 // A mute or a block. One table with a kind, not two: they differ in what they DO, not in
 // what they are. RLS keeps every row private to the blocker, so this is never read for
 // anyone else.
