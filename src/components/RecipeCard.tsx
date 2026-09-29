@@ -11,11 +11,17 @@ export default function RecipeCard({
   // INSIDE the link on purpose: as a sibling of the card it became its own cell of the grid,
   // which is exactly the bug this prop replaced.
   byline,
+  // Rendered only when a caller passes onSave, so RecipeList (the vault grid, the other
+  // consumer) is untouched: a recipe already in your vault has nothing to save.
+  onSave,
+  saved = false,
 }: {
   recipe: Recipe;
   photoUrl?: string | null;
   showVisibility?: boolean;
   byline?: string;
+  onSave?: () => void;
+  saved?: boolean;
 }) {
   const monogram = recipe.title.trim().charAt(0).toUpperCase() || "?";
   return (
@@ -34,6 +40,21 @@ export default function RecipeCard({
         {byline && <span className="plate-byline">{byline}</span>}
         {showVisibility && <span className="chip">{recipe.visibility}</span>}
       </Link>
+      {onSave && (
+        // A SIBLING of the link, never a child: a button inside an anchor is invalid and
+        // steals the click target. It is positioned out of flow by .card-save, because a
+        // sibling in normal flow became its own grid cell, which is the bug the byline
+        // prop above was introduced to fix.
+        <button
+          type="button"
+          className="card-save"
+          disabled={saved}
+          onClick={onSave}
+          aria-label={saved ? `${recipe.title} is in your vault` : `Save ${recipe.title} to my vault`}
+        >
+          {saved ? "In your vault" : "Save"}
+        </button>
+      )}
     </li>
   );
 }

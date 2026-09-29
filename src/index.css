@@ -396,6 +396,17 @@ button.action:hover { background: var(--action-deep); }
 }
 .plate-card:hover { transform: translateY(-3px); }
 .plate-card:hover { box-shadow: inset 0 1.5px 0 var(--rim-hi), 0 20px 30px -16px rgba(6, 18, 15, 0.6); }
+/* Out of flow on purpose. In normal flow this button became its own cell of the plate
+   grid, the same bug the byline prop was introduced to fix. */
+.card-save {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  /* Smaller than the base control: it sits on a card, not in a toolbar, and must not
+     compete with the title. Colour, radius and face are the base button's, unchanged. */
+  padding: 5px 11px;
+  font-size: 0.72rem;
+}
 .plate-mono {
   font-family: var(--sign);
   font-weight: 700;

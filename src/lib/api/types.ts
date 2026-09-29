@@ -28,6 +28,9 @@ export interface Recipe {
   story: string | null; provenance: string | null; servings: number | null;
   prep_minutes: number | null; cook_minutes: number | null;
   visibility: Visibility; source_url: string | null; created_at: string; updated_at: string;
+  source_recipe_id: string | null;
+  source_cook_name: string | null;
+  adapted_at: string | null;
 }
 export interface RecipePhoto { id: string; recipe_id: string; storage_path: string; is_cover: boolean; }
 export interface Comment { id: string; recipe_id: string; author_id: string; body: string; created_at: string; }
