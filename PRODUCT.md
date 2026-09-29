@@ -122,9 +122,17 @@ Explicitly undecided or deferred (future work must not present these as done):
   A takedown leaves already-saved copies alone, which is sub-project 3's promise. Terms are at
   `/terms` behind a gate that sits after authentication, so Google sign-in and existing accounts
   are caught too.
-  **Still missing, and deliberately 4b:** block and mute a cook, and the handle rules that
-  impersonation needs. Reporting targets a recipe, not a cook. There is no appeal path and no
-  audit log of moderator actions. Aayush is the only moderator and the flag is set by hand.
+- **Personal controls and the impersonation remedy are BUILT** (2026-09-29, sub-project 4b),
+  and not yet deployed. You can mute a cook (their recipes leave your Potluck, one way) or
+  block one (it cuts both ways and severs any follow), from their cook page, and lift either
+  from Settings. A report can now name a COOK as well as a recipe, and a moderator can clear
+  an impersonating public name; the handle is deliberately kept, because it is the identity in
+  every `/cooks/<handle>` URL. The cook is told in Settings that the name was cleared and why.
+  The copy says a blocked cook "will not see" your recipes, never "cannot see": public rows
+  stay readable to anyone signed out, and a test pins that wording.
+  **Still missing, and deliberate:** nothing tells a cook they were blocked, ever. You cannot
+  block a whole family. There is no appeal path and no audit log of moderator actions. Aayush
+  is the only moderator and the flag is set by hand.
 - **Potluck is signed in only, and that is a discovery brake rather than a privacy boundary.**
   Public rows stay readable to the anon role through the API, which is what makes the public
   recipe pages and the link previews work at all. Opening Potluck up later is a one-line route

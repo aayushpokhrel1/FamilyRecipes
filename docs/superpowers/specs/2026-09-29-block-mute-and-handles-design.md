@@ -1,7 +1,7 @@
 # Block, mute, and who you say you are (Phase 2, sub-project 4b)
 
 Date: 2026-09-29
-Status: designed, not built
+Status: BUILT, verified locally in a browser, not yet deployed
 Follows: `docs/superpowers/specs/2026-09-28-moderation-spine-design.md` (sub-project 4a, SHIPPED)
 
 ## Why this exists
