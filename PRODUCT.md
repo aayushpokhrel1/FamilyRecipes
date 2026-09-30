@@ -122,8 +122,8 @@ Explicitly undecided or deferred (future work must not present these as done):
   A takedown leaves already-saved copies alone, which is sub-project 3's promise. Terms are at
   `/terms` behind a gate that sits after authentication, so Google sign-in and existing accounts
   are caught too.
-- **Personal controls and the impersonation remedy are BUILT** (2026-09-29, sub-project 4b),
-  and not yet deployed. You can mute a cook (their recipes leave your Potluck, one way) or
+- **Personal controls and the impersonation remedy are BUILT** (2026-09-29, sub-project 4b)
+  and DEPLOYED, though not yet verified on production. You can mute a cook (their recipes leave your Potluck, one way) or
   block one (it cuts both ways and severs any follow), from their cook page, and lift either
   from Settings. A report can now name a COOK as well as a recipe, and a moderator can clear
   an impersonating public name; the handle is deliberately kept, because it is the identity in
