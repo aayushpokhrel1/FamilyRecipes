@@ -1,0 +1,12 @@
+# Files that exist on disk but must not be in the graph.
+# graphify fail-closes on a file that leaves the scan corpus while still existing, and keeps
+# its stale nodes until the exclusion is declared here, which is what this file is for.
+
+# Wrangler's build scratch. Every `wrangler dev` or build writes a new tmp/<random> directory,
+# so these paths are transient by nature: they were contributing 18 nodes for a bundled dev
+# entrypoint, which is generated code and tells you nothing about this codebase.
+.wrangler/
+
+# Local-only and gitignored, so it is not part of the codebase a graph should describe, and it
+# holds only current state that is stale within a day. See CLAUDE.md for what lives where.
+HANDOVER.md
