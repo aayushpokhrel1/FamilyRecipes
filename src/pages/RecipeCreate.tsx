@@ -157,7 +157,11 @@ export default function RecipeCreate() {
           Cover photo
           <input type="file" accept="image/*" onChange={handleCover} />
         </label>
-        <button type="submit">Save</button>
+        {/* The reason sits next to the button, not only at the top of the form. This state is
+            reachable (a cook who leaves every family lands in it), and a disabled control with
+            its explanation off screen is the same silent failure in a different costume. */}
+        <button type="submit" disabled={!activeFamily}>Save</button>
+        {!activeFamily && <span>Setting up your kitchen. Reload if this does not clear.</span>}
       </form>
     </div>
   );

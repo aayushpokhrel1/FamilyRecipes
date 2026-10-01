@@ -43,6 +43,11 @@ export async function listMyFamilies(): Promise<MyFamily[]> {
   return (data ?? []).map((f: any) => ({ ...f, role: roles.get(f.id) ?? "member" })) as MyFamily[];
 }
 
+export async function ensureOwnKitchen(): Promise<void> {
+  const { error } = await supabase.rpc("ensure_own_kitchen");
+  if (error) throw new Error(error.message);
+}
+
 export async function rotateInviteCode(familyId: string): Promise<string> {
   const code = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   const { error } = await supabase.from("families").update({ invite_code: code }).eq("id", familyId);

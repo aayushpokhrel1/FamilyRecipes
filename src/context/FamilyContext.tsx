@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { listMyFamilies } from "../lib/api/families";
+import { ensureOwnKitchen, listMyFamilies } from "../lib/api/families";
+import { reportError } from "../lib/api/errorLog";
 import type { MyFamily } from "../lib/api/types";
 
 type FamilyState = {
@@ -44,7 +45,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [activeFamily, setActive] = useState<MyFamily | null>(null);
 
   async function reload() {
-    const list = await listMyFamilies();
+    let list = await listMyFamilies();
+    // Only when the list is EMPTY. A cook who already has a kitchen must cost zero extra
+    // round trips on every page load, so the RPC is never called on the happy path.
+    if (list.length === 0) {
+      try {
+        await ensureOwnKitchen();
+        // The second listing is what wins. The row the database has carries the name and
+        // invite code, and fabricating a family object from the returned id would be a
+        // second source of truth that drifts from the real one.
+        list = await listMyFamilies();
+      } catch (err) {
+        // Never retry in a loop, and never let a failure here blank the app. The pages
+        // already handle "no family" by showing a message, and an exception thrown out of
+        // the provider takes the whole app down, so this falls through with the empty list.
+        reportError("load:family-context", err);
+      }
+    }
     setFamilies(list);
     setActive(pickActive(list));
   }

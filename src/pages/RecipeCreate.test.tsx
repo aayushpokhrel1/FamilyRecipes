@@ -3,10 +3,14 @@ import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import RecipeCreate from "./RecipeCreate";
 
+// Mutable so a test can render the page with no family. The default is the signed-in cook who
+// already has a kitchen, which is what the other tests in this file assume.
+let activeFamily: { id: string; name: string; invite_code: string; created_by: string } | null = {
+  id: "f1", name: "F", invite_code: "x", created_by: "u",
+};
+
 vi.mock("../context/FamilyContext", () => ({
-  useFamily: () => ({
-    activeFamily: { id: "f1", name: "F", invite_code: "x", created_by: "u" },
-  }),
+  useFamily: () => ({ activeFamily }),
 }));
 
 test("renders the guided create form", () => {
@@ -17,6 +21,22 @@ test("renders the guided create form", () => {
   );
   expect(screen.getByRole("button", { name: /add ingredient/i })).toBeInTheDocument();
   expect(screen.getByPlaceholderText(/title/i)).toBeInTheDocument();
+});
+
+// The defect: with no family, handleSubmit returned silently while Save stayed enabled and
+// looked exactly as it does when it works. The reason has to be beside the button, because
+// the notice at the top of a long form is off screen by the time anyone reaches Save.
+test("with no active family the Save button is disabled and says why", () => {
+  activeFamily = null;
+  render(
+    <MemoryRouter>
+      <RecipeCreate />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  expect(screen.getByText(/setting up your kitchen/i)).toBeInTheDocument();
+  activeFamily = { id: "f1", name: "F", invite_code: "x", created_by: "u" };
 });
 
 // The bug Aayush hit: dictate steps, watch them appear in the box, save, and the spoken steps
