@@ -45,9 +45,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # PINNED, not "latest", and the pin is the fix rather than tidiness. "latest" makes
+      # setup-cli resolve the release through the GitHub API with no token, which is rate
+      # limited per shared runner IP: CI went red on 2026-10-01 with "Failed to resolve
+      # latest Supabase CLI release: rate limit exceeded" on a docs-only commit. A pinned
+      # version skips that lookup entirely, and it also makes CI run the same CLI that
+      # applied these migrations locally. Bump it deliberately.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.119.0
       # Applies every migration on a fresh Postgres, so a migration that does not
       # apply cleanly fails here rather than on the cloud.
       - run: supabase start
