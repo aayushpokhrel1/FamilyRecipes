@@ -11,12 +11,17 @@ const baseRecipe = {
   id: "r1", family_id: "f1", title: "Paneer", story: "", provenance: "",
   servings: 4, prep_minutes: null, cook_minutes: null, source_url: null,
   visibility: "family" as const,
+  updated_at: "2024-01-01T00:00:00.000Z",
 };
 
 async function renderEdit(mocks: {
   getRecipe: ReturnType<typeof vi.fn>;
   updateRecipe: ReturnType<typeof vi.fn>;
   extract?: unknown;
+  getDraft?: ReturnType<typeof vi.fn>;
+  saveEditDraft?: ReturnType<typeof vi.fn>;
+  publishEdit?: ReturnType<typeof vi.fn>;
+  entry?: string;
 }) {
   vi.doMock("../lib/api/recipes", () => ({
     getRecipe: mocks.getRecipe,
@@ -31,6 +36,11 @@ async function renderEdit(mocks: {
     ensureTag: vi.fn(),
   }));
   vi.doMock("../lib/api/photos", () => ({ uploadRecipePhoto: vi.fn() }));
+  vi.doMock("../lib/api/drafts", () => ({
+    getDraft: mocks.getDraft ?? vi.fn(),
+    saveEditDraft: mocks.saveEditDraft ?? vi.fn().mockResolvedValue("d1"),
+    publishEdit: mocks.publishEdit ?? vi.fn().mockResolvedValue("r1"),
+  }));
   if (mocks.extract) {
     vi.doMock("../lib/api/extract", () => ({ extractRecipe: vi.fn().mockResolvedValue(mocks.extract) }));
   }
@@ -38,7 +48,7 @@ async function renderEdit(mocks: {
   vi.resetModules();
   const { default: Page } = await import("./RecipeEdit");
   render(
-    <MemoryRouter initialEntries={["/recipes/r1/edit"]}>
+    <MemoryRouter initialEntries={[mocks.entry ?? "/recipes/r1/edit"]}>
       <Routes><Route path="/recipes/:id/edit" element={<Page />} /></Routes>
     </MemoryRouter>,
   );
@@ -50,6 +60,7 @@ function unmockAll() {
   vi.doUnmock("../lib/api/tags");
   vi.doUnmock("../lib/api/photos");
   vi.doUnmock("../lib/api/extract");
+  vi.doUnmock("../lib/api/drafts");
 }
 
 // The regression the handover flagged as unguarded, and it is the shape of the 0009 bug:
@@ -146,5 +157,75 @@ test("a failed save reports itself as save:recipe-edit", async () => {
   await waitFor(() => expect(reportError).toHaveBeenCalledWith("save:recipe-edit", expect.any(Error)));
   expect(await screen.findByText(/db is on fire/i)).toBeInTheDocument();
   vi.doUnmock("../lib/api/errorLog");
+  unmockAll();
+});
+
+// Same shape of bug as the create page's Save draft: a disabled control whose reason is off
+// screen is a silent failure in a different costume. The reason has to be visible beside the
+// button, and the button has to come alive once a title exists.
+test("Save draft is disabled without a title and says why, enabled with one", async () => {
+  await renderEdit({
+    updateRecipe: vi.fn(),
+    getRecipe: vi.fn().mockResolvedValue({
+      recipe: { ...baseRecipe, title: "" }, ingredients: [], steps: [], photos: [],
+    }),
+  });
+
+  const saveDraftButton = screen.getByRole("button", { name: /save draft/i });
+  expect(saveDraftButton).toBeDisabled();
+  expect(screen.getByText(/a draft needs a title/i)).toBeInTheDocument();
+
+  fireEvent.change(screen.getByPlaceholderText(/title/i), { target: { value: "Paneer Butter Masala" } });
+
+  expect(screen.getByRole("button", { name: /save draft/i })).toBeEnabled();
+  expect(screen.queryByText(/a draft needs a title/i)).not.toBeInTheDocument();
+  unmockAll();
+});
+
+// The whole point of the refusal: the cook is told the recipe changed and is given the choice.
+// Navigating here would look exactly like a successful publish, and the edit would be lost
+// with nobody told. The wording says the recipe changed, not something vague about a conflict.
+test("publishing a draft that moved shows the message and the two choices instead of navigating", async () => {
+  const moved = new Error("The recipe changed since this edit was started.");
+  moved.name = "RecipeMoved";
+  const publishEdit = vi.fn().mockRejectedValue(moved);
+  const getDraft = vi.fn().mockResolvedValue({
+    id: "d1",
+    author_id: "u1",
+    target_family_id: "f1",
+    target_recipe_id: "r1",
+    draft: {
+      title: "Paneer", story: "", provenance: "", servings: 4,
+      prep_minutes: null, cook_minutes: null, ingredients: [], steps: [], source_url: null,
+    },
+    visibility: "family" as const,
+    created_at: "2024-01-01T00:00:00.000Z",
+    updated_at: "2024-01-02T00:00:00.000Z",
+    base_updated_at: "2024-01-01T00:00:00.000Z",
+  });
+
+  await renderEdit({
+    updateRecipe: vi.fn(),
+    getRecipe: vi.fn().mockResolvedValue({
+      recipe: baseRecipe, ingredients: [], steps: [], photos: [],
+    }),
+    getDraft,
+    publishEdit,
+    entry: "/recipes/r1/edit?draft=d1",
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+  expect(await screen.findByText(/the recipe changed since this edit was started/i)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /publish anyway/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /keep my draft/i })).toBeInTheDocument();
+  // The page is still the edit form, so nothing navigated away.
+  expect(screen.getByRole("heading", { name: /edit recipe/i })).toBeInTheDocument();
+  expect(publishEdit).toHaveBeenCalledWith("d1");
+
+  // Keep my draft dismisses the message and stays put.
+  fireEvent.click(screen.getByRole("button", { name: /keep my draft/i }));
+  expect(screen.queryByText(/the recipe changed since this edit was started/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /edit recipe/i })).toBeInTheDocument();
   unmockAll();
 });

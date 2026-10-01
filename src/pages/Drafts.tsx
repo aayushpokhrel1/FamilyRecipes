@@ -41,9 +41,18 @@ export default function Drafts() {
       <ul className="stack">
         {drafts.map((d) => (
           <li key={d.id} className="plate plate-row">
-            <span>{d.draft.title}</span>
+            {/* An edit draft and a create draft are different things, so they read differently.
+                "Editing" says the recipe already exists and this is a change to it, which is
+                also why the Resume link goes to the edit page rather than the create form. */}
+            <span>{d.target_recipe_id ? "Editing " + d.draft.title : d.draft.title}</span>
             <span className="stamp">{whenLabel(d.updated_at)}</span>
-            <Link to={"/recipes/new?draft=" + d.id}>Resume</Link>
+            <Link
+              to={d.target_recipe_id
+                ? "/recipes/" + d.target_recipe_id + "/edit?draft=" + d.id
+                : "/recipes/new?draft=" + d.id}
+            >
+              Resume
+            </Link>
             <button type="button" onClick={() => handleDelete(d.id)}>Delete</button>
           </li>
         ))}

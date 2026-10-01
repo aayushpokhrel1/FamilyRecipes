@@ -98,8 +98,15 @@ export interface RecipeDraft {
 // two names are one letter apart in meaning and will be conflated by anyone who does not
 // read this, which is why the distinction is written here and not in a doc.
 export interface SavedDraft {
-  id: string; author_id: string; target_family_id: string; target_recipe_id: string | null;
+  id: string; author_id: string; target_family_id: string;
+  // null means this is a 5a CREATE draft, a recipe that does not exist yet. A non-null id
+  // means it is an EDIT draft for that recipe, which is the only thing that tells the two
+  // apart, so anything that renders or resumes a draft branches on this and not on a guess.
+  target_recipe_id: string | null;
   draft: RecipeDraft; visibility: Visibility; created_at: string; updated_at: string;
+  // the target recipe's updated_at when the edit was started, so publishing can tell whether
+  // the recipe moved underneath the draft. null for a create draft, which has no recipe.
+  base_updated_at: string | null;
 }
 export type MealPlanViewMode = "list" | "calendar";
 export type MealSlot = "breakfast" | "lunch" | "dinner";

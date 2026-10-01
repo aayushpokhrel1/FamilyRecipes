@@ -33,6 +33,7 @@ function savedDraft(id: string, title: string) {
     visibility: "private" as const,
     created_at: "2024-01-01T00:00:00.000Z",
     updated_at: "2024-01-02T00:00:00.000Z",
+    base_updated_at: null,
   };
 }
 
@@ -58,4 +59,24 @@ test("says plainly when there are no drafts", async () => {
   );
 
   await waitFor(() => expect(screen.getByText(/no drafts yet/i)).toBeInTheDocument());
+});
+
+// An edit draft is a change to a recipe that already exists, so it must not read like a new
+// recipe and must not resume into the create form. Resuming into /recipes/new would silently
+// turn the edit into a second copy of the recipe.
+test("an edit draft reads Editing and resumes into the edit page", async () => {
+  listDrafts.mockResolvedValue([
+    { ...savedDraft("d1", "Sel roti"), target_recipe_id: "r9", base_updated_at: "2024-01-01T00:00:00.000Z" },
+  ]);
+  render(
+    <MemoryRouter>
+      <Drafts />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText("Editing Sel roti")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /resume/i })).toHaveAttribute(
+    "href",
+    "/recipes/r9/edit?draft=d1",
+  );
 });

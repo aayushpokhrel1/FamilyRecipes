@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { supabase } from "../supabaseClient";
-import { fromRow, toRow, listDrafts, getDraft, saveDraft, deleteDraft } from "./drafts";
+import { fromRow, toRow, listDrafts, getDraft, saveDraft, saveEditDraft, publishEdit, deleteDraft } from "./drafts";
 import type { RecipeDraft } from "./types";
 
-vi.mock("../supabaseClient", () => ({ supabase: { from: vi.fn(), auth: { getUser: vi.fn() } } }));
+vi.mock("../supabaseClient", () => ({
+  supabase: { from: vi.fn(), rpc: vi.fn(), auth: { getUser: vi.fn() } },
+}));
 
 const draft: RecipeDraft = {
   title: "Dal",
@@ -64,6 +66,7 @@ describe("toRow and fromRow", () => {
     expect(saved.target_recipe_id).toBeNull();
     expect(saved.created_at).toBe(row.created_at);
     expect(saved.updated_at).toBe(row.updated_at);
+    expect(saved.base_updated_at).toBeNull();
   });
 
   it("fills defaults for a body written by an older version", () => {
@@ -149,5 +152,63 @@ describe("deleteDraft", () => {
     expect(supabase.from).toHaveBeenCalledWith("recipe_drafts");
     expect(q.delete).toHaveBeenCalled();
     expect(q.eq).toHaveBeenCalledWith("id", "d1");
+  });
+});
+
+describe("saveEditDraft", () => {
+  it("inserts with the target recipe and the base updated_at", async () => {
+    (supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: "u1" } } });
+    const q = chain({ data: { id: "new" }, error: null });
+    (supabase.from as any).mockReturnValue(q);
+    const id = await saveEditDraft("r1", draft, "f1", "family", "2024-01-01T00:00:00Z");
+    expect(id).toBe("new");
+    expect(q.insert).toHaveBeenCalledWith(expect.objectContaining({
+      author_id: "u1",
+      target_family_id: "f1",
+      target_recipe_id: "r1",
+      base_updated_at: "2024-01-01T00:00:00Z",
+      title: "Dal",
+    }));
+  });
+
+  it("updates when there is an id", async () => {
+    (supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: "u1" } } });
+    const q = chain({ data: null, error: null });
+    (supabase.from as any).mockReturnValue(q);
+    const id = await saveEditDraft("r1", draft, "f1", "private", "2024-01-01T00:00:00Z", "d1");
+    expect(id).toBe("d1");
+    expect(q.update).toHaveBeenCalledWith(expect.objectContaining({
+      target_recipe_id: "r1",
+      base_updated_at: "2024-01-01T00:00:00Z",
+      updated_at: expect.any(String),
+    }));
+    expect(q.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("publishEdit", () => {
+  it("calls the RPC and returns the recipe id", async () => {
+    (supabase.rpc as any).mockResolvedValue({ data: "r1", error: null });
+    const id = await publishEdit("d1");
+    expect(supabase.rpc).toHaveBeenCalledWith("publish_recipe_edit", { p_draft: "d1", p_force: false });
+    expect(id).toBe("r1");
+  });
+
+  it("passes force through", async () => {
+    (supabase.rpc as any).mockResolvedValue({ data: "r1", error: null });
+    await publishEdit("d1", true);
+    expect(supabase.rpc).toHaveBeenCalledWith("publish_recipe_edit", { p_draft: "d1", p_force: true });
+  });
+
+  // The translation lives here so no component has to know a Postgres SQLSTATE. A page that
+  // branched on 'DRF01' would spread database detail through the UI.
+  it("translates DRF01 into an error named RecipeMoved", async () => {
+    (supabase.rpc as any).mockResolvedValue({ data: null, error: { code: "DRF01", message: "recipe moved" } });
+    await expect(publishEdit("d1")).rejects.toMatchObject({ name: "RecipeMoved" });
+  });
+
+  it("throws any other error as it is", async () => {
+    (supabase.rpc as any).mockResolvedValue({ data: null, error: { code: "42501", message: "permission denied" } });
+    await expect(publishEdit("d1")).rejects.toThrow("permission denied");
   });
 });

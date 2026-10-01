@@ -44,6 +44,7 @@ export function fromRow(row: any): SavedDraft {
     visibility: body.visibility ?? "private",
     created_at: row.created_at,
     updated_at: row.updated_at,
+    base_updated_at: row.base_updated_at ?? null,
   };
 }
 
@@ -88,4 +89,61 @@ export async function saveDraft(
 export async function deleteDraft(id: string): Promise<void> {
   const { error } = await supabase.from("recipe_drafts").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+// An EDIT draft is saveDraft plus the two columns that make it one: the recipe it is against
+// and the recipe's updated_at at the moment the edit started. It goes through the same toRow
+// as a create draft, because a second converter is how the two drift apart and start dropping
+// a field that only one of them knows about.
+export async function saveEditDraft(
+  recipeId: string,
+  draft: RecipeDraft,
+  familyId: string,
+  visibility: Visibility,
+  baseUpdatedAt: string,
+  id?: string,
+): Promise<string> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("Not signed in");
+
+  const row = {
+    ...toRow(draft, visibility),
+    target_recipe_id: recipeId,
+    base_updated_at: baseUpdatedAt,
+  };
+
+  if (id) {
+    const { error } = await supabase.from("recipe_drafts")
+      .update({ ...row, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    return id;
+  }
+
+  const { data, error } = await supabase.from("recipe_drafts")
+    .insert({ ...row, author_id: user.user.id, target_family_id: familyId })
+    .select().single();
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+// The translation from the database's refusal to something the UI can branch on happens HERE,
+// in the api layer, and not in the component. The api layer is the seam: a component that
+// checked for the Postgres SQLSTATE 'DRF01' would spread database detail through the UI, and
+// every other caller of this function would have to know the code too. One name, set once,
+// and the page asks a question about a recipe that moved rather than about Postgres.
+export async function publishEdit(draftId: string, force = false): Promise<string> {
+  const { data, error } = await supabase.rpc("publish_recipe_edit", {
+    p_draft: draftId,
+    p_force: force,
+  });
+  if (error) {
+    if (error.code === "DRF01") {
+      const moved = new Error("The recipe changed since this edit was started.");
+      moved.name = "RecipeMoved";
+      throw moved;
+    }
+    throw new Error(error.message);
+  }
+  return data as string;
 }
