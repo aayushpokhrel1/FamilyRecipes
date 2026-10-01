@@ -1,7 +1,7 @@
 # A pending edit to a recipe that is already published (Phase 2, sub-project 5b)
 
 Date: 2026-10-01
-Status: SPEC, not built
+Status: BUILT 2026-10-01, verified locally in a browser including the overtaken-edit path. NOT on production yet.
 Follows: `docs/superpowers/specs/2026-10-01-drafts-design.md` (5a, BUILT)
 
 ## Why this is a separate sub-project

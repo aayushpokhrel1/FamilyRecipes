@@ -155,7 +155,7 @@ Explicitly undecided or deferred (future work must not present these as done):
 - **A draft belongs to its AUTHOR and carries a destination; it is not a row in `recipes`**
   (decided 2026-09-30, **5a BUILT 2026-10-01**: see
   `docs/superpowers/specs/2026-10-01-drafts-design.md`. 5b, a pending edit to a live recipe,
-  is still unbuilt). A draft must have a title, decided 2026-10-01. Drafts are personal, so they
+  is **BUILT 2026-10-01**: see docs/superpowers/specs/2026-10-01-pending-edits-design.md). A draft must have a title, decided 2026-10-01. Drafts are personal, so they
   key to `author_id` and only the author can read them. They are NOT stored in the cook's
   personal kitchen: a pending edit to a recipe that lives in a SHARED family would then be
   filed in a different family from the recipe it edits, and "which family owns this draft"
