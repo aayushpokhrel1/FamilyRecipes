@@ -1,7 +1,7 @@
 # Drafts: an unfinished recipe survives the tab closing (Phase 2, sub-project 5a)
 
 Date: 2026-10-01
-Status: SPEC, not built
+Status: BUILT 2026-10-01, verified locally in a browser on a fresh account. NOT on production yet.
 Splits from: the drafts brainstorm recorded in `PRODUCT.md` ("A draft belongs to its AUTHOR")
 Followed by: 5b, a pending edit to an already-published recipe, which is NOT in this spec
 

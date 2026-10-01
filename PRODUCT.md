@@ -134,7 +134,8 @@ Explicitly undecided or deferred (future work must not present these as done):
   block a whole family. There is no appeal path and no audit log of moderator actions. Aayush
   is the only moderator and the flag is set by hand.
 - **Every cook always has at least one kitchen, and one of them is theirs** (decided
-  2026-09-30, not yet built). Signup creates a profile and NO family, but `recipes.family_id`
+  2026-09-30, **BUILT 2026-10-01** in migration 0032, verified in a browser on a fresh
+  account). Signup creates a profile and NO family, but `recipes.family_id`
   is `not null` and ten pages key off the active family, so a brand-new account cannot save a
   recipe, use My Kitchen, the Cupboard, meal plans, grocery or cook mode. The fix is an
   invariant rather than a special row: an idempotent `ensure_own_kitchen()` that creates a
@@ -152,7 +153,9 @@ Explicitly undecided or deferred (future work must not present these as done):
   the fallback must be "My kitchen" rather than "Cook's kitchen".
 
 - **A draft belongs to its AUTHOR and carries a destination; it is not a row in `recipes`**
-  (decided 2026-09-30, not yet built, see the drafts sub-project). Drafts are personal, so they
+  (decided 2026-09-30, **5a BUILT 2026-10-01**: see
+  `docs/superpowers/specs/2026-10-01-drafts-design.md`. 5b, a pending edit to a live recipe,
+  is still unbuilt). A draft must have a title, decided 2026-10-01. Drafts are personal, so they
   key to `author_id` and only the author can read them. They are NOT stored in the cook's
   personal kitchen: a pending edit to a recipe that lives in a SHARED family would then be
   filed in a different family from the recipe it edits, and "which family owns this draft"
