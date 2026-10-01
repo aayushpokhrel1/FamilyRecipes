@@ -112,6 +112,21 @@ describe("checkUrl", () => {
     expect(checkUrl("http://[::1]/").ok).toBe(false);
   });
 
+  // A trailing dot is the root-anchored form of the same name and resolves to the same
+  // machine, and the URL parser keeps it on a domain. Without the strip in checkUrl every
+  // one of these passed the check, which is a known way SSRF guards get walked around. These
+  // three were watched failing before the strip was added.
+  it("refuses the trailing-dot form of every name it blocks", () => {
+    for (const raw of [
+      "http://localhost./",
+      "http://thing.internal./",
+      "http://metadata.google.internal./",
+    ]) {
+      const result = checkUrl(raw);
+      expect(result.ok, raw).toBe(false);
+    }
+  });
+
   it("refuses an internal-only hostname", () => {
     expect(checkUrl("http://thing.internal").ok).toBe(false);
   });

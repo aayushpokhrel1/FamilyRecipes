@@ -77,7 +77,16 @@ export function checkUrl(raw: string): { ok: true; url: URL } | { ok: false; rea
 
   // URL keeps the brackets on an IPv6 literal, so `http://[::1]/` arrives as `[::1]`. Strip
   // them before testing, or the loopback check below never matches.
-  const host = url.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  // The trailing dot is stripped LAST and it is not cosmetic: `localhost.` is the
+  // root-anchored form of `localhost` and resolves to exactly the same machine, but the URL
+  // parser preserves that dot for a domain, so every endsWith and every equality below would
+  // miss it. Verified in Node: `new URL("http://localhost./").hostname` is "localhost.",
+  // while an IPv4 literal like `127.0.0.1.` is normalised for us. This is a known SSRF
+  // bypass, so the tests pin all three of localhost., .internal. and
+  // metadata.google.internal. by name.
+  const host = url.hostname.toLowerCase()
+    .replace(/^\[/, "").replace(/\]$/, "")
+    .replace(/\.$/, "");
 
   // Names that resolve to the machine itself or to a private network. `localhost` and
   // anything under it, plus the `.local` (mDNS) and `.internal` (cloud) suffixes, are all
