@@ -5,7 +5,9 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { parseRecipeJsonLd } from "./jsonld.ts";
 import { SYSTEM_PROMPT, DRAFT_SCHEMA } from "./prompt.ts";
-import { callModelWithRetry } from "./retry.ts";
+import { callModelWithRetry, RETRY_STATUSES } from "./retry.ts";
+import { htmlToText } from "./htmlText.ts";
+import { humanModelError } from "./errors.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -109,7 +111,9 @@ Deno.serve(async (req) => {
         draft.source_url = payload; // keep the source link for provenance
         return json(draft, 200);
       }
-      inputText = html;
+      // NOT the raw page: see htmlText.ts. Sending the whole thing exhausted a per-minute
+      // input-token quota in a single request.
+      inputText = htmlToText(html);
     } catch (err) {
       return json({ error: `could not fetch url: ${String(err)}` }, 502);
     }
@@ -127,11 +131,32 @@ Deno.serve(async (req) => {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (key) headers.authorization = `Bearer ${key}`; // omit for keyless gateways
 
-  // NOT `body`: the request body is already declared above, and a duplicate declaration is a
-  // SyntaxError that stops the isolate booting at all. Deploy does not typecheck, so it
-  // shipped as a 503 BOOT_ERROR on every mode. `npm test` now parses this file for exactly that.
-  const modelBody = JSON.stringify({
-    model,
+  // An OPTIONAL second provider, tried only when the first says "not now". One provider
+  // having a bad minute used to end the attempt in the middle of adding a recipe: a free-tier
+  // 429 and a 503 "high demand" on 2026-09-30, both from the same model within an hour.
+  // Configure with FALLBACK_MODEL_BASE_URL plus FALLBACK_MODEL_API_KEY and
+  // FALLBACK_MODEL_NAME; leave them unset and behaviour is exactly as before.
+  const fbBase = Deno.env.get("FALLBACK_MODEL_BASE_URL");
+  const fbKey = Deno.env.get("FALLBACK_MODEL_API_KEY");
+  const fbModel = Deno.env.get("FALLBACK_MODEL_NAME");
+  const fallback = (fbBase || fbKey) && fbModel
+    ? {
+        base: (fbBase ?? base).replace(/\/$/, ""),
+        model: fbModel,
+        headers: {
+          "content-type": "application/json",
+          ...(fbKey ? { authorization: `Bearer ${fbKey}` } : {}),
+        } as Record<string, string>,
+      }
+    : null;
+
+  // NOT `body`: the request body is already declared above, and redeclaring it stops the
+  // isolate booting at all. Deploy does not typecheck, so it shipped as a 503 BOOT_ERROR on
+  // every mode. boots.test.ts is the guard: it parses AND binds every file in this directory,
+  // and it is the real thing, unlike the comment that used to sit here claiming a guard that
+  // did not exist.
+  const bodyFor = (m: string) => JSON.stringify({
+    model: m,
     messages: [
       { role: "system", content: SYSTEM_PROMPT + "\nSchema: " + JSON.stringify(DRAFT_SCHEMA) },
       // Image mode sends the photo as a multimodal message (needs a vision
@@ -145,18 +170,50 @@ Deno.serve(async (req) => {
     ],
   });
 
+
+  const attempt = (b: string, h: Record<string, string>, m: string) =>
+    callModelWithRetry(`${b}/chat/completions`, h, bodyFor(m));
+
   try {
-    const res = await callModelWithRetry(`${base}/chat/completions`, headers, modelBody);
+    let res = await attempt(base, headers, model);
+    let detail = res.ok ? "" : await res.text();
+
+    // Fall back only on a status that can fix itself. A 400 or a 401 is OUR bug or OUR key,
+    // so the second provider would fail the same way and the first error is the useful one:
+    // the same reasoning as RETRY_STATUSES in retry.ts.
+    // ponytail: the fallback is tried for image mode too, and a fallback without vision will
+    // simply 400 there. One wasted call on an already-failing path is cheaper than a
+    // FALLBACK_MODEL_VISION flag; add the flag if photos ever become the common case.
+    if (!res.ok && fallback && RETRY_STATUSES.has(res.status)) {
+      console.warn(`extract-recipe: ${model} returned ${res.status}, trying ${fallback.model}`);
+      const fbRes = await attempt(fallback.base, fallback.headers, fallback.model);
+      if (fbRes.ok) {
+        res = fbRes;
+        detail = "";
+      } else {
+        // Report the PRIMARY failure: it is the configured model and the more informative
+        // error, and a vision 400 from the fallback would only mislead.
+        console.warn(`extract-recipe: fallback ${fallback.model} also failed (${fbRes.status})`);
+      }
+    }
+
     if (!res.ok) {
-      return json({ error: `model error ${res.status}: ${await res.text()}` }, 502);
+      // The provider's raw JSON used to reach the cook's screen verbatim. It stays in the
+      // function logs, where it is useful, and the reply says what to do instead.
+      // The provider's own body stays in the FUNCTION LOGS and goes no further. It is what
+      // you want when debugging and it is nothing a browser needs, so the reply carries the
+      // wording and the status only.
+      console.error(`extract-recipe: model error ${res.status}: ${detail}`);
+      return json({ error: humanModelError(res.status), status: res.status }, 502);
     }
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") return json({ error: "model returned no content" }, 502);
+    if (typeof content !== "string") return json({ error: "The recipe assistant sent nothing back. Try again, or type the recipe in by hand." }, 502);
     const parsed = parseModelJson(content) as Record<string, unknown>;
     if (mode === "url") parsed.source_url = payload; // keep the source link for provenance
     return json(parsed, 200);
   } catch (err) {
-    return json({ error: `model call failed: ${String(err)}` }, 502);
+    console.error(`extract-recipe: model call failed: ${String(err)}`);
+    return json({ error: "The recipe assistant could not be reached. Check your connection, or type the recipe in by hand." }, 502);
   }
 });
