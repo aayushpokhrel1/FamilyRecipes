@@ -9,6 +9,7 @@ import { callModelWithRetry } from "./retry.ts";
 import { htmlToText } from "./htmlText.ts";
 import { humanModelError } from "./errors.ts";
 import { parseVisionFlag, shouldTryFallback } from "./fallback.ts";
+import { payloadTooLarge, checkUrl, fetchCapped } from "./limits.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,10 +17,10 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function json(body: unknown, status: number) {
+function json(body: unknown, status: number, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...cors },
+    headers: { "content-type": "application/json", ...cors, ...extra },
   });
 }
 
@@ -86,6 +87,41 @@ Deno.serve(async (req) => {
   const mode = body.mode ?? "text";
   const payload = body.payload ?? "";
 
+  // ORDER MATTERS HERE, and it is the whole point of this block. Everything below this line
+  // spends something real: transcription is a paid call, a url fetch is bandwidth, and the
+  // model call is the quota this function exists to protect. So the two cheap refusals run
+  // first, and they run before ANY mode-specific work rather than inside each branch, which
+  // is how a rule ends up enforced on one path and forgotten on the others.
+  const tooLarge = payloadTooLarge(mode, payload);
+  if (tooLarge) return json({ error: tooLarge }, 413);
+
+  // Per-cook rate limit, held in the database so it survives this isolate: see migration
+  // 0031. An isolate is ephemeral and there are many of them at once, so a counter in memory
+  // here would count almost nothing.
+  //
+  // The size check above deliberately does NOT spend budget: refusing an oversized payload
+  // costs nothing, so charging for it would only punish a cook who pasted a book by mistake.
+  const { data: claim, error: claimError } = await client.rpc("claim_extraction");
+  if (claimError) {
+    // FAIL CLOSED. If the limiter cannot be reached we do not know how much this cook has
+    // already spent, and the failure this guard exists to prevent is unbounded spending. An
+    // outage that pauses extraction is recoverable; a drained quota is not, and it takes
+    // every other cook down with it. NOTE this means the migration must be on the database
+    // BEFORE this function is deployed, which is the house rule anyway.
+    console.error(`extract-recipe: rate limiter unavailable: ${claimError.message}`);
+    return json({ error: "The recipe assistant is briefly unavailable. Try again in a minute." }, 503);
+  }
+  if (!claim?.allowed) {
+    const seconds = Number(claim?.retry_after_seconds ?? 60);
+    const wait = claim?.scope === "day"
+      ? "You have added a lot of recipes today. Try again tomorrow, or type this one in by hand."
+      : `You have added a lot of recipes just now. Try again in ${seconds} seconds.`;
+    // Retry-After is the standard way to say it, and the body carries the same thing in words
+    // because the cook reads the body, not the headers. extract.ts surfaces this `error`
+    // string verbatim, so what is written here is what appears on screen.
+    return json({ error: wait }, 429, { "retry-after": String(seconds) });
+  }
+
   let inputText = payload;
 
   // Audio: transcribe to text via a Whisper-style endpoint (Groq by default),
@@ -105,8 +141,13 @@ Deno.serve(async (req) => {
 
   // URL fast path: embedded JSON-LD Recipe costs nothing and is exact.
   if (mode === "url") {
+    // The host is checked BEFORE the fetch, and every redirect hop is checked again inside
+    // fetchCapped. Without both, this function is an open proxy: it would happily fetch
+    // 127.0.0.1 or a cloud metadata address on behalf of anyone with an account.
+    const checked = checkUrl(payload);
+    if (!checked.ok) return json({ error: checked.reason }, 400);
     try {
-      const html = await (await fetch(payload)).text();
+      const html = await fetchCapped(checked.url);
       const draft = parseRecipeJsonLd(html);
       if (draft) {
         draft.source_url = payload; // keep the source link for provenance
