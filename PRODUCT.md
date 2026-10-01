@@ -133,6 +133,35 @@ Explicitly undecided or deferred (future work must not present these as done):
   **Still missing, and deliberate:** nothing tells a cook they were blocked, ever. You cannot
   block a whole family. There is no appeal path and no audit log of moderator actions. Aayush
   is the only moderator and the flag is set by hand.
+- **Every cook always has at least one kitchen, and one of them is theirs** (decided
+  2026-09-30, not yet built). Signup creates a profile and NO family, but `recipes.family_id`
+  is `not null` and ten pages key off the active family, so a brand-new account cannot save a
+  recipe, use My Kitchen, the Cupboard, meal plans, grocery or cook mode. The fix is an
+  invariant rather than a special row: an idempotent `ensure_own_kitchen()` that creates a
+  family plus an owner membership only when the cook has zero memberships. No `is_personal`
+  column, deliberately: a marker would drag in rules about whether you can invite to it, leave
+  it or delete it, and as a plain family the answer to all three is "same as any other". It
+  also self-heals, so a cook who leaves every family gets a kitchen back instead of falling
+  into the dead-button state.
+  **Why not avoid the spare kitchen for people who join a relative's family:** considered, and
+  rejected as machinery that prevents an outcome which is arguably correct. A cook who joins
+  their mother's family legitimately has two kitchens, theirs and hers, and a personal kitchen
+  is what makes the app usable for a solo cook who only wants the vault and the public feed.
+  **Naming matters publicly:** `public_recipe_bylines` publishes `family_name`, so the kitchen
+  name appears under every recipe published from it. `display_name` defaults to `'Cook'`, so
+  the fallback must be "My kitchen" rather than "Cook's kitchen".
+
+- **A draft belongs to its AUTHOR and carries a destination; it is not a row in `recipes`**
+  (decided 2026-09-30, not yet built, see the drafts sub-project). Drafts are personal, so they
+  key to `author_id` and only the author can read them. They are NOT stored in the cook's
+  personal kitchen: a pending edit to a recipe that lives in a SHARED family would then be
+  filed in a different family from the recipe it edits, and "which family owns this draft"
+  would have two defensible answers, which is how a rule ends up enforced in one query path and
+  not another. Instead a draft carries `target_family_id` (where it lands when finished,
+  defaulting to the personal kitchen) and `target_recipe_id` (for a pending edit, which pins
+  the family implicitly). Keeping drafts out of `recipes` also avoids teaching all 11 queries
+  against that table, plus `search_recipes`, to exclude them.
+
 - **`/terms` is a deliberately short first draft, and seven things are missing from it.** Short
   is the decision, a document nobody reads is worse than a short one people might, but short and
   incomplete are different. Missing, roughly in order of how much they matter: a **food safety
