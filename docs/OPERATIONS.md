@@ -46,6 +46,15 @@ npx tsc -b && npm test
 Use `npx tsc -b`, **not** `tsc --noEmit`. DB or migration changes additionally need
 `npx supabase db reset`.
 
+**`tsc -b` deliberately excludes `supabase/functions/`** (they are Deno: remote URL imports,
+`Deno.serve`, `.ts` specifiers), and `functions deploy` does not typecheck either, so a bad
+file there ships silently and answers 503 BOOT_ERROR on every mode at once. That happened once
+from a duplicate `const body`. `npm test` covers it now:
+`supabase/functions/extract-recipe/boots.test.ts` parses AND binds every file in that
+directory, and two of its own tests prove it can go red. Before 2026-09-30 a comment in
+`index.ts` claimed that guard existed while nothing in the suite read the directory at all, so
+if you add another edge function, give it the same test rather than trusting the deploy.
+
 Integration tests need three env vars the script does not inject, mapped from
 `npx supabase status -o env`:
 
@@ -154,8 +163,35 @@ Secrets:
 npx supabase secrets set MODEL_BASE_URL=... MODEL_NAME=<vision model> MODEL_API_KEY=... TRANSCRIBE_BASE_URL=https://api.groq.com/openai/v1 TRANSCRIBE_MODEL=whisper-large-v3-turbo TRANSCRIBE_API_KEY=...
 ```
 
-`MODEL_NAME` **must be vision-capable** or photo mode breaks. It is currently **Gemini 3.8
-Flash** via Google's OpenAI-compatibility layer.
+`MODEL_NAME` serves text, url AND photo, and **must be vision-capable** or photo mode breaks.
+It is currently **Gemini 3.8 Flash** via Google's OpenAI-compatibility layer.
+
+**An optional second provider, used only when the first says "not now"** (added 2026-09-30,
+after a free-tier 429 and a 503 from the same model within an hour both ended a recipe
+mid-add):
+
+```bash
+npx supabase secrets set FALLBACK_MODEL_BASE_URL=https://api.deepseek.com/v1 FALLBACK_MODEL_NAME=deepseek-chat FALLBACK_MODEL_API_KEY=...
+```
+
+Leave these unset and behaviour is exactly as before. It is tried only on a status that can
+fix itself (429, 500, 502, 503, 504); a 400 or 401 is our bug or our key, so a second provider
+would fail identically and the first error is the one reported.
+
+**`FALLBACK_MODEL_VISION=true` is required before a PHOTO will ever use the fallback.** Vision
+cannot be detected, only declared, so the default is "cannot see": without the flag a photo
+that fell back would spend a request earning a 400 and then report that instead of the real
+reason the first provider failed. DeepSeek has no vision, so with a DeepSeek fallback you
+leave this unset and photos simply do not fall back.
+
+**The provider's error body never reaches the browser.** It goes to the function logs
+(`npx supabase functions logs extract-recipe`), and the cook sees wording plus a way out. If
+someone reports "the recipe assistant is busy", the real status is in those logs.
+
+**`url` mode trims the page before the model.** It used to send the entire raw HTML, which
+could exhaust a per-minute INPUT-token quota in one request. `htmlText.ts` strips to visible
+text and caps at 12k characters, keeping any `ld+json` first, because that is where modern
+recipe sites put the recipe and a naive script strip measured zero characters on a real page.
 
 `npx supabase secrets list` returns **digests, not values**, so a key cannot be copied between
 secrets. It does return `updated_at`, which is enough to tell when the model config last

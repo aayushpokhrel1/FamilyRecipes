@@ -5,9 +5,10 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { parseRecipeJsonLd } from "./jsonld.ts";
 import { SYSTEM_PROMPT, DRAFT_SCHEMA } from "./prompt.ts";
-import { callModelWithRetry, RETRY_STATUSES } from "./retry.ts";
+import { callModelWithRetry } from "./retry.ts";
 import { htmlToText } from "./htmlText.ts";
 import { humanModelError } from "./errors.ts";
+import { parseVisionFlag, shouldTryFallback } from "./fallback.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -139,6 +140,9 @@ Deno.serve(async (req) => {
   const fbBase = Deno.env.get("FALLBACK_MODEL_BASE_URL");
   const fbKey = Deno.env.get("FALLBACK_MODEL_API_KEY");
   const fbModel = Deno.env.get("FALLBACK_MODEL_NAME");
+  // Opt-in, because vision cannot be detected, only declared. See fallback.ts for why the
+  // default has to be "cannot see".
+  const fbSeesImages = parseVisionFlag(Deno.env.get("FALLBACK_MODEL_VISION"));
   const fallback = (fbBase || fbKey) && fbModel
     ? {
         base: (fbBase ?? base).replace(/\/$/, ""),
@@ -178,13 +182,20 @@ Deno.serve(async (req) => {
     let res = await attempt(base, headers, model);
     let detail = res.ok ? "" : await res.text();
 
-    // Fall back only on a status that can fix itself. A 400 or a 401 is OUR bug or OUR key,
-    // so the second provider would fail the same way and the first error is the useful one:
-    // the same reasoning as RETRY_STATUSES in retry.ts.
-    // ponytail: the fallback is tried for image mode too, and a fallback without vision will
-    // simply 400 there. One wasted call on an already-failing path is cheaper than a
-    // FALLBACK_MODEL_VISION flag; add the flag if photos ever become the common case.
-    if (!res.ok && fallback && RETRY_STATUSES.has(res.status)) {
+    // Every reason to try or not try the second provider lives in fallback.ts, where it is
+    // unit tested: a fallback skipped when it should fire is indistinguishable from an
+    // outage, and one that fires when it cannot help reports the WRONG error.
+    const decision = shouldTryFallback({
+      ok: res.ok,
+      status: res.status,
+      mode,
+      hasFallback: fallback !== null,
+      fallbackSeesImages: fbSeesImages,
+    });
+    if (!res.ok && !decision.try) {
+      console.warn(`extract-recipe: not using a fallback: ${decision.reason}`);
+    }
+    if (decision.try && fallback) {
       console.warn(`extract-recipe: ${model} returned ${res.status}, trying ${fallback.model}`);
       const fbRes = await attempt(fallback.base, fallback.headers, fallback.model);
       if (fbRes.ok) {
