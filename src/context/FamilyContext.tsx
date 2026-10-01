@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { ensureOwnKitchen, listMyFamilies } from "../lib/api/families";
+import { useAuth } from "./AuthContext";
 import { reportError } from "../lib/api/errorLog";
 import type { MyFamily } from "../lib/api/types";
 
@@ -41,10 +42,19 @@ function pickActive(families: MyFamily[]): MyFamily | null {
 }
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
+  const { userId } = useAuth();
   const [families, setFamilies] = useState<MyFamily[]>([]);
   const [activeFamily, setActive] = useState<MyFamily | null>(null);
 
   async function reload() {
+    // Signed out means no families and nothing to ask for. Without this the provider would
+    // call ensure_own_kitchen with no session on every visit by a stranger, earning a 42501
+    // it would then log, which is noise in the error table rather than a signal.
+    if (!userId) {
+      setFamilies([]);
+      setActive(null);
+      return;
+    }
     let list = await listMyFamilies();
     // Only when the list is EMPTY. A cook who already has a kitchen must cost zero extra
     // round trips on every page load, so the RPC is never called on the happy path.
@@ -71,9 +81,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     writeStoredId(family.id);
   }
 
+  // Keyed on userId, NOT [] . On [] this ran exactly once, while the session was still being
+  // restored, so a cook who had just signed in got the signed-out answer: a brand-new account
+  // accepted the terms and was still told to "create or join a family" until they happened to
+  // reload. A browser found that in a minute; the unit tests could not see it, because they
+  // render the provider with the session already settled.
+  //
+  // It also fixes signing out and back in as someone else inside one session, which used to
+  // leave the first cook's families on screen.
   useEffect(() => {
     reload();
-  }, []);
+  }, [userId]);
 
   return (
     <Ctx.Provider value={{ families, activeFamily, setActiveFamily, reload }}>

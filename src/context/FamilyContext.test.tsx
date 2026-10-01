@@ -12,12 +12,18 @@ vi.mock("../lib/api/families", () => ({
 
 vi.mock("../lib/api/errorLog", () => ({ reportError: vi.fn() }));
 
+// The provider reloads when the signed-in user changes, so every test needs a session. The
+// signed-out case sets this to null explicitly.
+let currentUserId: string | null = "u1";
+vi.mock("./AuthContext", () => ({ useAuth: () => ({ userId: currentUserId, loading: false }) }));
+
 import { ensureOwnKitchen, listMyFamilies } from "../lib/api/families";
 import { reportError } from "../lib/api/errorLog";
 
 // Call history is cleared between tests, but the implementations set in the factory above are
 // kept, so each test starts from the same non-empty default list.
 beforeEach(() => {
+  currentUserId = "u1";
   vi.mocked(listMyFamilies).mockClear();
   vi.mocked(ensureOwnKitchen).mockClear();
   vi.mocked(reportError).mockClear();
@@ -91,4 +97,18 @@ test("a failing ensureOwnKitchen still renders children with no active family", 
   expect(await screen.findByText("no family")).toBeInTheDocument();
   expect(reportError).toHaveBeenCalledWith("load:family-context", expect.any(Error));
   expect(ensureOwnKitchen).toHaveBeenCalledTimes(1);
+});
+
+// A stranger with no session has no families to list and nothing to ask for. This existed as
+// a real cost: the provider used to call the RPC with no session and log the 42501 it earned.
+test("asks for nothing at all when nobody is signed in", async () => {
+  currentUserId = null;
+  render(
+    <FamilyProvider>
+      <Consumer />
+    </FamilyProvider>,
+  );
+  expect(await screen.findByText("no family")).toBeInTheDocument();
+  expect(listMyFamilies).not.toHaveBeenCalled();
+  expect(ensureOwnKitchen).not.toHaveBeenCalled();
 });
