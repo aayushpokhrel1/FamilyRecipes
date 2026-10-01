@@ -18,8 +18,9 @@ Migration reaches cloud BEFORE the frontend, as always.
    - `select updated_at ... for update` on the target recipe, which is the lock that makes
      the check and the write atomic;
    - unless `p_force`, raise when the recipe's `updated_at` differs from `base_updated_at`,
-     with `errcode = 'serialization_failure'` so the client can tell this apart from a real
-     failure and offer the choice;
+     with the custom `errcode = 'DRF01'` so the client can tell this apart from a real
+     failure and offer the choice. NOT `serialization_failure`: PostgREST retries that class,
+     which turns the refusal into a hang;
    - apply title and the scalar columns from the draft, set `updated_at = now()`;
    - replace children through the EXISTING `replace_recipe_children`, never a second copy of
      that logic: its own comment records that a hand-written column list has silently dropped

@@ -47,6 +47,11 @@ Mechanically:
 - Publishing compares it to the recipe's current `updated_at`. Equal means nothing moved, so
   publish. Different means someone else published in between, so **refuse and say so**, with
   the choice to publish anyway (overwriting) or keep the draft and look first.
+- The refusal uses the CUSTOM SQLSTATE `DRF01`, and the custom part is load bearing. The
+  obvious choice, `serialization_failure` (40001), means "transient, try again" to everything
+  above Postgres: PostgREST retries that class, so the refusal never reached the caller and
+  the test hung for its full timeout instead of failing. **A code meant to be read by the
+  client must be one no layer in between already has an opinion about.**
 - The comparison and the write happen **in one transaction, in SQL**, not as a read in the
   client followed by a write. A check in the client is a race with a smaller window, not a
   fix, and the window is exactly when two people are editing, which is the only time this
