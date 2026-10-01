@@ -24,6 +24,18 @@ beforeEach(() => {
 });
 
 describe("AppLayout", () => {
+  // The point of /me: the public page was reachable only through Settings, which is where
+  // nobody looks for it. The link is static and unconditional, so it is here even before you
+  // have a handle, and /me explains the rest.
+  it("offers the public page from the nav, not only through Settings", () => {
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("link", { name: "My Profile" })).toHaveAttribute("href", "/me");
+  });
+
   it("renders the app shell", () => {
     render(
       <MemoryRouter>

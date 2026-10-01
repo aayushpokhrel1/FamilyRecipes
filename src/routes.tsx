@@ -16,6 +16,7 @@ import CookPage from "./pages/CookPage";
 import MyKitchen from "./pages/MyKitchen";
 import Cupboard from "./pages/Cupboard";
 import MealPlanDetail from "./pages/MealPlanDetail";
+import MyProfile from "./pages/MyProfile";
 import Settings from "./pages/Settings";
 import Potluck from "./pages/Potluck";
 import Moderation from "./pages/Moderation";
@@ -76,6 +77,9 @@ export default function AppRoutes() {
             rather than relying on the reader knowing that. */}
         <Route path="kitchen/cupboard" element={<Cupboard />} />
         <Route path="kitchen/:id" element={<MealPlanDetail />} />
+        {/* A signpost, not a page of its own: it redirects to /cooks/<handle>, which keeps
+            one canonical public URL. Guarded, because it reads YOUR profile. */}
+        <Route path="me" element={<MyProfile />} />
         <Route path="settings" element={<Settings />} />
         <Route path="join/:code" element={<JoinByCode />} />
       </Route>

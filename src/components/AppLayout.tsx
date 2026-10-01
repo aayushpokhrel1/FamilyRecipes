@@ -27,6 +27,11 @@ export default function AppLayout() {
               </NavLink>
               <NavLink to="/kitchen">My Kitchen</NavLink>
               <NavLink to="/potluck">Potluck</NavLink>
+              {/* Static on purpose, and NOT conditional on having published. The page lives
+                  at /cooks/<handle>, so linking there directly would mean fetching the
+                  profile here and holding a handle that goes stale the moment Settings
+                  changes it. /me redirects instead. */}
+              <NavLink to="/me">My Profile</NavLink>
               <NavLink to="/families">Families</NavLink>
               <NavLink to="/settings">Settings</NavLink>
             </nav>
