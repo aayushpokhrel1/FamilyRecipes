@@ -157,6 +157,25 @@ for `"remote":""`.
 npx supabase functions deploy extract-recipe
 ```
 
+**This deploy now has a HARD prerequisite: migration 0031 must be on the database first.**
+Since 2026-10-01 the function calls `claim_extraction()` for a per-cook rate limit, and it
+**fails closed**: when that function cannot be reached it answers 503 rather than spending a
+model call it cannot account for. Deploy the function to a database without 0031 and every
+extraction breaks at once, in every mode. "Migration before frontend" was always the rule
+here; this one makes it mandatory rather than merely wise.
+
+The limits themselves are **10 extractions a minute and 60 a day per cook**, plus payload
+size caps and a host check with a 2MB read cap on `url` mode. All of them are knobs,
+documented where they live: the rate limits in `supabase/migrations/0031_extract_rate_limit.sql`,
+the sizes and the host rules in `supabase/functions/extract-recipe/limits.ts`. Raise them
+there if a real cook is ever refused. A cook who hits the limit sees the sentence in the
+reply body, because `src/lib/api/extract.ts` surfaces the function's own `error` string.
+
+The host check closes a server-side request forgery hole: before it, `url` mode would fetch
+any address the caller named, including loopback and the cloud metadata address. It cannot
+stop DNS rebinding, and it says so at the code rather than implying a guarantee it does not
+make.
+
 Secrets:
 
 ```bash
