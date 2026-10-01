@@ -83,8 +83,12 @@ export default function RecipeList() {
         </Link>
         {/* Only when there is something to resume. An empty room does not need a sign
             advertising it. */}
+        {/* One draft is the common case, not the edge case: a cook saves one and comes back
+            to it. "1 unfinished drafts" is what the first browser pass actually showed. */}
         {draftCount > 0 && (
-          <Link to="/drafts">{draftCount} unfinished drafts</Link>
+          <Link to="/drafts">
+            {draftCount === 1 ? "1 unfinished draft" : `${draftCount} unfinished drafts`}
+          </Link>
         )}
       </div>
       {!activeFamily && (

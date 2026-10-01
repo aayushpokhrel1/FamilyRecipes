@@ -33,6 +33,11 @@ vi.mock("../lib/api/photos", () => ({
   listCoverPhotoUrls: vi.fn().mockResolvedValue(new Map()),
 }));
 
+// Resolves to [] by default, because the real listDrafts always returns a promise and a
+// mock that does not is a fixture bug wearing a component bug's clothes.
+vi.mock("../lib/api/drafts", () => ({ listDrafts: vi.fn().mockResolvedValue([]) }));
+import { listDrafts } from "../lib/api/drafts";
+
 test("lists recipes for the active family", async () => {
   render(
     <MemoryRouter>
@@ -41,4 +46,26 @@ test("lists recipes for the active family", async () => {
   );
   expect(await screen.findByText("Dal")).toBeInTheDocument();
   expect(await screen.findByText("Rice")).toBeInTheDocument();
+});
+
+// One draft is the ordinary case, and the first browser pass showed "1 unfinished drafts".
+// A count in a sentence needs the singular written down somewhere that fails.
+test("counts a single draft in the singular", async () => {
+  vi.mocked(listDrafts).mockResolvedValue([{ id: "d1" }] as never);
+  render(
+    <MemoryRouter>
+      <RecipeList />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("1 unfinished draft")).toBeInTheDocument();
+});
+
+test("counts several drafts in the plural", async () => {
+  vi.mocked(listDrafts).mockResolvedValue([{ id: "d1" }, { id: "d2" }] as never);
+  render(
+    <MemoryRouter>
+      <RecipeList />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("2 unfinished drafts")).toBeInTheDocument();
 });
