@@ -93,6 +93,14 @@ export interface RecipeDraft {
   servings: number | null; prep_minutes: number | null; cook_minutes: number | null;
   ingredients: Ingredient[]; steps: Step[]; source_url: string | null;
 }
+// A SavedDraft is a ROW. RecipeDraft above is FORM STATE held in memory, and the AI
+// extraction returns one of those. A SavedDraft CONTAINS a RecipeDraft as its body. The
+// two names are one letter apart in meaning and will be conflated by anyone who does not
+// read this, which is why the distinction is written here and not in a doc.
+export interface SavedDraft {
+  id: string; author_id: string; target_family_id: string; target_recipe_id: string | null;
+  draft: RecipeDraft; visibility: Visibility; created_at: string; updated_at: string;
+}
 export type MealPlanViewMode = "list" | "calendar";
 export type MealSlot = "breakfast" | "lunch" | "dinner";
 export interface MealPlan {
