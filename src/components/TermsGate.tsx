@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { acceptTerms, getMyProfile } from "../lib/api/profile";
 
+// BUMP THIS WHENEVER THE WORDING IN Terms.tsx CHANGES. The gate compares it against the
+// accepted version, so an edit shipped without a bump means nobody is re-asked and the stored
+// terms_accepted_at claims people accepted text they never saw. There is nothing mechanical
+// stopping that, which is exactly why this warning sits here rather than in a doc.
 export const TERMS_VERSION = "2026-09-28";
 
 // The gate sits AFTER authentication, not on the signup form. A signup checkbox would

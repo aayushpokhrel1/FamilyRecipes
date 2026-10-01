@@ -133,6 +133,18 @@ Explicitly undecided or deferred (future work must not present these as done):
   **Still missing, and deliberate:** nothing tells a cook they were blocked, ever. You cannot
   block a whole family. There is no appeal path and no audit log of moderator actions. Aayush
   is the only moderator and the flag is set by hand.
+- **`/terms` is a deliberately short first draft, and seven things are missing from it.** Short
+  is the decision, a document nobody reads is worse than a short one people might, but short and
+  incomplete are different. Missing, roughly in order of how much they matter: a **food safety
+  and liability** disclaimer, which is the one clause a recipe app specifically needs since
+  recipes come from other cooks unchecked and allergens may be unlisted; a **privacy notice**,
+  probably its own `/privacy` page, because the app stores emails, display names, avatars,
+  Google sign-in identities, uploaded photos and a runtime `error_log`, processed by Supabase,
+  Cloudflare and Google, and the terms mention none of it; **who operates it** and under which
+  jurisdiction; a **minimum age**; a line saying **the terms can change**, which the code
+  already enforces through `TERMS_VERSION` but the page never states; and a **photo licence**
+  line, since uploads are accepted. The contact address is covered in `HANDOVER.md`.
+
 - **Potluck is signed in only, and that is a discovery brake rather than a privacy boundary.**
   Public rows stay readable to the anon role through the API, which is what makes the public
   recipe pages and the link previews work at all. Opening Potluck up later is a one-line route
