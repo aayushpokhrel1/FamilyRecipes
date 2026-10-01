@@ -1,7 +1,8 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
 import { createRecipe, listFamilyIngredientNames, listFamilySectionNames } from "../lib/api/recipes";
+import { getDraft, saveDraft, deleteDraft } from "../lib/api/drafts";
 import { setRecipeTags } from "../lib/api/tags";
 import { uploadRecipePhoto } from "../lib/api/photos";
 import { reportError } from "../lib/api/errorLog";
@@ -44,6 +45,26 @@ export default function RecipeCreate() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [draftId, setDraftId] = useState<string | null>(searchParams.get("draft"));
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+
+  // A draft id in the query string means the cook came here to finish that draft, so the
+  // form has to be filled from it. A load that fails reports and says so: leaving the blank
+  // form on screen would look exactly like a new recipe and quietly lose the draft.
+  useEffect(() => {
+    const id = searchParams.get("draft");
+    if (!id) return;
+    getDraft(id)
+      .then((saved) => {
+        setDraft(saved.draft);
+        setVisibility(saved.visibility);
+      })
+      .catch((err) => {
+        reportError("load:draft", err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
+  }, [searchParams]);
 
   function handleDraft(d: RecipeDraft) {
     setDraft(d);
@@ -61,9 +82,33 @@ export default function RecipeCreate() {
       const created = await createRecipe(activeFamily.id, draft, visibility);
       if (tagIds.length) await setRecipeTags(created.id, tagIds);
       if (coverFile) await uploadRecipePhoto(created.id, coverFile, true);
+      // The recipe is created FIRST and the draft deleted after, never the other way round.
+      // A failed delete leaves the cook their recipe and a stale draft, which is recoverable
+      // and visible. The other order risks destroying the work and then failing to create
+      // the recipe. The delete gets its own catch so a failure cannot stop the navigate.
+      if (draftId) {
+        try {
+          await deleteDraft(draftId);
+        } catch (err) {
+          reportError("delete:draft", err);
+        }
+      }
       navigate("/recipes/" + created.id);
     } catch (err) {
       reportError("save:recipe-create", err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!activeFamily) return;
+    setError(null);
+    try {
+      const id = await saveDraft(draft, activeFamily.id, visibility, draftId ?? undefined);
+      setDraftId(id);
+      setDraftNote("Draft saved.");
+    } catch (err) {
+      reportError("save:draft", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }
@@ -162,6 +207,20 @@ export default function RecipeCreate() {
             its explanation off screen is the same silent failure in a different costume. */}
         <button type="submit" disabled={!activeFamily}>Save</button>
         {!activeFamily && <span>Setting up your kitchen. Reload if this does not clear.</span>}
+        {/* The reason sits beside the button, not only at the top of the form. A disabled
+            control whose explanation is off screen is a silent failure in a different
+            costume, which is the bug that was just fixed on the Save button above. */}
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={!activeFamily || !draft.title.trim()}
+        >
+          Save draft
+        </button>
+        {activeFamily && !draft.title.trim() && (
+          <span>A draft needs a title, so you can find it again.</span>
+        )}
+        {draftNote && <span role="status">{draftNote}</span>}
       </form>
     </div>
   );

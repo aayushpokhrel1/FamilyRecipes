@@ -9,6 +9,7 @@ import Families from "./pages/Families";
 import JoinByCode from "./pages/JoinByCode";
 import RecipeList from "./pages/RecipeList";
 import RecipeCreate from "./pages/RecipeCreate";
+import Drafts from "./pages/Drafts";
 import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
 import CookMode from "./pages/CookMode";
@@ -59,6 +60,10 @@ export default function AppRoutes() {
         <Route index element={<RecipeList />} />
         <Route path="families" element={<Families />} />
         <Route path="recipes/new" element={<RecipeCreate />} />
+        {/* Guarded, in the same group as recipes/new and NOT in the public group above.
+            A draft is private to its author, so it must never sit beside recipes/:id
+            and cooks/:handle. */}
+        <Route path="drafts" element={<Drafts />} />
         <Route path="recipes/:id/edit" element={<RecipeEdit />} />
         <Route path="recipes/:id/cook" element={<CookMode />} />
         {/* Guarded on purpose, unlike recipes/:id and cooks/:handle above. Signed in now,

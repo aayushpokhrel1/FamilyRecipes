@@ -4,6 +4,7 @@ import { useFamily } from "../context/FamilyContext";
 import { listRecipes } from "../lib/api/recipes";
 import { listCoverPhotoUrls } from "../lib/api/photos";
 import { listTags } from "../lib/api/tags";
+import { listDrafts } from "../lib/api/drafts";
 import type { Recipe, Tag } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
 import Skeleton from "../components/Skeleton";
@@ -17,6 +18,15 @@ export default function RecipeList() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [draftCount, setDraftCount] = useState(0);
+
+  // A failed draft count must never break the recipe list, so the catch leaves the
+  // count at zero and the link simply does not render.
+  useEffect(() => {
+    listDrafts()
+      .then((d) => setDraftCount(d.length))
+      .catch(() => setDraftCount(0));
+  }, []);
 
   useEffect(() => {
     if (!activeFamily) return;
@@ -71,6 +81,11 @@ export default function RecipeList() {
         <Link to="/recipes/new" className="action">
           New recipe
         </Link>
+        {/* Only when there is something to resume. An empty room does not need a sign
+            advertising it. */}
+        {draftCount > 0 && (
+          <Link to="/drafts">{draftCount} unfinished drafts</Link>
+        )}
       </div>
       {!activeFamily && (
         <p className="vault-note">

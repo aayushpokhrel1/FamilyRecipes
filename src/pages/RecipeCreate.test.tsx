@@ -13,6 +13,13 @@ vi.mock("../context/FamilyContext", () => ({
   useFamily: () => ({ activeFamily }),
 }));
 
+vi.mock("../lib/api/drafts", () => ({
+  listDrafts: vi.fn().mockResolvedValue([]),
+  getDraft: vi.fn(),
+  saveDraft: vi.fn().mockResolvedValue("d1"),
+  deleteDraft: vi.fn().mockResolvedValue(undefined),
+}));
+
 test("renders the guided create form", () => {
   render(
     <MemoryRouter>
@@ -37,6 +44,26 @@ test("with no active family the Save button is disabled and says why", () => {
   expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
   expect(screen.getByText(/setting up your kitchen/i)).toBeInTheDocument();
   activeFamily = { id: "f1", name: "F", invite_code: "x", created_by: "u" };
+});
+
+// Same shape of bug as the Save button above, one control over: a disabled Save draft with
+// its reason off screen is a silent failure in a different costume. The reason has to be
+// visible beside the button, and the button has to come alive once a title exists.
+test("Save draft is disabled without a title and says why, enabled with one", () => {
+  render(
+    <MemoryRouter>
+      <RecipeCreate />
+    </MemoryRouter>,
+  );
+
+  const saveDraftButton = screen.getByRole("button", { name: /save draft/i });
+  expect(saveDraftButton).toBeDisabled();
+  expect(screen.getByText(/a draft needs a title/i)).toBeInTheDocument();
+
+  fireEvent.change(screen.getByPlaceholderText(/title/i), { target: { value: "Sunday sauce" } });
+
+  expect(screen.getByRole("button", { name: /save draft/i })).toBeEnabled();
+  expect(screen.queryByText(/a draft needs a title/i)).not.toBeInTheDocument();
 });
 
 // The bug Aayush hit: dictate steps, watch them appear in the box, save, and the spoken steps
