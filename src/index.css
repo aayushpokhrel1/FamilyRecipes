@@ -273,6 +273,13 @@ button.action:hover { background: var(--action-deep); }
 /* Provenance as a stamped maker's mark. */
 .stamp {
   display: inline-block;
+  /* fit-content, not auto: as a flex item in a COLUMN the stamp is blockified and
+     stretched to the container's full width, and `transform` makes a stretched stamp
+     destructive rather than merely wide. A rotated full-width box drops its left corner
+     ~w/2*tan(2.5deg) below its own line AND paints above normal-flow siblings, so on My
+     Kitchen's hero it sat crooked on top of the recipe title at desktop widths. Any new
+     .stamp inside a flex column needs this. */
+  width: fit-content;
   font-family: var(--sign);
   font-size: 0.72rem;
   font-weight: 600;
