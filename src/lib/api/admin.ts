@@ -33,7 +33,8 @@ export function getAdminStats(): Promise<AdminStats> {
   return call<AdminStats>({ action: "stats" });
 }
 
-export function listAdminUsers(page = 0): Promise<{ users: AdminUser[]; hasMore: boolean }> {
+// Pages are 1-based, the same as the edge function, which clamps anything below 1 to 1.
+export function listAdminUsers(page = 1): Promise<{ users: AdminUser[]; hasMore: boolean }> {
   return call<{ users: AdminUser[]; hasMore: boolean }>({ action: "users", page });
 }
 

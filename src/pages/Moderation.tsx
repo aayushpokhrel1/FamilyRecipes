@@ -240,7 +240,10 @@ function Overview() {
 function People() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(0);
+  // 1-based, because the admin function's `users` action is: it clamps anything below 1
+  // to page 1. Starting at 0 made the first Load more re-request page 1 and append a
+  // duplicate of everyone already on screen.
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
@@ -258,15 +261,15 @@ function People() {
   // service-role view of the database, and a local patch would show a state the database
   // does not hold (a suspension that failed, a moderator flag that was refused).
   async function refresh() {
-    const first = await listAdminUsers(0);
+    const first = await listAdminUsers(1);
     setUsers(first.users);
     setHasMore(first.hasMore);
-    setPage(0);
+    setPage(1);
   }
 
   useEffect(() => {
     let ignore = false;
-    listAdminUsers(0)
+    listAdminUsers(1)
       .then((r) => {
         if (ignore) return;
         setUsers(r.users);
