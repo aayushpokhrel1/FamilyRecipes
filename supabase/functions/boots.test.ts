@@ -23,10 +23,22 @@ import ts from "typescript";
 // Everything else the checker says here is noise (cannot find `jsr:...`, `Deno` is not
 // defined) and is filtered out, because those are facts about Deno, not faults in the code.
 
-const dir = dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+// This file sits in supabase/functions/, NOT inside one function, because it guards all of
+// them. It used to live in extract-recipe/ and scan only its own directory.
+const functionsRoot = dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
 
-const sources = readdirSync(dir)
-  .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+// EVERY edge function, not just this one. This used to scan only extract-recipe, which meant
+// the guard silently did not cover admin, delete-account or notify-report: each new function
+// needed someone to remember to copy this file, and the whole lesson of this test is that
+// nobody remembers. Walking the parent directory makes a new function covered the moment it
+// exists, with no step to forget.
+const sources = readdirSync(functionsRoot, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && !e.name.startsWith("_"))
+  .flatMap((e) =>
+    readdirSync(join(functionsRoot, e.name))
+      .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+      .map((f) => join(e.name, f)),
+  )
   .sort();
 
 // Only the codes that mean "this will not run". 2451 cannot redeclare block-scoped variable,
@@ -67,16 +79,21 @@ function redeclarations(code: string): string[] {
 describe("the edge function parses and binds, so it can boot", () => {
   it("has sources to check, since a silently empty list would guard nothing", () => {
     expect(sources.length).toBeGreaterThan(0);
-    expect(sources).toContain("index.ts");
+    // Named explicitly: if a function directory is renamed or dropped, this says so rather
+    // than quietly checking fewer files than you think.
+    expect(sources).toContain(join("extract-recipe", "index.ts"));
+    expect(sources).toContain(join("admin", "index.ts"));
+    expect(sources).toContain(join("delete-account", "index.ts"));
+    expect(sources).toContain(join("notify-report", "index.ts"));
   });
 
   for (const file of sources) {
     it(`${file} has no syntax error`, () => {
-      expect(syntaxErrors(file, readFileSync(join(dir, file), "utf8"))).toEqual([]);
+      expect(syntaxErrors(file, readFileSync(join(functionsRoot, file), "utf8"))).toEqual([]);
     });
 
     it(`${file} redeclares nothing`, () => {
-      expect(redeclarations(readFileSync(join(dir, file), "utf8"))).toEqual([]);
+      expect(redeclarations(readFileSync(join(functionsRoot, file), "utf8"))).toEqual([]);
     });
   }
 
