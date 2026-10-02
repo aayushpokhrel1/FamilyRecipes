@@ -12,6 +12,12 @@ import { expect, it } from "vitest";
 // from adding a twenty-third without it, and that is the gap this closes. It reads the
 // migrations rather than a live database on purpose: no Docker needed, so it runs in
 // `npm test` with everything else, and migrations are the only way a table is created here.
+//
+// It sits in supabase/ rather than in supabase/migrations/ because the Supabase CLI treats
+// every file in that directory as a migration, and printed
+// "Skipping migration rls.test.ts... (file name must match pattern)" on every db command.
+// A warning that is always there is a warning nobody reads, and a future CLI could reasonably
+// turn it into an error.
 
 const dir = resolve(process.cwd(), "supabase/migrations");
 const sql = readdirSync(dir)
