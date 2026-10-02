@@ -15,19 +15,24 @@
     "directory": "./dist",
     "not_found_handling": "single-page-application",
     "binding": "ASSETS",
-    // WITHOUT THIS, THE WORKER NEVER RUNS FOR `/`. Cloudflare serves any request that matches
-    // a real file in dist/ straight from its asset store, skipping the Worker entirely, so the
-    // security headers in worker/index.ts reached /help and /sitemap.xml (no matching file, so
-    // they fall through to the Worker) and never reached the home page, which is index.html.
-    // That was live and invisible for a day: the headers were correct and simply not applied
-    // to the one URL most people load.
+    // WITHOUT THIS, THE WORKER NEVER RUNS FOR `/`. Cloudflare serves any request matching a
+    // real file in dist/ straight from its asset store, skipping the Worker, so the security
+    // headers reached /help and /sitemap.xml (no matching file, so they fell through) and
+    // never reached the home page, which is index.html.
     //
-    // Deliberately a narrow list rather than `true`. `true` routes EVERY asset through the
-    // Worker, which would mean a Worker exception takes the JS, CSS and fonts down with it,
-    // and this project's rule is that a page must never fail to load because something
-    // optional broke. The document is the only response where the CSP does anything anyway:
-    // frame-ancestors, script-src and Referrer-Policy are properties of the page, not of a
-    // font file. HSTS on the document already covers the whole host.
-    "run_worker_first": ["/", "/index.html"]
+    // MUST BE `true`, NOT A LIST OF ROUTES. An array means "run the Worker first ONLY for
+    // these", and every other path is then handled by the asset layer alone: not_found_handling
+    // serves index.html directly without ever invoking the Worker. Setting ["/", "/index.html"]
+    // was tried on 2026-10-02 and broke production in two ways within a minute, because
+    // /sitemap.xml and /recipes/:id are Worker routes with no matching file. The sitemap
+    // started returning the SPA shell as text/html, and every shared recipe link lost its
+    // per-recipe OpenGraph tags and fell back to the generic card. Both are silent failures:
+    // the pages still answer 200.
+    //
+    // The cost of `true` is that a Worker exception now takes the static assets down with it,
+    // where before they would still have served. That is the trade, and it is the right way
+    // round: the Worker is already the only thing that answers for every route except the
+    // handful of real files, so almost nothing was independent of it anyway.
+    "run_worker_first": true
   }
 }
