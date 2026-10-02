@@ -6,7 +6,16 @@
 // exactly what the assets-only config did before. Keep it that way: a recipe page must never
 // fail to load because a preview could not be built.
 import { checkExtract, HEALTH_PATH } from "./health";
-import { avatarHandleFromPath, buildTags, ogIdFromPath, recipeIdFromPath, type Tags } from "./meta";
+import {
+  avatarHandleFromPath,
+  buildRecipeJsonLd,
+  buildSitemap,
+  buildTags,
+  ogIdFromPath,
+  recipeIdFromPath,
+  type SitemapEntry,
+  type Tags,
+} from "./meta";
 
 export interface Env {
   ASSETS: Fetcher;
@@ -14,8 +23,16 @@ export interface Env {
   SUPABASE_ANON_KEY: string;
 }
 
-type RecipeRow = { title: string; story: string | null };
+type RecipeRow = {
+  title: string;
+  story: string | null;
+  servings: number | null;
+  prep_minutes: number | null;
+  cook_minutes: number | null;
+};
 type PhotoRow = { storage_path: string | null; is_cover: boolean | null };
+type IngredientRow = { quantity: string | null; unit: string | null; item: string | null };
+type StepRow = { text: string | null };
 
 // The anon key is the whole security model here, so it is the only credential we send. The
 // recipes table has an RLS policy that applies to the anonymous role and only ever returns
@@ -30,12 +47,37 @@ function supabaseHeaders(env: Env): HeadersInit {
 }
 
 async function fetchRecipe(env: Env, id: string): Promise<RecipeRow | null> {
-  const url = `${env.SUPABASE_URL}/rest/v1/recipes?id=eq.${id}&select=title,story&limit=1`;
+  const url = `${env.SUPABASE_URL}/rest/v1/recipes?id=eq.${id}&select=title,story,servings,prep_minutes,cook_minutes&limit=1`;
   const response = await fetch(url, { headers: supabaseHeaders(env) });
   if (!response.ok) return null;
 
   const rows = (await response.json()) as RecipeRow[];
   return rows.length > 0 ? rows[0] : null;
+}
+
+async function fetchIngredients(env: Env, id: string): Promise<IngredientRow[]> {
+  const url = `${env.SUPABASE_URL}/rest/v1/recipe_ingredients?recipe_id=eq.${id}&select=quantity,unit,item&order=position`;
+  const response = await fetch(url, { headers: supabaseHeaders(env) });
+  if (!response.ok) return [];
+
+  return (await response.json()) as IngredientRow[];
+}
+
+async function fetchSteps(env: Env, id: string): Promise<StepRow[]> {
+  const url = `${env.SUPABASE_URL}/rest/v1/recipe_steps?recipe_id=eq.${id}&select=text&order=position`;
+  const response = await fetch(url, { headers: supabaseHeaders(env) });
+  if (!response.ok) return [];
+
+  return (await response.json()) as StepRow[];
+}
+
+// An ingredient line is [quantity, unit, item] joined by single spaces with the empty and null
+// parts dropped, so {quantity: "2", unit: null, item: "eggs"} becomes "2 eggs".
+function ingredientLine(row: IngredientRow): string {
+  return [row.quantity, row.unit, row.item]
+    .map((part) => (part ?? "").trim())
+    .filter((part) => part !== "")
+    .join(" ");
 }
 
 async function fetchHasPhoto(env: Env, id: string): Promise<boolean> {
@@ -45,6 +87,54 @@ async function fetchHasPhoto(env: Env, id: string): Promise<boolean> {
 
   const rows = (await response.json()) as unknown[];
   return rows.length > 0;
+}
+
+// The static pages are hard-coded because they are the same five for every deployment, and
+// they carry no lastmod: there is no per-page timestamp to report and a made-up one would
+// teach Google to distrust the field.
+const STATIC_SITEMAP_PATHS = ["/", "/terms", "/privacy", "/cookies", "/help"];
+
+type RecipeSitemapRow = { id: string; updated_at: string | null };
+type CookSitemapRow = { handle: string | null };
+
+// A sitemap is a nice-to-have; a 500 is not. Any Supabase failure degrades to the static
+// pages, which is still a valid sitemap that lists five real URLs.
+async function serveSitemap(env: Env, origin: string): Promise<Response> {
+  const entries: SitemapEntry[] = STATIC_SITEMAP_PATHS.map((path) => ({ loc: `${origin}${path}` }));
+
+  try {
+    // removed_at=is.null is NOT redundant with RLS: a recipe a moderator took down is still a
+    // public-visibility row, and listing it here would actively invite Google to index
+    // something we removed.
+    const recipesUrl = `${env.SUPABASE_URL}/rest/v1/recipes?select=id,updated_at&removed_at=is.null&order=updated_at.desc&limit=5000`;
+    const cooksUrl = `${env.SUPABASE_URL}/rest/v1/public_cooks?select=handle&limit=5000`;
+    const [recipesResponse, cooksResponse] = await Promise.all([
+      fetch(recipesUrl, { headers: supabaseHeaders(env) }),
+      fetch(cooksUrl, { headers: supabaseHeaders(env) }),
+    ]);
+
+    if (recipesResponse.ok) {
+      const recipes = (await recipesResponse.json()) as RecipeSitemapRow[];
+      for (const recipe of recipes) {
+        entries.push({ loc: `${origin}/recipes/${recipe.id}`, lastmod: recipe.updated_at });
+      }
+    }
+    if (cooksResponse.ok) {
+      const cooks = (await cooksResponse.json()) as CookSitemapRow[];
+      for (const cook of cooks) {
+        if (cook.handle) entries.push({ loc: `${origin}/cooks/${cook.handle}` });
+      }
+    }
+  } catch {
+    // Keep whatever was collected before the failure: the static pages are always in there.
+  }
+
+  return new Response(buildSitemap(entries), {
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
 }
 
 // Every failure path here is the same answer on purpose: a private recipe and a recipe that
@@ -134,7 +224,7 @@ async function serveAvatar(env: Env, handle: string): Promise<Response> {
   }
 }
 
-function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean): Response {
+function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean, jsonLd: string): Response {
   // The width and height in index.html describe the static 1200x630 card. A proxied recipe
   // photo is whatever shape the cook's camera produced, so keeping them would state a size
   // that is simply wrong and invite a bad crop. Dropping them lets the crawler measure.
@@ -172,6 +262,11 @@ function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean): Response {
         element.setAttribute("content", tags.url);
       },
     })
+    .on('link[rel="canonical"]', {
+      element(element) {
+        element.setAttribute("href", tags.url);
+      },
+    })
     .on('meta[property="og:image"]', {
       element(element) {
         element.setAttribute("content", tags.image);
@@ -180,6 +275,13 @@ function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean): Response {
     .on('meta[property="og:image:alt"]', {
       element(element) {
         element.setAttribute("content", tags.imageAlt);
+      },
+    })
+    .on("head", {
+      element(element) {
+        // html: true because jsonLd is already a complete <script> element, and the escaping
+        // that matters (the </script> break-out) is done in buildRecipeJsonLd.
+        element.append(jsonLd, { html: true });
       },
     })
     .transform(asset);
@@ -199,15 +301,36 @@ async function enrichRecipePage(request: Request, env: Env, id: string): Promise
     // card rather than leaking anything about it.
     if (!recipe) return asset;
 
-    const hasPhoto = await fetchHasPhoto(env, id);
+    // Three independent round trips, so they run together: serialising them would add latency
+    // to every shared recipe link.
+    const [hasPhoto, ingredients, steps] = await Promise.all([
+      fetchHasPhoto(env, id),
+      fetchIngredients(env, id),
+      fetchSteps(env, id),
+    ]);
+    const origin = new URL(request.url).origin;
     const tags = buildTags({
       title: recipe.title,
       story: recipe.story,
       id,
       hasPhoto,
-      origin: new URL(request.url).origin,
+      origin,
     });
-    return rewriteTags(asset, tags, hasPhoto);
+    const jsonLd = buildRecipeJsonLd({
+      title: recipe.title,
+      description: tags.description,
+      url: tags.url,
+      image: tags.image,
+      ingredients: ingredients.map(ingredientLine).filter((line) => line !== ""),
+      steps: steps.map((step) => step.text ?? "").filter((text) => text !== ""),
+      servings: recipe.servings,
+      prepMinutes: recipe.prep_minutes,
+      cookMinutes: recipe.cook_minutes,
+      // No cheap way to get the author from the recipes table, and a wrong byline is worse
+      // than none, so it stays null rather than being invented from a join.
+      authorName: null,
+    });
+    return rewriteTags(asset, tags, hasPhoto, jsonLd);
   } catch {
     // A preview is a nice-to-have; the page load is not. Any Supabase or parsing failure
     // degrades to the untouched asset.
@@ -221,6 +344,8 @@ export default {
 
     // First, and deliberately cheap: an outage check has to answer when the rest is unwell.
     if (pathname === HEALTH_PATH) return checkExtract(env.SUPABASE_URL);
+
+    if (pathname === "/sitemap.xml") return serveSitemap(env, new URL(request.url).origin);
 
     const ogId = ogIdFromPath(pathname);
     if (ogId) return serveOgImage(env, ogId);

@@ -67,6 +67,76 @@ function describe(story: string | null): string {
   return `${head}...`;
 }
 
+export type SitemapEntry = { loc: string; lastmod?: string | null };
+
+export function buildSitemap(entries: SitemapEntry[]): string {
+  const urls = entries.map((entry) => {
+    const loc = `    <loc>${escapeAttr(entry.loc)}</loc>`;
+    // Google wants a date, not a timestamp, and Supabase hands back a full ISO string, so the
+    // first ten characters are the YYYY-MM-DD prefix. An empty lastmod is dropped rather than
+    // emitted as an empty element, which is an invalid field.
+    const lastmod = entry.lastmod ? `\n    <lastmod>${entry.lastmod.slice(0, 10)}</lastmod>` : "";
+    return `  <url>\n${loc}${lastmod}\n  </url>`;
+  });
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...urls,
+    "</urlset>",
+    "",
+  ].join("\n");
+}
+
+export type JsonLdInput = {
+  title: string;
+  description: string;
+  url: string;
+  image: string;
+  ingredients: string[];
+  steps: string[];
+  servings: number | null;
+  prepMinutes: number | null;
+  cookMinutes: number | null;
+  authorName: string | null;
+};
+
+// A key with a null value is worse than an absent key: Google reports it as an invalid field,
+// so every optional property is added only when it has a real value.
+function minutes(value: number | null): string | null {
+  return typeof value === "number" && value > 0 ? `PT${value}M` : null;
+}
+
+export function buildRecipeJsonLd(input: JsonLdInput): string {
+  const recipe: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Recipe",
+    name: input.title,
+    description: input.description,
+    url: input.url,
+    image: [input.image],
+  };
+
+  if (input.ingredients.length > 0) recipe.recipeIngredient = input.ingredients;
+  if (input.steps.length > 0) {
+    recipe.recipeInstructions = input.steps.map((text) => ({ "@type": "HowToStep", text }));
+  }
+  if (typeof input.servings === "number" && input.servings > 0) {
+    recipe.recipeYield = `${input.servings} servings`;
+  }
+  const prepTime = minutes(input.prepMinutes);
+  if (prepTime) recipe.prepTime = prepTime;
+  const cookTime = minutes(input.cookMinutes);
+  if (cookTime) recipe.cookTime = cookTime;
+  if (input.authorName) recipe.author = { "@type": "Person", name: input.authorName };
+
+  // The JSON sits inside a <script> element, where the HTML parser is still looking for
+  // </script>, and JSON.stringify does not escape it: a story containing </script> would break
+  // out of the tag. Escaping every < as \u003c is valid JSON and closes that hole. escapeAttr
+  // is wrong here: HTML entities inside a script element would corrupt the JSON.
+  const json = JSON.stringify(recipe).replace(/</g, "\\u003c");
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
 export function buildTags(input: BuildTagsInput): Tags {
   const { title, story, id, hasPhoto, origin } = input;
   return {

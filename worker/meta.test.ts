@@ -1,5 +1,14 @@
 import { test, expect, describe, it } from "vitest";
-import { avatarHandleFromPath, buildTags, escapeAttr, ogIdFromPath, recipeIdFromPath } from "./meta";
+import {
+  avatarHandleFromPath,
+  buildRecipeJsonLd,
+  buildSitemap,
+  buildTags,
+  escapeAttr,
+  ogIdFromPath,
+  recipeIdFromPath,
+  type JsonLdInput,
+} from "./meta";
 
 const ID = "3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b";
 const ORIGIN = "https://recipes.enamelvault.com";
@@ -128,5 +137,126 @@ describe("avatarHandleFromPath", () => {
     expect(avatarHandleFromPath("/avatar/a.jpg")).toBeNull();
     expect(avatarHandleFromPath("/avatar/aayush.png")).toBeNull();
     expect(avatarHandleFromPath("/avatar/aayush.jpg/more")).toBeNull();
+  });
+});
+
+describe("buildSitemap", () => {
+  it("emits a valid empty urlset with no entries", () => {
+    const xml = buildSitemap([]);
+    expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
+    expect(xml).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    expect(xml).toContain("</urlset>");
+    expect(xml).not.toContain("<url>");
+  });
+
+  it("emits a loc and a date-only lastmod when one is given", () => {
+    const xml = buildSitemap([
+      { loc: `${ORIGIN}/recipes/${ID}`, lastmod: "2026-09-27T14:03:11.123456+00:00" },
+    ]);
+    expect(xml).toContain(`<loc>${ORIGIN}/recipes/${ID}</loc>`);
+    expect(xml).toContain("<lastmod>2026-09-27</lastmod>");
+    expect(xml).not.toContain("T14:03:11");
+  });
+
+  it("omits lastmod entirely when it is missing or empty", () => {
+    for (const lastmod of [undefined, null, ""]) {
+      const xml = buildSitemap([{ loc: `${ORIGIN}/help`, lastmod }]);
+      expect(xml).toContain(`<loc>${ORIGIN}/help</loc>`);
+      expect(xml).not.toContain("<lastmod>");
+    }
+  });
+
+  it("escapes an ampersand in a loc", () => {
+    const xml = buildSitemap([{ loc: `${ORIGIN}/cooks/ben&jerry` }]);
+    expect(xml).toContain(`<loc>${ORIGIN}/cooks/ben&amp;jerry</loc>`);
+    expect(xml).not.toContain("ben&jerry");
+  });
+});
+
+const JSON_LD_BASE: JsonLdInput = {
+  title: "Besan chila",
+  description: "A recipe from The Enamel Vault.",
+  url: `${ORIGIN}/recipes/${ID}`,
+  image: `${ORIGIN}/og.png`,
+  ingredients: [],
+  steps: [],
+  servings: null,
+  prepMinutes: null,
+  cookMinutes: null,
+  authorName: null,
+};
+
+function parseJsonLd(script: string): Record<string, unknown> {
+  const open = '<script type="application/ld+json">';
+  expect(script.startsWith(open)).toBe(true);
+  expect(script.endsWith("</script>")).toBe(true);
+  return JSON.parse(script.slice(open.length, -"</script>".length)) as Record<string, unknown>;
+}
+
+describe("buildRecipeJsonLd", () => {
+  it("omits every optional field when it is null or empty", () => {
+    const recipe = parseJsonLd(buildRecipeJsonLd(JSON_LD_BASE));
+    expect(recipe["@context"]).toBe("https://schema.org");
+    expect(recipe["@type"]).toBe("Recipe");
+    expect(recipe.name).toBe("Besan chila");
+    expect(recipe.image).toEqual([`${ORIGIN}/og.png`]);
+    for (const key of [
+      "recipeIngredient",
+      "recipeInstructions",
+      "recipeYield",
+      "prepTime",
+      "cookTime",
+      "author",
+    ]) {
+      expect(recipe).not.toHaveProperty(key);
+    }
+  });
+
+  it("emits PT20M style durations and a recipeYield", () => {
+    const recipe = parseJsonLd(
+      buildRecipeJsonLd({ ...JSON_LD_BASE, servings: 4, prepMinutes: 20, cookMinutes: 35 }),
+    );
+    expect(recipe.prepTime).toBe("PT20M");
+    expect(recipe.cookTime).toBe("PT35M");
+    expect(recipe.recipeYield).toBe("4 servings");
+  });
+
+  it("omits a non-positive duration or serving count", () => {
+    const recipe = parseJsonLd(
+      buildRecipeJsonLd({ ...JSON_LD_BASE, servings: 0, prepMinutes: 0, cookMinutes: -5 }),
+    );
+    expect(recipe).not.toHaveProperty("recipeYield");
+    expect(recipe).not.toHaveProperty("prepTime");
+    expect(recipe).not.toHaveProperty("cookTime");
+  });
+
+  it("emits ingredients, HowToStep instructions and an author when present", () => {
+    const recipe = parseJsonLd(
+      buildRecipeJsonLd({
+        ...JSON_LD_BASE,
+        ingredients: ["2 eggs", "1 cup besan"],
+        steps: ["Whisk the batter.", "Rest it for an hour."],
+        authorName: "Aayush",
+      }),
+    );
+    expect(recipe.recipeIngredient).toEqual(["2 eggs", "1 cup besan"]);
+    expect(recipe.recipeInstructions).toEqual([
+      { "@type": "HowToStep", text: "Whisk the batter." },
+      { "@type": "HowToStep", text: "Rest it for an hour." },
+    ]);
+    expect(recipe.author).toEqual({ "@type": "Person", name: "Aayush" });
+  });
+
+  it("escapes a </script> in the content so it cannot break out of the tag", () => {
+    const script = buildRecipeJsonLd({
+      ...JSON_LD_BASE,
+      title: "Besan chila </script><script>alert(1)</script>",
+    });
+    // Only the closing tag this function writes may survive as a literal.
+    expect(script.split("</script").length - 1).toBe(1);
+    expect(script.endsWith("</script>")).toBe(true);
+    expect(script).toContain("\\u003c/script");
+    // The escaping is JSON, not HTML entities, so the value still parses back intact.
+    expect(parseJsonLd(script).name).toBe("Besan chila </script><script>alert(1)</script>");
   });
 });
