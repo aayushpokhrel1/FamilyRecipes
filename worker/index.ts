@@ -13,6 +13,7 @@ import {
   buildTags,
   ogIdFromPath,
   recipeIdFromPath,
+  securityHeaders,
   type SitemapEntry,
   type Tags,
 } from "./meta";
@@ -352,8 +353,49 @@ async function enrichRecipePage(request: Request, env: Env, id: string): Promise
   }
 }
 
+// Security headers, added to every response this Worker returns.
+//
+// The one that does real work is the Content-Security-Policy. Session tokens live in
+// localStorage, so an injected script could read a session and act as that person, and since
+// a moderator account can list every email and delete accounts, that is the worst case in this
+// app. React escapes by default and nothing here uses dangerouslySetInnerHTML, so there is no
+// known hole; CSP is the thing that limits the damage of the one nobody has found yet.
+//
+// Each source is as narrow as the app actually allows:
+//   script-src 'self'  - no inline script at all. This is why the theme bootstrap moved out of
+//                        index.html into /theme-init.js. Adding an inline <script> anywhere
+//                        will silently stop executing, which is the trade for this guarantee.
+//   style-src  'unsafe-inline' - unavoidable: several components set a style={{...}} attribute,
+//                        and CSP counts those as inline styles. Far weaker than allowing inline
+//                        SCRIPT, which is the one that matters.
+//   img-src / connect-src - Supabase, because the browser fetches signed photo URLs and talks
+//                        to PostgREST, Auth, Storage and Functions directly from the page.
+//   frame-ancestors 'none' - nobody may frame this app, which is clickjacking defence and
+//                        replaces the older X-Frame-Options.
+//
+// Deliberately NOT report-only. A report-only policy with no reporting endpoint is a policy
+// that does nothing at all, which is worse than none because it reads like protection.
+
+// Every exit from fetch() goes through here, so a new route cannot accidentally ship without
+// the headers. That is the whole reason it wraps rather than being added per-response.
+function withSecurityHeaders(response: Response, env: Env): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(securityHeaders(env.SUPABASE_URL))) headers.set(key, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    return withSecurityHeaders(await route(request, env), env);
+  },
+};
+
+async function route(request: Request, env: Env): Promise<Response> {
+  {
     const pathname = new URL(request.url).pathname;
 
     // First, and deliberately cheap: an outage check has to answer when the rest is unwell.
@@ -371,5 +413,5 @@ export default {
     if (id) return enrichRecipePage(request, env, id);
 
     return env.ASSETS.fetch(request);
-  },
-};
+  }
+}

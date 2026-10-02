@@ -102,3 +102,12 @@ it("loads no stylesheet, font or other subresource from a third-party host", () 
 
   expect(offenders).toEqual([]);
 });
+
+// The Worker sends a Content-Security-Policy with script-src 'self', which blocks every inline
+// <script>. A blocked inline script does not warn, it simply never runs, so the theme bootstrap
+// that used to live in index.html is now /theme-init.js. This is what notices if one comes back.
+// The policy itself is pinned in worker/meta.test.ts.
+it("has no inline script in index.html, which the CSP would silently block", () => {
+  const inline = html.match(/<script(?![^>]*\bsrc=)[^>]*>/g) ?? [];
+  expect(inline).toEqual([]);
+});

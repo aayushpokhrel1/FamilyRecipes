@@ -38,18 +38,10 @@
       type="font/woff2"
       crossorigin
     />
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem("theme");
-          var dark = stored === "dark" || (stored !== "light" &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches);
-          document.documentElement.dataset.theme = dark ? "dark" : "light";
-        } catch (e) {
-          document.documentElement.dataset.theme = "light";
-        }
-      })();
-    </script>
+    <!-- Blocking and in the head on purpose: it must set the theme before first paint, or
+         every cold load flashes the wrong one. It is a file rather than an inline script
+         because the Worker's Content-Security-Policy is script-src 'self'; see the file. -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

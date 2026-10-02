@@ -11,7 +11,7 @@ family-first.
 
 | Document | What it holds |
 | --- | --- |
-| [PRODUCT.md](PRODUCT.md) | Who it is for, the product decisions, the roadmap, and what is deliberately deferred |
+| `PRODUCT.md` | Who it is for, the product decisions, the roadmap, and what is deliberately deferred. Not in this repo: it is gitignored, because the roadmap is not something a public repository needs to publish |
 | [DESIGN.md](DESIGN.md) | The Enamel Vault design system: tokens, type, colour, components |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Running it locally, verifying, CI, deploying, secrets, monitoring, environment traps |
 | [docs/superpowers/specs/](docs/superpowers/specs/) | Per-feature design specs, newest first |
@@ -90,4 +90,4 @@ unblock.
 Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,
 and a native app. Per-recipe link previews are already built, in the Worker.
 
-[PRODUCT.md](PRODUCT.md) has the detail, including what is deferred and why.
+`PRODUCT.md` has the detail, including what is deferred and why. It is deliberately not published here.

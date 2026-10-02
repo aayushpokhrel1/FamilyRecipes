@@ -3,6 +3,7 @@ import {
   avatarHandleFromPath,
   buildRecipeJsonLd,
   buildSitemap,
+  securityHeaders,
   buildTags,
   escapeAttr,
   ogIdFromPath,
@@ -272,4 +273,49 @@ test("buildSitemap drops a lastmod that is not a string instead of throwing", ()
   expect(xml).not.toContain("<lastmod>");
   expect(xml).toContain("<loc>https://x.dev/a</loc>");
   expect(xml).toContain("<loc>https://x.dev/b</loc>");
+});
+
+// The Content-Security-Policy is the one header here doing real work, and the way a CSP fails
+// is silent: a directive that is too tight blocks something and the page half-works, a
+// directive that is too loose protects nothing and nobody notices either. These pin the
+// decisions that were actually reasoned about.
+describe("securityHeaders", () => {
+  const h = securityHeaders("https://proj.supabase.co");
+  const csp = h["Content-Security-Policy"];
+
+  it("forbids inline script, which is the whole point", () => {
+    expect(csp).toContain("script-src 'self'");
+    // If this ever appears, the policy has stopped defending against the thing it exists for.
+    expect(csp).not.toContain("'unsafe-inline' 'self'");
+    expect(csp.split("; ").find((d) => d.startsWith("script-src"))).toBe("script-src 'self'");
+  });
+
+  it("allows inline STYLE, because style={{...}} attributes are counted as inline styles", () => {
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+  });
+
+  it("lets the browser reach Supabase, which it talks to directly", () => {
+    expect(csp).toContain("connect-src 'self' https://proj.supabase.co wss://proj.supabase.co");
+    // Signed photo URLs are fetched straight from storage by the page.
+    expect(csp).toContain("img-src 'self' data: blob: https://proj.supabase.co");
+  });
+
+  it("refuses framing and plugins, and pins the base URI", () => {
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'self'");
+  });
+
+  it("is enforcing, never report-only", () => {
+    // A report-only policy with no reporting endpoint does nothing at all, while reading like
+    // protection, which is worse than having none.
+    expect(h["Content-Security-Policy-Report-Only"]).toBeUndefined();
+  });
+
+  it("sends the cheap headers too", () => {
+    expect(h["X-Content-Type-Options"]).toBe("nosniff");
+    expect(h["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    expect(h["Strict-Transport-Security"]).toContain("max-age=");
+    expect(h["Permissions-Policy"]).toContain("camera=()");
+  });
 });

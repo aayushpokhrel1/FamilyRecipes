@@ -49,3 +49,17 @@ brief.md
 
 # wrangler dev writes local miniflare state and temp bundles here.
 .wrangler/
+
+# Strategy, kept OUT of a public repo on purpose (2026-10-02). PRODUCT.md holds the roadmap
+# and what was deferred and why, and docs/superpowers/plans/ holds every feature broken down
+# before it was built. That is the material a competitor would actually want, and far more
+# than the source. The canonical copies now live in the Obsidian vault, under
+# Projects/FamilyRecipes/product/ and Projects/FamilyRecipes/plans/, which is private and
+# already the home for this project's durable notes.
+#
+# The specs in docs/superpowers/specs/ are deliberately STILL TRACKED: they explain why the
+# code is shaped the way it is, which is what makes the public repo worth reading. Some of
+# them do carry roadmap sketches, so move them too if that ever matters more than the
+# explanation.
+PRODUCT.md
+docs/superpowers/plans/

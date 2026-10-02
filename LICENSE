@@ -1,0 +1,31 @@
+All Rights Reserved
+
+Copyright (c) 2026 Aayush Pokhrel
+
+This source code is made publicly readable so that it can be inspected, learned
+from, and discussed. That is the only permission granted.
+
+No licence to use, copy, modify, merge, publish, distribute, sublicense, sell,
+or deploy this software, in whole or in part, is granted by its publication
+here. All rights are reserved by the copyright holder. This is the position
+that applies to any public repository carrying no licence; stating it plainly is
+simply more honest than leaving it implied.
+
+Viewing and forking within GitHub are permitted to the extent that GitHub's
+Terms of Service require, and no further.
+
+If you want to do something with this code, ask. The answer may well be yes:
+write to moderation@enamelvault.com.
+
+--
+
+Third-party components keep their own licences, which this notice does not
+affect or override:
+
+  - The Zilla Slab typeface in public/fonts/ is Copyright 2017 The Mozilla
+    Foundation, under the SIL Open Font License 1.1. Its full text is kept
+    beside the font files in public/fonts/OFL.txt, because redistributing the
+    font requires carrying its licence.
+
+  - Dependencies in package.json are each under their own licence, held in
+    node_modules and not vendored into this repository.

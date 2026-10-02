@@ -11,12 +11,13 @@ model swap the same file recorded as already tried and rejected.
 | Write it in | When it is |
 | --- | --- |
 | `README.md` | What the app is, what it does, the stack, links to everything else |
-| `PRODUCT.md` | Product truth: who it is for, decisions, roadmap, what is deferred **and why** |
+| `PRODUCT.md` | Product truth: who it is for, decisions, roadmap, what is deferred **and why**. **Gitignored since 2026-10-02**: the repo is public and the roadmap is the part worth keeping back. The canonical copy is in the vault at `Projects/FamilyRecipes/product/PRODUCT.md` |
 | `DESIGN.md` | The visual system: tokens, type, colour, component patterns |
 | `docs/OPERATIONS.md` | Running, verifying, CI, deploying, secrets, monitoring, environment traps, latent landmines |
 | a **code comment at the site** | A rule about specific code ("any new ingredient column must be added here too") |
 | the **Obsidian vault** | A lesson that would change how I work on a *different* project |
-| `docs/superpowers/specs/` | The design of one feature, written before building it |
+| `docs/superpowers/specs/` | The design of one feature, written before building it. Still tracked: a spec explains why the code is shaped as it is |
+| `docs/superpowers/plans/` | The task breakdown for one feature. **Gitignored since 2026-10-02**, same reason as `PRODUCT.md`; canonical copy in the vault at `Projects/FamilyRecipes/plans/` |
 | `HANDOVER.md` | **Only** current state: commit, versions, test counts, what is half-done, what is next |
 | nowhere | A dated narrative of what you did today. `git log` already holds it, in detail |
 

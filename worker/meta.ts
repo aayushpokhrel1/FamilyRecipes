@@ -153,3 +153,33 @@ export function buildTags(input: BuildTagsInput): Tags {
     imageAlt: hasPhoto ? `${title} - a photo of the recipe` : STOCK_IMAGE_ALT,
   };
 }
+
+export function securityHeaders(supabase: string): Record<string, string> {
+  return {
+    "Content-Security-Policy": [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: " + supabase,
+      "font-src 'self'",
+      "connect-src 'self' " + supabase + " " + supabase.replace(/^https:/, "wss:"),
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "upgrade-insecure-requests",
+    ].join("; "),
+    // Stops a browser second-guessing a Content-Type, which is how a user-uploaded photo gets
+    // treated as a script.
+    "X-Content-Type-Options": "nosniff",
+    // A recipe id in a path is not secret, but there is no reason to hand it to every site a
+    // visitor clicks through to.
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    // The app asks for none of these, so refusing them all costs nothing and removes them as
+    // something an injected script could reach for.
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    // Two years, subdomains included. Only ever sent over https, so a local http dev server is
+    // unaffected, and Cloudflare terminates TLS in front of this anyway.
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+  };
+}

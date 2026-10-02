@@ -1,7 +1,7 @@
 # Operations
 
 How to run, deploy and not break Family Recipes. Cross-cutting engineering lessons live in the Obsidian vault
-(`Projects/FamilyRecipes/`), not in this repo; product truth lives in [../PRODUCT.md](../PRODUCT.md).
+(`Projects/FamilyRecipes/`), not in this repo; product truth lives in `PRODUCT.md`, which is gitignored and kept in the vault.
 
 ## Running it locally
 
@@ -424,6 +424,31 @@ npx wrangler@latest --version
 
 The toggle is in the Cloudflare dashboard under Web Analytics, or via
 `GET /accounts/<id>/rum/site_info/list` on the API.
+
+### Security headers and the CSP
+
+Every response the Worker returns carries a Content-Security-Policy and the cheap headers
+(`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS). They are applied by
+wrapping the whole router rather than per response, so a new route cannot ship without them.
+
+**`script-src 'self'` means no inline `<script>` anywhere.** A blocked inline script does not
+warn, it silently never runs, which is why the theme bootstrap moved out of `index.html` into
+`public/theme-init.js`. Two tests hold this: `worker/meta.test.ts` pins the policy's directives,
+and `src/lib/browserStorage.test.ts` fails if an inline script reappears in `index.html`.
+
+`style-src` has to allow `'unsafe-inline'`, because several components set a `style={{...}}`
+attribute and CSP counts those as inline styles. That is a far weaker allowance than inline
+script.
+
+After a deploy, confirm the header is actually arriving:
+
+```bash
+curl -sS -D - -o /dev/null https://recipes.enamelvault.com/ | grep -i content-security-policy
+```
+
+If a page ever half-works in production, check the browser console for a CSP violation before
+assuming a code bug: a violation reads as "Refused to load/execute", names the directive, and
+is the fastest possible diagnosis once you think to look.
 
 ### Known standing risks
 
