@@ -41,6 +41,9 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   plan, grouped by supermarket aisle and scaled to each plan item's servings.
 - **The cupboard**: what you already have, so the grocery list stops telling you to buy it.
 - **Sign-in** with a verified email address or with Google.
+- **Moderator console** at `/moderation`: the report queue, an overview of site counts, and a
+  roster with suspend, take down, grant moderator and delete. Visible only to a moderator, and
+  the page re-checks that rather than relying on the nav hiding the link.
 - **Public documents**, readable without an account: terms, privacy policy, cookies, and help
   (`/terms`, `/privacy`, `/cookies`, `/help`). There is no cookie banner because the app sets
   no cookies and loads no analytics, which a test enforces rather than a promise.
@@ -49,8 +52,9 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
 
 - React (responsive web now; a React Native app later, sharing the same API).
 - Supabase: Postgres, Auth, Storage, and Row-Level Security enforcing the visibility model.
-- Three Supabase Edge Functions: `extract-recipe` (AI recipe structuring), `delete-account`,
-  and `notify-report` (emails the moderation queue through Resend).
+- Four Supabase Edge Functions: `extract-recipe` (AI recipe structuring), `delete-account`,
+  `notify-report` (emails the moderation queue through Resend), and `admin` (the moderator
+  console's backend, which needs the service-role key and so cannot live in the browser).
 - Cloudflare Workers serves the built frontend and, because a crawler never runs the SPA,
   everything a crawler has to see in the HTML: per-recipe OpenGraph tags and canonical URLs,
   proxied preview images and avatars, JSON-LD recipe data, `/sitemap.xml`, and a health route.

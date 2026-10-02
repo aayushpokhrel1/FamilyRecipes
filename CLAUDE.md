@@ -87,8 +87,20 @@ Two things have no mechanical guard and need a human:
 - **Apply a migration to cloud BEFORE the frontend that needs it.** A frontend commit and its
   migration are not one change: Cloudflare deploys one automatically and Supabase deploys
   neither. Getting this backwards broke every recipe save on production once already.
-- **The edge function is never deployed automatically** — always
-  `npx supabase functions deploy extract-recipe`. `ACTIVE` means deployed, not runnable.
+- **No edge function is ever deployed automatically.** There are four now, and each deploys on
+  its own: `npx supabase functions deploy <name>` for `extract-recipe`, `delete-account`,
+  `notify-report` or `admin`. `ACTIVE` means deployed, not runnable.
+- **RLS is the entire security model, and a test now holds it.** `supabase/rls.test.ts` reads
+  the migrations and fails if a table is created without `enable row level security`, without a
+  policy, or if a `SECURITY DEFINER` function omits `set search_path`. A table that misses RLS
+  is readable and writable by anyone holding the anon key, which ships in the JS bundle on
+  purpose. `extract_log` is listed there as deliberately unpoliced, because RLS with no policy
+  is the strictest setting, not a gap.
+- **The Worker sends a Content-Security-Policy with `script-src 'self'`, so NO inline
+  `<script>` runs.** A blocked inline script does not warn, it silently never executes, which
+  is why the theme bootstrap lives in `public/theme-init.js`. `worker/meta.test.ts` pins the
+  policy and `src/lib/browserStorage.test.ts` fails if an inline script returns to
+  `index.html`.
 - **Work on `master`** (solo project). Branch only to let CI gate something risky first.
 - **Query the Obsidian vault (`Projects/FamilyRecipes/`) before a big change**, and read
   `docs/OPERATIONS.md` before any deploy. Most vault entries name a bug that recurred *after*

@@ -97,10 +97,14 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 | --- | --- | --- |
 | Frontend | Cloudflare Workers Builds, Git-connected to master | **yes**, on push |
 | Database | `npx supabase db push` | no |
-| Edge function | `npx supabase functions deploy extract-recipe` | **no, never** |
+| Edge function | `npx supabase functions deploy <name>`, one at a time | **no, never** |
 
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
+
+The four functions are `extract-recipe`, `delete-account`, `notify-report` and `admin`.
+Deploying one does not deploy the others, and nothing warns you that a function is running
+older code than the repo holds.
 
 ### Frontend
 
@@ -222,6 +226,37 @@ providers is an env-only change.
 
 To check staleness, compare the deployed `updated_at` from `npx supabase functions list`
 against `git log --since="<updated_at>" -- supabase/functions/extract-recipe/`.
+
+### The `admin` function, and why it exists at all
+
+```bash
+npx supabase functions deploy admin
+```
+
+Everything the moderator console shows beyond the report queue needs the service-role key, so
+none of it can be done from the browser:
+
+- emails and last-sign-in live in `auth.users`, which RLS does not expose at all;
+- `profiles_self_read` hides every OTHER profile row, from moderators too, so even a
+  moderator's own client cannot list users;
+- suspending, promoting and deleting are auth-admin or cross-row writes.
+
+**The security model, which is the part not to change.** The caller is identified from their
+verified JWT, never from the request body, and the moderator flag is read with THEIR OWN
+client, so RLS is what proves the claim. The service-role client is created only after that
+check passes and never decides who the caller is. A non-moderator gets 404 rather than 403, so
+the endpoint cannot even be confirmed to exist.
+
+Report-driven actions deliberately stay in the `resolve_report` RPC, so a report changes state
+in one place and there is one audit trail rather than two.
+
+**There is no audit log.** A suspension or a deletion leaves no record of who did it or when.
+With one moderator that is tolerable; with two it is not, and it is the first thing to add if
+anyone else ever gets the flag.
+
+If the console is unreachable, every action it performs can be done directly in SQL. The
+runbook for that is kept outside the repo, in the Artifact linked from the session notes, and
+the queries are reconstructible from the tables listed above.
 
 ## Monitoring
 
@@ -452,6 +487,15 @@ is the fastest possible diagnosis once you think to look.
 
 ### Known standing risks
 
+- **Account 2FA is on for Google, Cloudflare, GitHub and Supabase** (done 2026-10-02;
+  Cloudflare's was verified through the API, not taken on trust). That closes the single
+  largest risk, which was that one Google account was the recovery route for all four.
+  **Still open, in rough priority order:** a separate moderator-only account so that an XSS in
+  the everyday session cannot list every email; a backup story, because `delete_user` is
+  irreversible and a bad `UPDATE` in the SQL editor has no undo; an audit log for admin
+  actions; a rate limit on the `admin` function, which `claim_extraction` already models for
+  extraction; Supabase's leaked-password protection toggle; Dependabot; and an audit of
+  Cloudflare API tokens and GitHub PATs.
 - **No page makes a third-party request, and that is now load-bearing.** The typeface is
   served from `public/fonts/` (SIL Open Font License 1.1, text kept beside the files because
   redistribution requires it), after being moved off Google Fonts, which was disclosing every
