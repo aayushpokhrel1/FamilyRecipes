@@ -469,13 +469,29 @@ wrapping the whole router rather than per response, so a new route cannot ship w
 **But the Worker does not see every request.** Cloudflare serves anything matching a real file
 in `dist/` straight from its asset store and never invokes the Worker, so for a day the headers
 reached `/help` and `/sitemap.xml` (no matching file, so they fall through) and never reached
-`/`, which is `index.html`. `assets.run_worker_first` in `wrangler.jsonc` is what fixes that,
-and it is set to `["/", "/index.html"]` rather than `true` so a Worker exception cannot take
-the JS and fonts down with it.
+`/`, which is `index.html`. `assets.run_worker_first: true` in `wrangler.jsonc` is what fixes that.
 
-The symptom to recognise, because it reads as a caching problem and is not: a header present on
-some paths and absent on others, with the absent ones being exactly the paths that correspond to
-files on disk. Purging the cache changes nothing.
+**It must be `true` and never a list of routes.** An array means "run the Worker first ONLY for
+these paths", and every other path is then served by the asset layer alone, where
+`not_found_handling` returns `index.html` without the Worker ever running. Setting
+`["/", "/index.html"]` was tried and broke production inside a minute: `/sitemap.xml` began
+answering with the SPA shell as `text/html`, and every shared recipe link lost its per-recipe
+OpenGraph tags. Both still returned 200, so nothing looked wrong.
+
+Two symptoms worth recognising, because both read as something else:
+
+- **A header on some paths and not others, where the bare paths are exactly the ones that
+  exist as files in `dist/`.** That is routing, not caching. Purging the cache does nothing,
+  and the purge is what wasted the time here.
+- **A Worker route answering `200` with the wrong `Content-Type`.** That is the asset layer's
+  SPA fallback replying in the Worker's place, not a bug in the Worker.
+
+After any change to the `assets` block, check a Worker-only route and not just the page you were
+fixing:
+
+```bash
+curl -sS -D - -o /dev/null https://recipes.enamelvault.com/sitemap.xml | grep -i content-type
+```
 
 **`script-src 'self'` means no inline `<script>` anywhere.** A blocked inline script does not
 warn, it silently never runs, which is why the theme bootstrap moved out of `index.html` into
