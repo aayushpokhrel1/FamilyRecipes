@@ -34,19 +34,26 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
 - **Per-recipe visibility**: Private / Family / Public.
 - **In-family comments** and **Cook Mode** (big-text, screen stays awake).
 - **Potluck**: a signed-in space for other households' public recipes, with search, a public
-  cook page per handle, and following. Save and fork are not built yet.
+  cook page per handle, and following. Saving a copy into your own vault keeps the original
+  cook's attribution, and the copy survives the original being unpublished or deleted.
 - **My Kitchen**: meal planning on a day-by-slot week grid (drag a meal's grip, or tap to
   assign), leftovers that fill a slot without buying twice, and a grocery list built from the
   plan, grouped by supermarket aisle and scaled to each plan item's servings.
 - **The cupboard**: what you already have, so the grocery list stops telling you to buy it.
 - **Sign-in** with a verified email address or with Google.
+- **Public documents**, readable without an account: terms, privacy policy, cookies, and help
+  (`/terms`, `/privacy`, `/cookies`, `/help`). There is no cookie banner because the app sets
+  no cookies and loads no analytics, which a test enforces rather than a promise.
 
 ## Stack
 
 - React (responsive web now; a React Native app later, sharing the same API).
 - Supabase: Postgres, Auth, Storage, and Row-Level Security enforcing the visibility model.
-- Two Supabase Edge Functions: `extract-recipe` (AI recipe structuring) and `delete-account`.
-- Cloudflare Workers serves the built frontend and a small health route.
+- Three Supabase Edge Functions: `extract-recipe` (AI recipe structuring), `delete-account`,
+  and `notify-report` (emails the moderation queue through Resend).
+- Cloudflare Workers serves the built frontend and, because a crawler never runs the SPA,
+  everything a crawler has to see in the HTML: per-recipe OpenGraph tags and canonical URLs,
+  proxied preview images and avatars, JSON-LD recipe data, `/sitemap.xml`, and a health route.
 
 Designed for portability: **all data access is isolated in `src/lib/api/`**, and nothing outside
 it imports the Supabase client, so moving to a self-owned Node/Express + Postgres backend later
@@ -69,16 +76,18 @@ Full setup, environment variables and the verify commands are in
 
 ## Roadmap
 
-Shipped, newest first: Potluck, the public feed (browse, search, follow) · public identity and
+Shipped, newest first: the public documents and the WCAG AA contrast and labelling fixes ·
+search-engine indexing (robots, sitemap, canonical, JSON-LD) · moderation, reporting and
+takedown · save and fork with attribution · Potluck, the public feed (browse, search, follow) · public identity and
 public cook pages · optional ingredients and alternatives · week-grid drag and drop · error
 and uptime monitoring · verified email and Google sign-in · the cupboard and "cook now" ·
 ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scaling · My Kitchen
 meal planning · v1 private multi-family vault.
 
-Next: save and fork with attribution and lineage, then moderation, which must exist before
-Potluck is opened beyond signed-in users.
+Next: opening Potluck beyond signed-in users, which moderation and the public documents now
+unblock. Before that, self-host the typeface so no page makes a third-party request.
 
 Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,
-per-recipe link previews, and a native app.
+and a native app. Per-recipe link previews are already built, in the Worker.
 
 [PRODUCT.md](PRODUCT.md) has the detail, including what is deferred and why.

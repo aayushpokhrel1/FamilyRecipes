@@ -326,3 +326,97 @@ No dropdown offers a non-curated value today, so nothing can write one. The fix 
 rule `groupIngredientsByCategory` already implements rather than keep four copies of which one is
 right. The open design fork was: layer family rows over the curated list (recommended) versus
 seed-and-replace.
+
+
+## Search engines: how Google actually finds this
+
+Nothing needs to be bought or installed for Google to index the site, but it will not happen
+on its own as fast as it should. Three things make it work, and two of them are one-off manual
+actions nobody can do from this repo.
+
+### What the code already does
+
+- **`public/robots.txt`** allows crawling, blocks every signed-in and per-user route, and
+  points at the sitemap. It is a static asset, so it needs no Worker code.
+- **`/sitemap.xml`** is built by the Worker on request from live data: the five public pages,
+  every public recipe that has not been removed, and every public cook. It is cached for an
+  hour.
+- **Canonical URLs.** `index.html` carries a canonical link and `rewriteTags` rewrites it per
+  recipe, so `/recipes/<id>` cannot compete with itself through a tracking parameter.
+- **JSON-LD `Recipe` data** is injected into each recipe page, which is what makes Google
+  eligible to show a rich result (photo, times, ratings slot) instead of a plain blue link.
+- **Real titles and descriptions in the HTML.** This is the part people get wrong with a SPA:
+  a crawler does not run JavaScript reliably, so a page whose title is only set by React is a
+  page Google sees as blank. The Worker writes these before the HTML is served, which is why
+  `enrichRecipePage` exists at all and why it must keep degrading to the untouched asset
+  rather than failing.
+
+### The manual steps, which nobody in this repo can do for you
+
+1. **Verify the domain in Google Search Console** at <https://search.google.com/search-console>,
+   using the DNS TXT method on `enamelvault.com` since Cloudflare already holds the zone.
+2. **Submit `https://recipes.enamelvault.com/sitemap.xml`** there once. Google will re-read it
+   on its own afterwards; it does not need resubmitting per recipe.
+3. **Request indexing for the home page once**, which usually pulls in the rest within days.
+
+Bing has the equivalent at Bing Webmaster Tools and can import the Search Console setup.
+
+### What to expect, honestly
+
+A new domain with few inbound links is indexed slowly, typically days to a few weeks, and
+being indexed is not the same as ranking. Recipe queries are among the most competitive on the
+web. The realistic goal here is that people who search for this site, or for a recipe they were
+sent a link to, find it, not that it outranks an established recipe publisher.
+
+### Checking it after a deploy
+
+```bash
+curl -s https://recipes.enamelvault.com/robots.txt
+```
+
+```bash
+curl -s https://recipes.enamelvault.com/sitemap.xml | head -20
+```
+
+Rich results can be checked at <https://search.google.com/test/rich-results> against any
+public recipe URL. **The Worker is what serves both of these, so neither works from
+`npm run dev`**: Vite serves `robots.txt` as a static file but knows nothing about
+`/sitemap.xml`. Test them against a deployed preview or production, not locally.
+
+## Compliance: the three claims the code has to keep true
+
+The public pages make statements about this app. Each is backed by a test rather than by
+anyone remembering, because the failure mode is never ignorance, it is not re-reading.
+
+| The claim | Where it is made | What holds it up |
+| --- | --- | --- |
+| No cookies, no analytics, no trackers, so no consent banner | `src/pages/Cookies.tsx` | `src/lib/browserStorage.test.ts` |
+| WCAG 2.2 AA | `src/pages/Help.tsx` | `src/index.contrast.test.ts`, `src/lib/accessibility.test.ts` |
+| The processors we name are the processors we use | `src/pages/Privacy.tsx` | Nothing. This one is manual, see below |
+
+**Adding analytics, an embed, or any non-essential storage makes a cookie banner legally
+mandatory**, and `browserStorage.test.ts` is wired to go red at that moment. When it does, the
+job is two things, not one: add the banner, and correct `Cookies.tsx`.
+
+**The processor list is the weak link.** There is no mechanical check that
+`src/pages/Privacy.tsx` names every third party the app sends data to, and the easy ones to
+forget are the ones nobody thinks of as a processor: the Google Fonts stylesheet in
+`index.html`, the error log in `src/lib/api/errorLog.ts`, and the transcription API in
+`extract-recipe`. If you add an outbound call to anything, that page is part of the change.
+
+### Known standing risks
+
+- **Google Fonts is the only third-party request a page makes**, and it discloses every
+  visitor's IP to Google. A German court has found that pattern to infringe the GDPR.
+  Self-hosting the woff2 removes it entirely and is the single highest-value compliance fix
+  outstanding.
+- **The AI import sends user content outside the UK and EU**, to DeepSeek by default and to
+  Groq for voice. It is disclosed on the privacy page and it is the only path by which user
+  content leaves our own infrastructure. Changing `MODEL_BASE_URL` changes who receives it,
+  so that env var is a privacy decision, not just a config value.
+- **`TERMS_VERSION` in `src/components/TermsGate.tsx` must be bumped whenever `Terms.tsx`
+  changes.** Nothing enforces it. Shipping wording without a bump means the stored
+  `terms_accepted_at` claims people agreed to text they never saw.
+- **The contact address `moderation@enamelvault.com` appears on all four public pages**, via
+  `src/lib/legal.ts`. A data protection policy naming a dead mailbox is worse than one naming
+  none, so if inbound mail routing changes, that constant and `MODERATION_EMAIL` move together.

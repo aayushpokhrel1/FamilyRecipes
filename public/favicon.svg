@@ -1,12 +1,12 @@
 <!-- The Enamel Vault mark: a bone enamel pot with a vermilion lid, on the deep pantry-green
      wall. Every colour is a DESIGN.md token (wall #1f3b34, plate #f3ede1, Vermilion Signal
-     #d6431f); none is new. Drawn to survive 16px, which is why it is three flat rectangles and
+     #b53514); none is new. Drawn to survive 16px, which is why it is three flat rectangles and
      not a letter or a rendered pan: at tab size anything finer turns to mush.
      A plate with a vermilion rim was tried first and rejected, twice over: a ring around a dot
      reads as a bullseye, and a ring inside a rounded square reads as Instagram. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <rect width="32" height="32" rx="7" fill="#1f3b34"/>
   <rect x="7" y="13" width="18" height="12" rx="3" fill="#f3ede1"/>
-  <rect x="5.5" y="10" width="21" height="3.4" rx="1.7" fill="#d6431f"/>
-  <rect x="14.6" y="6.4" width="2.8" height="3.8" rx="1.4" fill="#d6431f"/>
+  <rect x="5.5" y="10" width="21" height="3.4" rx="1.7" fill="#b53514"/>
+  <rect x="14.6" y="6.4" width="2.8" height="3.8" rx="1.4" fill="#b53514"/>
 </svg>

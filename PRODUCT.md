@@ -244,7 +244,8 @@ Explicitly undecided or deferred (future work must not present these as done):
 
 ## Evidence on Hand
 
-- Live, deployed product at https://familyrecipes.aayus-pok.workers.dev (Cloudflare Workers).
+- Live, deployed product at https://recipes.enamelvault.com (Cloudflare Workers). The old
+  workers.dev hostname is not the canonical address and must not be cited as one.
 - Public repository: https://github.com/aayushpokhrel1/FamilyRecipes.
 - Approved design specs in `docs/superpowers/specs/` (v1 vault, and My Kitchen meal planning).
 - Unit and integration test suites, including RLS visibility-boundary tests.
@@ -266,7 +267,64 @@ Explicitly undecided or deferred (future work must not present these as done):
 
 ## Accessibility & Inclusion
 
+- **The target is WCAG 2.2 AA**, and this is now a binding commitment rather than an
+  aspiration, because `/help` states it in public. It was previously recorded here as "no
+  formal conformance level established"; that is no longer true and the page is the reason.
 - **Cook Mode** is an explicit usability feature: large text and a wake lock for
   hands-busy, at-a-distance reading while cooking.
 - Responsive web across phone and desktop is a baseline expectation.
-- No formal WCAG conformance level has been established as a binding requirement.
+- Three things hold the AA claim up mechanically, rather than by intention:
+  `src/index.contrast.test.ts` measures every rendered colour pair against the real tokens,
+  `src/lib/accessibility.test.ts` scans the source for missing alt text, unlabelled form
+  controls and click handlers a keyboard cannot reach, and
+  `src/lib/browserStorage.test.ts` holds the no-cookie-banner claim to the actual storage.
+- **Not yet done, and known:** no screen reader has been run over the app by a human, no
+  audit by anyone outside the project, and recipe photos have no author-supplied alt text
+  because there is no field to put one in. See the compliance section below.
+
+## Legal, privacy and compliance
+
+The public documents exist and are routed outside the auth guard, because a notice you can
+only read after consenting is not a notice: `/terms`, `/privacy`, `/cookies`, `/help`.
+
+What the current position actually rests on:
+
+- **No cookies, no analytics, no advertising, no third-party embeds** beyond the Google
+  Fonts stylesheet. That, and only that, is why there is no consent banner. It is a fact
+  about the code, not a policy choice, and `src/lib/browserStorage.test.ts` is what keeps it
+  a fact.
+- **Nothing is sold.** No payments, no card details, no subscription, so the refund position
+  in the terms is simply that there is nothing to refund.
+- **No testimonials, reviews, customer names, usage benchmarks or pricing exist anywhere in
+  the product**, and none were invented to fill the new pages. Future work must not fabricate
+  any of these.
+- **The controller is a named individual**, contactable by email, which is the minimum UK and
+  EU law requires. There is no company and the pages say so.
+
+### Deferred, with the reason
+
+- **Self-host the typeface.** Google Fonts is the only third-party request a page makes, and
+  it discloses the visitor's IP to Google. A German court has found that specific pattern to
+  infringe the GDPR. Serving the woff2 from our own domain removes the last external request
+  and makes the cookies page simpler to defend. This is the highest-value item on this list
+  and it is small.
+- **A data export button.** The privacy policy promises a copy of your data on request, and
+  that promise is currently kept by hand over email. A one-click export in Settings would
+  turn a manual obligation into a feature, and the delete-account function already proves the
+  shape.
+- **Author-supplied alt text for recipe photos.** Today `/recipes/:id` falls back to
+  "Photo of <title>", which is honest but says nothing about the picture. A caption field on
+  upload would fix the accessibility gap and improve the public pages at the same time.
+- **A real accessibility audit**, including an actual screen reader pass. The automated
+  checks catch the mistakes made while typing, which is most of them, and none of the ones
+  that only show up when you try to use the thing without a mouse.
+- **Reconsider the AI import's data path.** Recipe text, photos and voice clips go to
+  DeepSeek and Groq, which is disclosed, but it is the only place user content leaves our
+  infrastructure. Options worth weighing: a provider inside the UK or EU, an explicit
+  per-use confirmation rather than the current implicit one, or a self-hosted model.
+- **A DPA and a retention schedule.** Processor agreements are not in place as signed
+  documents, and "error reports are cleared out as they age" is currently true by intention
+  rather than by a scheduled job.
+- **Cookie consent, the day it becomes necessary.** Adding analytics, an embed, or any
+  non-essential storage makes a banner mandatory, not optional. The storage test is wired to
+  go red at exactly that moment, and `src/pages/Cookies.tsx` carries the warning at the top.

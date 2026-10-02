@@ -49,12 +49,40 @@ against reality rather than trusting the file.
 
 When asked to "update the docs", sweep all of them, not the one you happen to have open.
 
+## The public documents, and the tests that keep them honest
+
+`/terms`, `/privacy`, `/cookies` and `/help` are public routes, deliberately outside
+`RequireAuth`: a notice you can only read after consenting is not a notice. They render
+`<div className="prose plate">`, and **both classes matter**, because `.plate` carries the rule
+that recolours headings. A `.prose` that styled its own surface without being a `.plate` put
+bone headings on a bone plate, which is invisible, and no test caught it.
+
+Each page makes a claim that the code has to keep true. Three tests do that, and each was
+confirmed to go red before it went green:
+
+| Test | What it stops |
+| --- | --- |
+| `src/index.contrast.test.ts` | A colour pair dropping below AA. It reads the REAL tokens out of `index.css`, so it cannot drift from the palette |
+| `src/lib/accessibility.test.ts` | A missing `alt`, an unlabelled form control, a `<div onClick>`, an icon-only button |
+| `src/lib/browserStorage.test.ts` | A cookie, a tracker, or a new storage key appearing, which is the exact moment a consent banner becomes legally mandatory |
+
+Two things have no mechanical guard and need a human:
+
+- **`TERMS_VERSION` in `TermsGate.tsx` must be bumped when `Terms.tsx` wording changes**, or
+  nobody is re-asked and the stored acceptance is a lie.
+- **`Privacy.tsx` must name every third party the app sends data to.** Adding an outbound call
+  anywhere makes that page part of the change. `docs/OPERATIONS.md` has the current list.
+
 ## Project rules
 
 - **All Supabase access lives in `src/lib/api/`.** Nothing outside it imports the client. This
   is the portability seam for a future Node/Express + Postgres backend.
 - **Verify with `npx tsc -b && npm test`**, not `tsc --noEmit`. DB or migration changes also
   need `npx supabase db reset` (requires Docker).
+- **The Worker, not the SPA, is what search engines and link previews see.** `robots.txt`,
+  `/sitemap.xml`, canonical URLs, OpenGraph tags and JSON-LD all live in `worker/`, so none of
+  them work under `npm run dev`. Pure helpers go in `worker/meta.ts` and are unit tested;
+  `worker/index.ts` does the I/O and must always degrade to serving the untouched asset.
 - **Apply a migration to cloud BEFORE the frontend that needs it.** A frontend commit and its
   migration are not one change: Cloudflare deploys one automatically and Supabase deploys
   neither. Getting this backwards broke every recipe save on production once already.
