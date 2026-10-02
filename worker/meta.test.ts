@@ -260,3 +260,16 @@ describe("buildRecipeJsonLd", () => {
     expect(parseJsonLd(script).name).toBe("Besan chila </script><script>alert(1)</script>");
   });
 });
+
+// Regression: lastmod is read straight out of unvalidated Supabase JSON, and serveSitemap
+// builds its Response OUTSIDE its try, so a row whose updated_at is not a string used to
+// throw out of the route as a 500. An incomplete sitemap is fine; a failed one is not.
+test("buildSitemap drops a lastmod that is not a string instead of throwing", () => {
+  const xml = buildSitemap([
+    { loc: "https://x.dev/a", lastmod: 20260101 as unknown as string },
+    { loc: "https://x.dev/b", lastmod: {} as unknown as string },
+  ]);
+  expect(xml).not.toContain("<lastmod>");
+  expect(xml).toContain("<loc>https://x.dev/a</loc>");
+  expect(xml).toContain("<loc>https://x.dev/b</loc>");
+});

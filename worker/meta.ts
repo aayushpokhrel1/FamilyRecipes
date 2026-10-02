@@ -75,7 +75,13 @@ export function buildSitemap(entries: SitemapEntry[]): string {
     // Google wants a date, not a timestamp, and Supabase hands back a full ISO string, so the
     // first ten characters are the YYYY-MM-DD prefix. An empty lastmod is dropped rather than
     // emitted as an empty element, which is an invalid field.
-    const lastmod = entry.lastmod ? `\n    <lastmod>${entry.lastmod.slice(0, 10)}</lastmod>` : "";
+    // typeof, not just truthiness: lastmod comes from unvalidated Supabase JSON, and
+    // serveSitemap builds its Response outside the try, so a non-string here would throw
+    // straight out of the route as a 500. A sitemap may be incomplete, never fail.
+    const lastmod =
+      typeof entry.lastmod === "string" && entry.lastmod !== ""
+        ? `\n    <lastmod>${entry.lastmod.slice(0, 10)}</lastmod>`
+        : "";
     return `  <url>\n${loc}${lastmod}\n  </url>`;
   });
   return [

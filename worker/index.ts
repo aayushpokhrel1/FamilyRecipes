@@ -55,20 +55,34 @@ async function fetchRecipe(env: Env, id: string): Promise<RecipeRow | null> {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// Swallows its OWN failures rather than letting them reach the caller, and that is the whole
+// point of the try. These two feed the JSON-LD only. If a rejection escaped, Promise.all in
+// enrichRecipePage would reject, the outer catch would serve the untouched asset, and a
+// structured-data fetch failing would silently strip the OpenGraph tags that worked fine
+// before JSON-LD existed. A recipe with no ingredient list is still valid structured data.
 async function fetchIngredients(env: Env, id: string): Promise<IngredientRow[]> {
-  const url = `${env.SUPABASE_URL}/rest/v1/recipe_ingredients?recipe_id=eq.${id}&select=quantity,unit,item&order=position`;
-  const response = await fetch(url, { headers: supabaseHeaders(env) });
-  if (!response.ok) return [];
+  try {
+    const url = `${env.SUPABASE_URL}/rest/v1/recipe_ingredients?recipe_id=eq.${id}&select=quantity,unit,item&order=position`;
+    const response = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!response.ok) return [];
 
-  return (await response.json()) as IngredientRow[];
+    return (await response.json()) as IngredientRow[];
+  } catch {
+    return [];
+  }
 }
 
+// Same contract as fetchIngredients above, for the same reason: never reject.
 async function fetchSteps(env: Env, id: string): Promise<StepRow[]> {
-  const url = `${env.SUPABASE_URL}/rest/v1/recipe_steps?recipe_id=eq.${id}&select=text&order=position`;
-  const response = await fetch(url, { headers: supabaseHeaders(env) });
-  if (!response.ok) return [];
+  try {
+    const url = `${env.SUPABASE_URL}/rest/v1/recipe_steps?recipe_id=eq.${id}&select=text&order=position`;
+    const response = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!response.ok) return [];
 
-  return (await response.json()) as StepRow[];
+    return (await response.json()) as StepRow[];
+  } catch {
+    return [];
+  }
 }
 
 // An ingredient line is [quantity, unit, item] joined by single spaces with the empty and null
