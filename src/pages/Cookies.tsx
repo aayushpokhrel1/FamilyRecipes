@@ -77,18 +77,17 @@ export default function Cookies() {
         only effect is that you will be signed out and the app will forget your theme.
       </p>
 
-      <h2>The one thing your browser fetches from elsewhere</h2>
+      <h2>Nothing on a page comes from anywhere else</h2>
       <p>
-        The site loads its typeface from Google Fonts. That means your browser makes a request to
-        Google when a page loads, and Google sees your IP address as a result, as it would for
-        any file served from its network. No cookie is set by it and nothing identifies you to
-        us. We would rather this request did not happen at all, and serving the font from our own
-        domain is on the list of things to fix.
+        No embedded videos, no social media widgets, no comment widgets, no maps, no chat
+        bubbles, no tag managers, and no fonts loaded from somebody else's network. Every file a
+        page needs is served from this domain, so loading a page tells no other company that you
+        were here.
       </p>
       <p>
-        Other than that, there are no embedded videos, no social media widgets, no comment
-        widgets, no maps, no chat bubbles and no tag managers. Nothing on a page comes from a
-        third party except that font.
+        The typeface used to be loaded from Google Fonts, which meant your browser contacted
+        Google on every page load and Google saw your IP address as a result. It is now served
+        from this site instead. That was the last third-party request this app made.
       </p>
 
       <h2>Do Not Track and Global Privacy Control</h2>

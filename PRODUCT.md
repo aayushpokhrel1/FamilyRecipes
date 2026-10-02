@@ -289,10 +289,10 @@ only read after consenting is not a notice: `/terms`, `/privacy`, `/cookies`, `/
 
 What the current position actually rests on:
 
-- **No cookies, no analytics, no advertising, no third-party embeds** beyond the Google
-  Fonts stylesheet. That, and only that, is why there is no consent banner. It is a fact
-  about the code, not a policy choice, and `src/lib/browserStorage.test.ts` is what keeps it
-  a fact.
+- **No cookies, no analytics, no advertising, no third-party embeds, and no third-party
+  requests of any kind.** The typeface is self-hosted, so loading a page contacts nobody but
+  us. That is why there is no consent banner. It is a fact about the code, not a policy
+  choice, and `src/lib/browserStorage.test.ts` is what keeps it a fact.
 - **Nothing is sold.** No payments, no card details, no subscription, so the refund position
   in the terms is simply that there is nothing to refund.
 - **No testimonials, reviews, customer names, usage benchmarks or pricing exist anywhere in
@@ -303,11 +303,6 @@ What the current position actually rests on:
 
 ### Deferred, with the reason
 
-- **Self-host the typeface.** Google Fonts is the only third-party request a page makes, and
-  it discloses the visitor's IP to Google. A German court has found that specific pattern to
-  infringe the GDPR. Serving the woff2 from our own domain removes the last external request
-  and makes the cookies page simpler to defend. This is the highest-value item on this list
-  and it is small.
 - **A data export button.** The privacy policy promises a copy of your data on request, and
   that promise is currently kept by hand over email. A one-click export in Settings would
   turn a manual obligation into a feature, and the delete-account function already proves the

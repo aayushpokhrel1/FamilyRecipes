@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { sources } from "./sourceFiles";
 import html from "../../index.html?raw";
+import css from "../index.css?raw";
 
 // src/pages/Cookies.tsx tells people this app sets NO cookies and stores only four strictly
 // necessary things, and that is the entire reason it shows no cookie banner. Under UK and EU
@@ -69,5 +70,35 @@ it("loads no third-party tracker, which is what makes the no-banner claim true",
       if (text.includes(tracker)) offenders.push(`${path}: ${tracker}`);
     }
   }
+  expect(offenders).toEqual([]);
+});
+
+// The font used to come from fonts.googleapis.com, which handed every visitor's IP to Google on
+// every page load. It is now served from public/fonts/, and src/pages/Cookies.tsx says in public
+// that NO page makes a third-party request. This is what keeps that sentence true.
+//
+// Deliberately matches on real references (a <link href>, a CSS url()) rather than on the
+// hostname appearing anywhere, because the comments explaining this decision name the host they
+// are warning you about, and a substring search would fire on those.
+it("loads no stylesheet, font or other subresource from a third-party host", () => {
+  const offenders: string[] = [];
+
+  for (const [tag, href] of html.matchAll(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/g)) {
+    // canonical and alternate DECLARE a URL, they do not fetch one, so an absolute href there
+    // is correct and carries no privacy cost. Everything else (stylesheet, preload, preconnect,
+    // icon, manifest) makes the browser open a connection.
+    if (/\brel=["'](canonical|alternate)["']/.test(tag)) continue;
+    if (/^https?:|^\/\//.test(href)) offenders.push(`index.html <link> -> ${href} (${tag.slice(0, 40)})`);
+  }
+  for (const [, src] of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/g)) {
+    if (/^https?:|^\/\//.test(src)) offenders.push(`index.html <script> -> ${src}`);
+  }
+  for (const [, url] of css.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) {
+    if (/^https?:|^\/\//.test(url)) offenders.push(`index.css url() -> ${url}`);
+  }
+  for (const [, url] of css.matchAll(/@import\s+(?:url\()?\s*["']([^"']+)["']/g)) {
+    if (/^https?:|^\/\//.test(url)) offenders.push(`index.css @import -> ${url}`);
+  }
+
   expect(offenders).toEqual([]);
 });

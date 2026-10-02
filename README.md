@@ -85,7 +85,7 @@ ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scali
 meal planning · v1 private multi-family vault.
 
 Next: opening Potluck beyond signed-in users, which moderation and the public documents now
-unblock. Before that, self-host the typeface so no page makes a third-party request.
+unblock.
 
 Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,
 and a native app. Per-recipe link previews are already built, in the Worker.

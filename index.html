@@ -25,11 +25,18 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Family Recipes, on an enamel plate against a pantry-green wall." />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Zilla Slab used to be loaded from fonts.googleapis.com here. It is now served from
+         our own domain (@font-face in src/index.css, files in public/fonts/), so that no page
+         makes a third-party request and no visitor's IP reaches Google. Do not reintroduce a
+         font CDN link: it would make the claim on /cookies false and a consent banner arguable.
+         The preload is the one weight above the fold on every page, the wordmark in the header;
+         without it the header flashes in the fallback serif on a cold load. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/zilla-slab-700-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <script>
       (function () {

@@ -406,10 +406,13 @@ forget are the ones nobody thinks of as a processor: the Google Fonts stylesheet
 
 ### Known standing risks
 
-- **Google Fonts is the only third-party request a page makes**, and it discloses every
-  visitor's IP to Google. A German court has found that pattern to infringe the GDPR.
-  Self-hosting the woff2 removes it entirely and is the single highest-value compliance fix
-  outstanding.
+- **No page makes a third-party request, and that is now load-bearing.** The typeface is
+  served from `public/fonts/` (SIL Open Font License 1.1, text kept beside the files because
+  redistribution requires it), after being moved off Google Fonts, which was disclosing every
+  visitor's IP to Google. `src/pages/Cookies.tsx` states this in public, so reintroducing any
+  external stylesheet, font, embed or script makes that page false and a consent banner
+  arguable. `src/lib/browserStorage.test.ts` fails on any absolute-URL `<link>`, `<script src>`
+  or CSS `url()`, which is the check that notices.
 - **The AI import sends user content outside the UK and EU**, to DeepSeek by default and to
   Groq for voice. It is disclosed on the privacy page and it is the only path by which user
   content leaves our own infrastructure. Changing `MODEL_BASE_URL` changes who receives it,

@@ -123,9 +123,9 @@ export default function Privacy() {
         </dd>
         <dt>Google</dt>
         <dd>
-          Only if you choose Continue with Google to sign in, and separately for the typeface
-          the site loads, which means your browser contacts Google when a page loads. See{" "}
-          <Link to="/cookies">Cookies and local storage</Link>.
+          Only if you choose Continue with Google to sign in. Nothing else on this site reaches
+          Google: the typeface is served from our own domain, so simply loading a page tells
+          Google nothing. See <Link to="/cookies">Cookies and local storage</Link>.
         </dd>
         <dt>Resend</dt>
         <dd>Sends the notification email when a recipe is reported.</dd>
