@@ -32,6 +32,10 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
 - **Optional ingredients and alternatives**: mark something optional, or as a swap for another
   ingredient. The grocery list buys one of a swap pair, never both.
 - **Per-recipe visibility**: Private / Family / Public.
+- **Drafts**: save an unfinished recipe and come back to it, including one the AI pre-filled.
+  A draft belongs to its author alone and is never a row in `recipes`. A pending edit to an
+  already-published recipe is a draft too: the recipe stays untouched until you publish, and if
+  someone else changed it meanwhile you are told and asked, rather than silently overwriting.
 - **In-family comments** and **Cook Mode** (big-text, screen stays awake).
 - **Potluck**: a signed-in space for other households' public recipes, with search, a public
   cook page per handle, and following. Saving a copy into your own vault keeps the original

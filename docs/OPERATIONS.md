@@ -102,6 +102,23 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
 
+### The exception to "migration first", and it is live right now
+
+The standing rule is that a migration reaches cloud BEFORE the frontend that needs it, because
+getting it backwards once broke every recipe save on production. **A migration that changes
+what a cook SEES, rather than what the frontend may call, inverts that rule.**
+
+`0035_remedies_and_appeals.sql` is the live example, and it is **committed but deliberately NOT
+applied to cloud**. It hides a name-cleared cook's public recipes from Potluck. The banner that
+tells that cook why is task 2 of the same sub-project and is **not built yet**. Push 0035 alone
+and the recipes simply vanish with nothing on screen explaining it, which is precisely the
+silent failure the whole sub-project exists to remove.
+
+So 0035 goes to cloud **with or after** the frontend that explains it, not before. Check before
+pushing: `npx supabase migration list --linked` should show 0035 as local-only until the banner
+ships. The test, in general: does this migration change what someone sees without the frontend?
+If yes, ship them together.
+
 The four functions are `extract-recipe`, `delete-account`, `notify-report` and `admin`.
 Deploying one does not deploy the others, and nothing warns you that a function is running
 older code than the repo holds.
