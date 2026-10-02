@@ -295,6 +295,16 @@ against `git log --since="<updated_at>" -- supabase/functions/extract-recipe/`.
 - **Resend has moved off Amazon SES to `forge.rmta.net`,** so SPF is two CNAMEs, not MX plus a
   `v=spf1` TXT. Every guide describing SES records is stale. The CNAMEs **must stay DNS-only**;
   Cloudflare defaults a new CNAME to Proxied, and a proxied CNAME breaks mail.
+- **Inbound mail: `moderation@enamelvault.com` forwards to a Gmail via Cloudflare Email
+  Routing** (enabled 2026-10-01). The zone had NO MX and no root SPF before that, so every
+  message to the address `/terms` publishes was being dropped at the edge with no bounce and
+  no trace. Routing adds three root MX records (`route1/2/3.mx.cloudflare.net`), a root
+  `v=spf1 include:_spf.mx.cloudflare.net ~all`, and a `cf2024-1._domainkey` DKIM record.
+  **Root SPF does not touch sending**, which goes out as `noreply@mail.enamelvault.com`: SPF
+  is per exact name and does not inherit, so `send.mail.enamelvault.com` keeps its own record.
+  That was checked against the actual `from:` in `notify-report` rather than assumed.
+  Forwarding is only as good as its destination: the destination address must stay verified in
+  Cloudflare, and if it is ever removed, mail starts disappearing silently again.
 - **DMARC deliberately has no `rua=`.** A reporting address on a different domain needs an
   authorisation record at that domain, which Gmail does not publish, so reports would be
   silently discarded.
