@@ -155,7 +155,12 @@ export default function GroceryPanel({ planId }: { planId: string }) {
         </p>
       )}
       <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Add your own item" />
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Add your own item"
+          aria-label="Add your own grocery item"
+        />
         <button type="button" onClick={handleAddManual}>Add item</button>
       </div>
     </section>

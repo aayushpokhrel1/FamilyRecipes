@@ -65,12 +65,20 @@ export default function RecipeList() {
     <div>
       <h1>Recipes</h1>
       <div className="vault-tools">
+        {/* type="search" so the browser offers a clear control and announces the role; the
+            aria-label is what a screen reader reads, because the placeholder is not a label. */}
         <input
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search title or ingredient"
+          aria-label="Search recipes by title or ingredient"
         />
-        <select value={tagId} onChange={(e) => setTagId(e.target.value)}>
+        <select
+          value={tagId}
+          onChange={(e) => setTagId(e.target.value)}
+          aria-label="Filter recipes by tag"
+        >
           <option value="">All tags</option>
           {tags.map((t) => (
             <option key={t.id} value={t.id}>

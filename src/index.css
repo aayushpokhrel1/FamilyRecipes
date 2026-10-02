@@ -26,9 +26,16 @@
   --on-wall: #f3ede1;
   --on-wall-soft: rgba(243, 237, 225, 0.72);
 
-  /* --- The one reserved signal: vermilion = the committing action --- */
-  --action: #d6431f;
-  --action-deep: #b53514;
+  /* --- The one reserved signal: vermilion = the committing action ---
+     TWO vermilions, because one cannot pass WCAG AA on both grounds. --action is the
+     bone-plate vermilion (fill behind --on-action, and text on a plate); --action-lit is
+     the SAME signal on the green wall, where a dark vermilion drops to 2.7:1.
+     Base `a` uses --action-lit, `.plate a` overrides to --action, mirroring the
+     --on-wall-soft / --ink-soft pair. Measured by src/index.contrast.test.ts, which fails
+     if any pair drops below 4.5:1 -- do not hand-tune these without running it. */
+  --action: #b53514;
+  --action-deep: #8f260b;
+  --action-lit: #ff8f73;
   --on-action: #fdf3ec;
 
   /* --- Enamel yellow: rare, for the live/active tick only --- */
@@ -86,8 +93,12 @@
   --on-wall: #ece4d3;
   --on-wall-soft: rgba(236, 228, 211, 0.62);
 
-  --action: #f0603f;
-  --action-deep: #d1481f;
+  /* See the light-mode note above. Dark inverts which way "readable" runs: the fill
+     vermilion lightens so --on-action stays legible on it, and --action-lit darkens
+     because the wall is now near-black. */
+  --action: #f57355;
+  --action-deep: #e05a35;
+  --action-lit: #f0603f;
   --on-action: #1a0e08;
 
   --chip: #34453f;
@@ -124,7 +135,10 @@ body {
 
 /* Browser surfaces belong to the world too. */
 ::selection { background: var(--action); color: var(--on-action); }
-:focus-visible { outline: 2.5px solid var(--action); outline-offset: 2px; border-radius: 3px; }
+/* Two grounds again, for the same reason as links: the dark plate vermilion is ~2:1 on the
+   green wall, which is a focus ring you cannot see. A ring needs 3:1 against what it sits on. */
+:focus-visible { outline: 2.5px solid var(--action-lit); outline-offset: 2px; border-radius: 3px; }
+.plate :focus-visible { outline-color: var(--action); }
 html { scrollbar-color: var(--action) var(--wall-deep); }
 ::-webkit-scrollbar { width: 12px; height: 12px; }
 ::-webkit-scrollbar-track { background: var(--wall-deep); }
@@ -161,8 +175,12 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 p { margin: 0 0 0.9em; }
 p:last-child { margin-bottom: 0; }
 
-a { color: var(--action); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
-a:hover { text-decoration-color: var(--action-deep); }
+/* The wall is the default ground, so the base link colour is the wall vermilion; a link
+   inside a plate (or a .prose page, which IS a plate) overrides to the plate vermilion.
+   Getting this backwards is a contrast failure, not a taste call: see the token note. */
+a { color: var(--action-lit); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.plate a { color: var(--action); }
+a:hover { text-decoration-color: currentColor; }
 
 small { font-size: 0.8rem; color: var(--on-wall-soft); }
 
@@ -308,7 +326,11 @@ button.action:hover { background: var(--action-deep); }
 
 /* ------------------------------------------------------- app header ------- */
 
-.app { display: flex; flex-direction: column; min-height: 100svh; }
+/* .site owns the viewport height, not .app, because the footer is a sibling of the whole
+   route tree (see main.tsx). .site-footer gets margin-top:auto so it sits at the bottom even
+   on a short page such as the sign-in form. */
+.site { display: flex; flex-direction: column; min-height: 100svh; }
+.app { display: flex; flex-direction: column; flex: 1; }
 
 .app-header {
   display: flex;
@@ -689,6 +711,9 @@ button[aria-pressed="true"] {
 .auth-card label { color: var(--ink-soft); }
 .auth-card p { color: var(--ink); }
 .auth-card > button[type="submit"] { width: 100%; }
+/* The consent notice above the submit button. Smaller than body text but NOT --ink-soft at a
+   smaller size as well: a notice you have to squint at is not a notice. */
+.form-consent { font-size: 0.85rem; color: var(--ink-soft); }
 
 /* ---------------------------------------------------------- settings ----- */
 
@@ -1221,3 +1246,69 @@ button[aria-pressed="true"] {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* ------------------------------------------------------- prose + footer ---- */
+
+/* The long-form pages (Terms, Privacy, Cookies, Help) render <div className="prose plate">.
+   BOTH classes, and the plate is not decoration: .plate carries the surface colour AND the
+   `.plate h1, .plate h2, .plate h3 { color: var(--ink) }` rule above. A .prose that restyled
+   the surface itself without being a .plate rendered bone headings on a bone plate, which is
+   invisible, and no test caught it because every token pair involved was individually fine.
+   So .prose adds TYPOGRAPHY ONLY; the surface belongs to .plate. */
+.prose {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: clamp(22px, 4vw, 40px);
+}
+.prose h1 { margin-top: 0; }
+.prose h2 { margin-top: 1.6em; }
+.prose h3 { margin-top: 1.3em; }
+.prose ul, .prose ol { padding-left: 1.3em; margin: 0 0 0.9em; }
+.prose li { margin-bottom: 0.4em; }
+.prose dt { font-weight: 700; margin-top: 0.9em; }
+.prose dd { margin: 0 0 0.5em; }
+.prose table { width: 100%; border-collapse: collapse; margin: 0 0 1em; }
+.prose th, .prose td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rim) 28%, transparent);
+  vertical-align: top;
+}
+.prose th { font-family: var(--sign); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.prose .updated { color: var(--ink-soft); font-size: 0.85rem; }
+
+/* Keyboard users reach the nav first on every page. One link, visible only when focused,
+   so it is free for everyone else. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+  padding: 10px 16px;
+  background: var(--plate);
+  color: var(--ink);
+  border: 2px solid var(--rim);
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.site-footer {
+  margin-top: auto;
+  padding: 28px var(--gut) 36px;
+  border-top: 2px solid var(--wall-edge);
+  background: var(--wall-deep);
+  color: var(--on-wall-soft);
+  font-size: 0.85rem;
+}
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-bottom: 12px;
+}
+.site-footer p { margin: 0 0 0.4em; max-width: 68ch; }

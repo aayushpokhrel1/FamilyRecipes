@@ -69,7 +69,12 @@ export default function TagPicker({
         ))}
         {shown.length === 0 && <p className="vault-note">No tag matches that.</p>}
       </div>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New tag" />
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="New tag"
+        aria-label="New tag name"
+      />
       <button type="button" onClick={handleAdd}>
         Add tag
       </button>

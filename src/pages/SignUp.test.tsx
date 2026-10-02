@@ -14,9 +14,15 @@ import SignUp from "./SignUp";
 
 function submit() {
   render(<MemoryRouter><SignUp /></MemoryRouter>);
+  // All three, not just the email: the fields are `required`, so an empty display name or
+  // password now makes the browser refuse the submit before handleSubmit ever runs. Filling
+  // only the email used to be enough and silently stopped being enough.
+  fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "A" } });
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.dev" } });
-  // Exact, not /sign up/i: "Sign up with Google" sits beside it and would match too.
-  fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "hunter2hunter2" } });
+  // "Create account", not "Sign up": the submit button says what it does, which also stops it
+  // reading as a near-duplicate of the "Sign up with Google" button beside it.
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 }
 
 test("tells the user to check their inbox when there is no session yet", async () => {

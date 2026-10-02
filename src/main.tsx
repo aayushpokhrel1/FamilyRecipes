@@ -5,6 +5,7 @@ import './index.css'
 import { AuthProvider } from './context/AuthContext'
 import { FamilyProvider } from './context/FamilyContext'
 import AppRoutes from './routes'
+import SiteFooter from './components/SiteFooter'
 import { reportError } from './lib/api/errorLog'
 
 // Nearly every failure in this app is caught and shown to the person who hit it, so the
@@ -18,7 +19,13 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <FamilyProvider>
-          <AppRoutes />
+          {/* The footer sits OUTSIDE AppRoutes on purpose. It carries the terms, privacy and
+              cookie links, and those have to be reachable from the signed-out auth pages,
+              which render bare and never pass through AppLayout. */}
+          <div className="site">
+            <AppRoutes />
+            <SiteFooter />
+          </div>
         </FamilyProvider>
       </AuthProvider>
     </BrowserRouter>

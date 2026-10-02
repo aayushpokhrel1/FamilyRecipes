@@ -37,6 +37,12 @@ export default function AppLayout() {
 
   return (
     <div className="app">
+      {/* First focusable thing on the page. Without it a keyboard or screen-reader user tabs
+          through the whole nav on every single page before reaching the content. Visible only
+          when focused, so it costs everyone else nothing. */}
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       <header className="app-header">
         <Link to="/">Family Recipes</Link>
         {/* A visitor arrives here from a shared recipe link. Everything in the signed-in nav
@@ -44,7 +50,7 @@ export default function AppLayout() {
             works: signing in. */}
         {userId ? (
           <>
-            <nav>
+            <nav aria-label="Main">
               <NavLink to="/" end>
                 Recipes
               </NavLink>
@@ -65,14 +71,14 @@ export default function AppLayout() {
             </button>
           </>
         ) : (
-          <nav>
+          <nav aria-label="Main">
             <Link to="/signin" className="action">
               Sign in
             </Link>
           </nav>
         )}
       </header>
-      <main className="app-main">
+      <main className="app-main" id="main">
         <Outlet />
       </main>
     </div>

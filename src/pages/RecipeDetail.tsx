@@ -311,7 +311,14 @@ export default function RecipeDetail() {
         </div>
       )}
 
-      {photoUrl && <img className="recipe-photo" src={photoUrl} alt={recipe.title} />}
+      {/* Not alt={recipe.title}: the title is already the <h1> directly above, so repeating it
+          makes a screen reader say the same words twice and still never says what the picture
+          shows. Nobody can describe this photo but the cook who uploaded it, and there is no
+          field for that yet, so "Photo of X" is the honest ceiling.
+          ponytail: add a caption/alt field to the photo upload and use it here when present. */}
+      {photoUrl && (
+        <img className="recipe-photo" src={photoUrl} alt={`Photo of ${recipe.title}`} />
+      )}
 
       <div className="recipe-body">
         <section className="plate panel">

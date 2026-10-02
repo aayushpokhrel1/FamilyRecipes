@@ -22,15 +22,15 @@ import Settings from "./pages/Settings";
 import Potluck from "./pages/Potluck";
 import Moderation from "./pages/Moderation";
 import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Cookies from "./pages/Cookies";
+import Help from "./pages/Help";
 import TermsGate from "./components/TermsGate";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/signin" element={<SignIn />} />
-      {/* Public, beside /signin: the gate links here, and someone deciding whether to
-          sign up must be able to read the terms first. */}
-      <Route path="/terms" element={<Terms />} />
       <Route path="/signup" element={<SignUp />} />
       {/* Outside RequireAuth on purpose: a recovery session is not a normal
           sign-in, and the guard would bounce the reset link to /signin. */}
@@ -47,6 +47,16 @@ export default function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="recipes/:id" element={<RecipeDetail />} />
         <Route path="cooks/:handle" element={<CookPage />} />
+        {/* The four public documents, inside AppLayout so they get the header and the footer
+            that links to them, and OUTSIDE RequireAuth because someone deciding whether to
+            sign up has to be able to read them first. That is not a nicety: a consent notice
+            you can only see after consenting is not a notice. TermsGate links to /terms, and
+            the signup form links to /terms and /privacy, from a signed-out state in both
+            cases. */}
+        <Route path="terms" element={<Terms />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="cookies" element={<Cookies />} />
+        <Route path="help" element={<Help />} />
       </Route>
       <Route
         element={

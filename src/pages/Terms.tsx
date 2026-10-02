@@ -1,15 +1,22 @@
+import { Link } from "react-router-dom";
+import { CONTACT_EMAIL, OPERATOR, TERMS_UPDATED } from "../lib/legal";
+
 // A plain-English acceptable-use page. Deliberately short: a document nobody reads is worse
 // than a short one people might. Aayush owns the wording; this is a starting draft, and the
 // contact address is the one thing here that MUST be kept true.
 //
+// CHANGING THE WORDING BELOW? Bump TERMS_VERSION in TermsGate.tsx and TERMS_UPDATED in
+// lib/legal.ts, or people are never re-asked and the stored acceptance claims they agreed to
+// text they never saw.
+//
 // TermsGate renders a link to this page, and it sits OUTSIDE RequireAuth in routes.tsx so a
 // signed-out visitor can read it before deciding to sign up.
-export const TERMS_CONTACT = "moderation@enamelvault.com";
 
 export default function Terms() {
   return (
-    <div className="prose">
+    <div className="prose plate">
       <h1>Terms and acceptable use</h1>
+      <p className="updated">Last updated {TERMS_UPDATED}</p>
       <p>
         Family Recipes is a place to keep your family's recipes and, if you choose, to share
         some of them. Most of what follows is one idea: publish only what is yours to publish,
@@ -60,6 +67,20 @@ export default function Terms() {
         address below and say so.
       </p>
 
+      <h2>Payments and refunds</h2>
+      <p>
+        Family Recipes is free. There is nothing to buy, no subscription, no trial that turns
+        into one, and the app never asks for card or bank details. Because no money changes
+        hands, <strong>there is nothing to refund</strong>, and this section exists only to say
+        so plainly rather than leave you guessing.
+      </p>
+      <p>
+        If a paid feature is ever introduced, it will be opt-in, it will be priced before you
+        agree to it, and these terms will be updated with a refund and cancellation policy
+        before any payment is taken. You would never be charged for something you already have
+        for free.
+      </p>
+
       <h2>Your account and your data</h2>
       <p>
         You can delete your account from Settings, which removes your recipes and your profile.
@@ -67,9 +88,21 @@ export default function Terms() {
         above.
       </p>
 
+      <h2>Who you are agreeing with</h2>
+      <p>
+        Family Recipes is run by {OPERATOR}, a private individual rather than a company. It is a
+        personal project offered as it is, with no guarantee that it will be available forever.
+        Nothing here limits any right you have as a consumer that cannot be limited by
+        agreement.
+      </p>
+      <p>
+        What happens to your personal data is a separate document, because it is a separate
+        promise: see the <Link to="/privacy">privacy policy</Link>.
+      </p>
+
       <h2>Contact</h2>
       <p>
-        A person reads <a href={`mailto:${TERMS_CONTACT}`}>{TERMS_CONTACT}</a>. Use it for
+        A person reads <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Use it for
         reports, complaints, takedown requests, or anything about your own data.
       </p>
     </div>

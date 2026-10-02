@@ -6,7 +6,7 @@ import { acceptTerms, getMyProfile } from "../lib/api/profile";
 // accepted version, so an edit shipped without a bump means nobody is re-asked and the stored
 // terms_accepted_at claims people accepted text they never saw. There is nothing mechanical
 // stopping that, which is exactly why this warning sits here rather than in a doc.
-export const TERMS_VERSION = "2026-09-28";
+export const TERMS_VERSION = "2026-10-01";
 
 // The gate sits AFTER authentication, not on the signup form. A signup checkbox would
 // miss Google sign-in, which never touches that form, and would miss every account that
@@ -62,7 +62,8 @@ export default function TermsGate({ children }: { children: React.ReactNode }) {
           : "Please read and accept the terms before you start using Family Recipes."}
       </p>
       <p>
-        <Link to="/terms">Read the terms</Link>
+        <Link to="/terms">Read the terms</Link> and the{" "}
+        <Link to="/privacy">privacy policy</Link>.
       </p>
       <button type="button" onClick={onAccept} disabled={busy}>
         Accept and continue

@@ -45,11 +45,24 @@ export default function SignIn() {
       <h1>Sign in</h1>
       <label>
         Email
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          required
+        />
       </label>
+      {/* NOT required, unlike the email: "Forgot password?" is a submit-less button in this
+          same form, and a required password would make the browser refuse to run it. */}
       <label>
         Password
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
       </label>
       {error && <p role="alert">{error}</p>}
       <button type="submit">Sign in</button>

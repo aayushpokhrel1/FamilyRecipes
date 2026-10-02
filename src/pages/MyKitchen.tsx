@@ -155,6 +155,7 @@ export default function MyKitchen() {
           appears in its day block below. */}
       {hero && (
         <section className="plate hero">
+          {/* alt="" is DELIBERATE: decorative hero behind the plan title, which is text. */}
           {coverUrl && <img className="hero-photo" src={coverUrl} alt="" />}
           <div className="hero-body">
             <span className="stamp">{heroWhen}</span>

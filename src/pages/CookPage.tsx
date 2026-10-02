@@ -125,6 +125,8 @@ export default function CookPage() {
     <section className="plate">
       {/* The avatar route is served by the Worker. Until it exists the image is broken,
           which is why alt is empty and nothing here waits on it loading. */}
+      {/* alt="" is DELIBERATE: the handle and display name are text immediately beside this,
+          so "avatar of X" would just repeat them. */}
       <img className="avatar" src={"/avatar/" + cook.handle + ".jpg"} alt="" />
       <h1>{cook.public_name ?? cook.handle}</h1>
       {cook.bio && <p>{cook.bio}</p>}

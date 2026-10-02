@@ -7,6 +7,7 @@ export default function FamilySwitcher() {
 
   return (
     <select
+      aria-label="Active family"
       value={activeFamily?.id ?? ""}
       onChange={(e) => {
         const family = families.find((f) => f.id === e.target.value);

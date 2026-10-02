@@ -97,21 +97,27 @@ export default function IngredientEditor({
       <h2>Ingredients</h2>
       {items.map((g, i) => (
         <div key={i} className="editor-row">
+          {/* These three carried a placeholder and nothing else, so a screen reader read the
+              whole row as three identical blank fields. The labels name the row the way the
+              selects below already do, which is why they interpolate g.item. */}
           <input
             value={g.quantity ?? ""}
             onChange={(e) => update(i, { quantity: e.target.value })}
             placeholder="Qty"
+            aria-label={`Quantity for ${g.item || "this ingredient"}`}
           />
           <input
             value={g.unit ?? ""}
             onChange={(e) => update(i, { unit: e.target.value })}
             placeholder="Unit"
+            aria-label={`Unit for ${g.item || "this ingredient"}`}
           />
           <input
             value={g.item}
             onChange={(e) => update(i, { item: e.target.value })}
             placeholder="Item"
             list="ingredient-items"
+            aria-label="Ingredient name"
           />
           <select
             aria-label={`Section for ${g.item || "this ingredient"}`}

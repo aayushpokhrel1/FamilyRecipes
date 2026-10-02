@@ -55,7 +55,13 @@ export default function CommentThread({ recipeId }: { recipeId: string }) {
           </li>
         ))}
       </ul>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} />
+      {/* aria-label, not a placeholder: a placeholder vanishes as soon as you type and is
+          not reliably announced, so the field was reaching screen readers as "edit, blank". */}
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        aria-label="Write a comment"
+      />
       <button type="button" onClick={handleAdd}>
         Add comment
       </button>

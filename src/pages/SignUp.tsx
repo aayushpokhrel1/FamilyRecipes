@@ -46,20 +46,51 @@ export default function SignUp() {
   return (
     <form onSubmit={handleSubmit} className="plate auth-card">
       <h1>Sign up</h1>
+      {/* autoComplete is what lets a password manager fill and SAVE these; without
+          new-password a manager offers the existing password instead of generating one.
+          required lets the browser block an empty submit before any network call. */}
       <label>
         Display name
-        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+        <input
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          autoComplete="name"
+          required
+        />
       </label>
       <label>
         Email
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          required
+        />
       </label>
       <label>
         Password
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
+          required
+          minLength={8}
+        />
       </label>
       {error && <p role="alert">{error}</p>}
-      <button type="submit">Sign up</button>
+      {/* The consent notice, and it is a NOTICE rather than a tick box on purpose. The real
+          agreement is TermsGate, which sits after authentication and therefore also catches
+          Google sign-up and every account that already existed; a box here would catch neither.
+          What this has to do is make the documents READABLE BEFORE you hand over an email
+          address, which is why both links are here and why both pages are public. */}
+      <p className="form-consent">
+        By signing up you agree to our <Link to="/terms">terms</Link> and to the{" "}
+        <Link to="/privacy">privacy policy</Link>, which explains what is stored and how to get
+        it deleted. No marketing email is ever sent, and your address is not shared.
+      </p>
+      <button type="submit">Create account</button>
       <GoogleButton label="Sign up with Google" />
       <p>
         Already have an account? <Link to="/signin">Sign in</Link>
