@@ -1,11 +1,34 @@
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import FamilySwitcher from "./FamilySwitcher";
 import { signOut } from "../lib/api/auth";
+import { getMyProfile } from "../lib/api/profile";
 import { useAuth } from "../context/AuthContext";
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const { userId } = useAuth();
+  // The link is the ONLY way to reach /moderation: the route has no entry point anywhere
+  // else, so before this a moderator had to remember the URL to find their own queue.
+  //
+  // This is a CONVENIENCE, not a permission. Hiding a link protects nothing, and the real
+  // guard is elsewhere and stays there: the page re-checks is_moderator, and the report rows
+  // are unreadable to anyone else under RLS. Someone who types the URL without the flag still
+  // gets nothing, which is the behaviour a test pins.
+  const [isModerator, setIsModerator] = useState(false);
+  useEffect(() => {
+    if (!userId) {
+      setIsModerator(false);
+      return;
+    }
+    let ignore = false;
+    // A failure here must leave the link hidden rather than break the whole layout, which
+    // wraps every signed-in page.
+    getMyProfile()
+      .then((p) => { if (!ignore) setIsModerator(!!p.is_moderator); })
+      .catch(() => { if (!ignore) setIsModerator(false); });
+    return () => { ignore = true; };
+  }, [userId]);
 
   async function handleSignOut() {
     await signOut();
@@ -34,6 +57,7 @@ export default function AppLayout() {
               <NavLink to="/me">My Profile</NavLink>
               <NavLink to="/families">Families</NavLink>
               <NavLink to="/settings">Settings</NavLink>
+              {isModerator && <NavLink to="/moderation">Moderation</NavLink>}
             </nav>
             <FamilySwitcher />
             <button type="button" onClick={handleSignOut}>

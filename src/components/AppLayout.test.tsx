@@ -18,9 +18,15 @@ let mockAuth: { userId: string | null; loading: boolean } = { userId: "u1", load
 vi.mock("../context/AuthContext", () => ({ useAuth: () => mockAuth }));
 vi.mock("./FamilySwitcher", () => ({ default: () => <div>switcher</div> }));
 
+// Read at call time like mockAuth above, so a test can set it before rendering.
+let mockProfile: { is_moderator: boolean } = { is_moderator: false };
+vi.mock("../lib/api/profile", () => ({ getMyProfile: () => Promise.resolve(mockProfile) }));
+
 // Reset between tests so one test's visitor cannot leak into the next.
 beforeEach(() => {
   mockAuth = { userId: "u1", loading: false };
+  // Default to the ordinary cook. A test that wants the moderator says so.
+  mockProfile = { is_moderator: false };
 });
 
 describe("AppLayout", () => {
@@ -60,5 +66,32 @@ describe("AppLayout", () => {
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     expect(screen.getByText("switcher")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  // /moderation has no entry point anywhere else, so without this link a moderator has to
+  // remember the URL to find their own queue.
+  it("offers Moderation in the nav to a moderator", async () => {
+    mockProfile = { is_moderator: true };
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: /moderation/i }))
+      .toHaveAttribute("href", "/moderation");
+  });
+
+  // Hiding the link is a convenience and NOT the guard: the page re-checks is_moderator and
+  // RLS hides the reports regardless. This test pins the convenience; the guard is pinned in
+  // the moderation tests, and both have to hold.
+  it("hides Moderation from an ordinary cook", async () => {
+    mockProfile = { is_moderator: false };
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: "My Profile" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /moderation/i })).not.toBeInTheDocument();
+  });
+
+  it("hides Moderation from a signed-out visitor", async () => {
+    mockAuth = { userId: null, loading: false };
+    mockProfile = { is_moderator: true };
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /moderation/i })).not.toBeInTheDocument();
   });
 });
