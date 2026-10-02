@@ -10,8 +10,9 @@ colors:
   ink: "#182b25"
   ink-soft: "#4f605a"
   on-wall: "#f3ede1"
-  action: "#d6431f"
-  action-deep: "#b53514"
+  action: "#b53514"
+  action-deep: "#8f260b"
+  action-lit: "#ff8f73"
   on-action: "#fdf3ec"
   spark: "#e7c24a"
   chip: "#ddd2bb"
@@ -125,10 +126,14 @@ reserved signal, tied together with green-tinted inks.
   structural shade of the green.
 
 ### Secondary
-- **Vermilion Signal** (`#d6431f`): the one reserved action color. Primary buttons, step
-  markers, ingredient quantities, monograms, the provenance stamp, and every themed
-  browser surface (selection, caret, scrollbar, focus ring). Deepens to **Vermilion Deep**
-  (`#b53514`) on press.
+- **Vermilion Signal** (`#b53514`): the one reserved action color, in its plate form. It
+  fills primary buttons, step markers, and the provenance stamp, and it is the vermilion
+  used as text on bone (ingredient quantities, monograms, links inside a plate). Deepens
+  to **Vermilion Deep** (`#8f260b`) on press.
+- **Vermilion Lit** (`#ff8f73`): the same signal in its wall form, for links and focus
+  rings on the green ground. There are two vermilions because one cannot meet AA on both
+  grounds: a vermilion dark enough for a bone plate is unreadable on the green wall, and
+  one light enough for the wall fails on bone.
 
 ### Tertiary
 - **Enamel Yellow** (`#e7c24a`): the live tick only. The active nav tab's underglow and
@@ -148,6 +153,12 @@ viewport. It is never decoration; when it appears, it is the thing to press.
 **The Wall Rule.** The enamel green owns the ground and chrome. Content does not float on
 it inside a container without becoming a bone plate; only plain running text sits directly
 on the wall, in bone.
+
+**The Two Grounds Rule.** Every colour pair in this system is chosen against a specific
+ground, either a bone plate or the green wall, and the same ink cannot serve both.
+`--ink-soft` / `--on-wall-soft` and `--action` / `--action-lit` are the two pairs this
+produces. `src/index.contrast.test.ts` reads the real tokens and fails the build if a pair
+drops below AA, so the numbers are not a matter of taste.
 
 **The Tinted-Secondary Rule.** Secondary text is tinted from the green (`--ink-soft`,
 `--on-wall-soft`), never neutral gray. Gray on this world reads as an accident.
@@ -296,8 +307,10 @@ provenance panel. It is the emotional signature of the world: the hand behind th
 ## Do's and Don'ts
 
 ### Do:
-- **Do** reserve vermilion (`#d6431f`) for the one committing action in a view; everything
+- **Do** reserve vermilion (`#b53514`) for the one committing action in a view; everything
   else is bone, green, or tin.
+- **Do** pick the vermilion by ground: `--action` on a plate, `--action-lit` on the wall.
+  The contrast test decides, not the eye.
 - **Do** set every title, label, and control in Zilla Slab caps; keep titles at sign scale.
 - **Do** give every surface the enamel rim (dark keyline + inner highlight) and lift it
   with one soft shadow.
