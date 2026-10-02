@@ -14,6 +14,20 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // WITHOUT THIS, THE WORKER NEVER RUNS FOR `/`. Cloudflare serves any request that matches
+    // a real file in dist/ straight from its asset store, skipping the Worker entirely, so the
+    // security headers in worker/index.ts reached /help and /sitemap.xml (no matching file, so
+    // they fall through to the Worker) and never reached the home page, which is index.html.
+    // That was live and invisible for a day: the headers were correct and simply not applied
+    // to the one URL most people load.
+    //
+    // Deliberately a narrow list rather than `true`. `true` routes EVERY asset through the
+    // Worker, which would mean a Worker exception takes the JS, CSS and fonts down with it,
+    // and this project's rule is that a page must never fail to load because something
+    // optional broke. The document is the only response where the CSP does anything anyway:
+    // frame-ancestors, script-src and Referrer-Policy are properties of the page, not of a
+    // font file. HSTS on the document already covers the whole host.
+    "run_worker_first": ["/", "/index.html"]
   }
 }

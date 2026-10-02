@@ -466,6 +466,17 @@ Every response the Worker returns carries a Content-Security-Policy and the chea
 (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS). They are applied by
 wrapping the whole router rather than per response, so a new route cannot ship without them.
 
+**But the Worker does not see every request.** Cloudflare serves anything matching a real file
+in `dist/` straight from its asset store and never invokes the Worker, so for a day the headers
+reached `/help` and `/sitemap.xml` (no matching file, so they fall through) and never reached
+`/`, which is `index.html`. `assets.run_worker_first` in `wrangler.jsonc` is what fixes that,
+and it is set to `["/", "/index.html"]` rather than `true` so a Worker exception cannot take
+the JS and fonts down with it.
+
+The symptom to recognise, because it reads as a caching problem and is not: a header present on
+some paths and absent on others, with the absent ones being exactly the paths that correspond to
+files on disk. Purging the cache changes nothing.
+
 **`script-src 'self'` means no inline `<script>` anywhere.** A blocked inline script does not
 warn, it silently never runs, which is why the theme bootstrap moved out of `index.html` into
 `public/theme-init.js`. Two tests hold this: `worker/meta.test.ts` pins the policy's directives,
