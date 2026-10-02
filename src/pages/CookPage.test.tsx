@@ -196,3 +196,23 @@ test("reporting a cook sends the reason and the button reads Reported", async ()
     expect(reportCook).toHaveBeenCalledWith("c1", "impersonation", "not them"));
   expect(await screen.findByRole("button", { name: "Reported" })).toBeInTheDocument();
 });
+
+// Found on PRODUCTION, not by a test: after blocking, the control still read "Following"
+// while the database had already deleted the follow, because 0029 severs it server side and
+// the page only updated its own block state. A reload fixed the display, which is exactly
+// the kind of lie a reload hides.
+test("blocking stops the control claiming you still follow them", async () => {
+  mockAuth = { userId: "me", loading: false };
+  vi.mocked(getPublicCook).mockResolvedValue({
+    id: "c1", handle: "aayush", public_name: "Aayush", bio: null, avatar_url: null,
+  });
+  vi.mocked(listPublicRecipesByAuthor).mockResolvedValue([]);
+  vi.mocked(isFollowing).mockResolvedValue(true);
+  renderCook();
+  expect(await screen.findByRole("button", { name: "Following" })).toBeInTheDocument();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Block" }));
+  await waitFor(() => expect(setBlock).toHaveBeenCalledWith("c1", "block"));
+  expect(await screen.findByRole("button", { name: "Follow" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Following" })).not.toBeInTheDocument();
+});

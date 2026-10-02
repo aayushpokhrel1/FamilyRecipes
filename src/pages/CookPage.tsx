@@ -101,7 +101,15 @@ export default function CookPage() {
     if (!cook) return;
     try {
       if (blockKind === kind) { await removeBlock(cook.id); setBlockKind(null); }
-      else { await setBlock(cook.id, kind); setBlockKind(kind); }
+      else {
+        await setBlock(cook.id, kind);
+        setBlockKind(kind);
+        // A block severs the follow SERVER side (see 0029), so the button has to stop saying
+        // "Following" or it is reporting a relationship the database has already deleted.
+        // Found on production: block, and the control still read Following until a reload.
+        // Unblocking deliberately does NOT restore it, because the follow is gone, not paused.
+        if (kind === "block") setFollowing(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
