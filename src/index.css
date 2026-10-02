@@ -1375,3 +1375,129 @@ button[aria-pressed="true"] {
   margin-bottom: 12px;
 }
 .site-footer p { margin: 0 0 0.4em; max-width: 68ch; }
+
+/* --------------------------------------------------- moderator console ---- */
+
+/* The report queue. A plain stack of plates, so it needs no surface of its own. */
+.report-list { list-style: none; margin: 0; padding: 0; }
+.report-list > li { margin-bottom: 14px; }
+
+/* Stat tiles: the number is the point, so it takes the sign face at display size and the
+   label sits under it as a quiet caption. auto-fit keeps seven tiles on one row on a wide
+   screen and wraps them rather than squashing them on a narrow one. */
+.stat-row {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+}
+.stat-value {
+  font-family: var(--sign);
+  font-weight: 700;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--action);
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-family: var(--sign);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+/* The signups bar row. Bars are laid out with flex and sized by inline height, so the
+   container needs a fixed height to be a percentage OF. align-items: flex-end makes the
+   bars grow upward from the baseline, which is what a bar chart means. */
+.signup-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 120px;
+  padding-top: 4px;
+}
+.signup-bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  /* A day with no signups still gets a visible sliver, so the row reads as 30 days rather
+     than as a gap. The inline height is a percentage of the container, so a zero day would
+     otherwise collapse to nothing. */
+  min-height: 2px;
+  background: var(--action);
+  border-radius: 2px 2px 0 0;
+}
+
+/* The roster. A real table with a real thead, so the column headings are announced with
+   the cells. overflow: hidden clips the row dividers to the rounded rim. */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 18px;
+  background: var(--plate);
+  color: var(--ink);
+  border: 1.5px solid var(--rim);
+  border-radius: var(--radius);
+  box-shadow: inset 1.5px 0 0 var(--rim-hi), var(--lift);
+  overflow: hidden;
+}
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rim) 28%, transparent);
+  vertical-align: top;
+}
+.admin-table th {
+  font-family: var(--sign);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+.admin-table tbody tr:last-child td { border-bottom: none; }
+/* The action buttons are the base control at a smaller size: a roster row is not a
+   toolbar, and full-size buttons made every row three times its natural height. */
+.admin-table .recipe-actions { margin: 0; gap: 6px; }
+.admin-table .recipe-actions button { padding: 6px 11px; font-size: 0.78rem; }
+
+/* The inline suspend and delete confirmations. They sit under the row's buttons, so they
+   are a small stack rather than a full-width form. */
+.inline-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+  margin-top: 10px;
+}
+.inline-confirm label {
+  display: block;
+  margin: 0;
+  font-family: var(--sign);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+.inline-confirm input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-weight: 400;
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+}
+.inline-confirm button { align-self: flex-start; }

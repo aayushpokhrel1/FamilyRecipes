@@ -148,6 +148,24 @@ export default function Privacy() {
         state privacy laws give you a right to opt out of. There is nothing to opt out of here.
       </p>
 
+      <h2>Who at our end can see your account</h2>
+      <p>
+        Family Recipes has moderators, and today that is one person: {OPERATOR}, who also runs
+        the site. A moderator can see the list of accounts, which means your email address, your
+        display name, when you joined and when you last signed in. They can suspend an account,
+        take a published recipe down, or delete an account.
+      </p>
+      <p>
+        <strong>A moderator cannot read your recipes.</strong> Private and family recipes are
+        closed to them at the database level, not merely hidden in the interface, and that stays
+        true no matter what the moderation screen is asked to show. What they can act on is what
+        you chose to publish.
+      </p>
+      <p>
+        If your account is suspended or something of yours is taken down, you are told, and you
+        are told the reason. You can challenge it at the address below.
+      </p>
+
       <h2>International transfers</h2>
       <p>
         The providers above operate outside the UK and the EEA, and the AI import in particular
