@@ -15,9 +15,9 @@ export default function Privacy() {
 
       <p>
         The short version: this app keeps your recipes so you and your family can cook from
-        them. It has no advertising, no analytics, no tracking pixels and no cookies. Nothing
-        here is sold or shared for marketing, ever. What follows is the detail, because you are
-        entitled to it.
+        them. It has no advertising, no tracking pixels and no cookies, and the only analytics
+        is a cookieless page count that cannot identify you. Nothing here is sold or shared for
+        marketing, ever. What follows is the detail, because you are entitled to it.
       </p>
 
       <h2>Who is responsible for your data</h2>
@@ -119,7 +119,9 @@ export default function Privacy() {
         <dt>Cloudflare</dt>
         <dd>
           Serves the site. Like every web host it handles your IP address in order to answer the
-          request.
+          request. It also counts page views for us, without cookies and without any identifier
+          that could single you out or follow you between visits. See{" "}
+          <Link to="/cookies">Cookies and local storage</Link>.
         </dd>
         <dt>Google</dt>
         <dd>

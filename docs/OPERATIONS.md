@@ -390,7 +390,7 @@ anyone remembering, because the failure mode is never ignorance, it is not re-re
 
 | The claim | Where it is made | What holds it up |
 | --- | --- | --- |
-| No cookies, no analytics, no trackers, so no consent banner | `src/pages/Cookies.tsx` | `src/lib/browserStorage.test.ts` |
+| No cookies and no trackers, so no consent banner | `src/pages/Cookies.tsx` | `src/lib/browserStorage.test.ts` |
 | WCAG 2.2 AA | `src/pages/Help.tsx` | `src/index.contrast.test.ts`, `src/lib/accessibility.test.ts` |
 | The processors we name are the processors we use | `src/pages/Privacy.tsx` | Nothing. This one is manual, see below |
 
@@ -403,6 +403,27 @@ job is two things, not one: add the banner, and correct `Cookies.tsx`.
 forget are the ones nobody thinks of as a processor: the Google Fonts stylesheet in
 `index.html`, the error log in `src/lib/api/errorLog.ts`, and the transcription API in
 `extract-recipe`. If you add an outbound call to anything, that page is part of the change.
+
+### Cloudflare Web Analytics is ON, and the tests cannot see it
+
+Enabled at the ZONE level with auto-install since 2026-09-25, so Cloudflare injects the RUM
+beacon at the edge and it never appears in `index.html`. **`browserStorage.test.ts` therefore
+cannot detect it**, and did not: the pages claimed "no analytics at all" for a week while it was
+running. That claim is now corrected on `/cookies` and `/privacy`.
+
+It is cookieless and sets no identifier, so the no-banner position is unaffected and remains
+correct. But the general lesson stands: **a source scan cannot see anything the edge injects.**
+Anything switched on in the Cloudflare dashboard is invisible to every test in this repo, so
+dashboard changes are a documentation obligation, not just a config change.
+
+Turn it off, or check what it collects:
+
+```bash
+npx wrangler@latest --version
+```
+
+The toggle is in the Cloudflare dashboard under Web Analytics, or via
+`GET /accounts/<id>/rum/site_info/list` on the API.
 
 ### Known standing risks
 

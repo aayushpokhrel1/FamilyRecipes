@@ -18,9 +18,9 @@ export default function Cookies() {
       <h2>This site sets no cookies</h2>
       <p>
         Not one. There are no advertising cookies, no analytics cookies, and no third-party
-        tracking cookies, because the app has no advertising and no analytics at all. That is
-        also why you were not shown a cookie banner: under UK and EU law a banner is required in
-        order to ask consent for non-essential storage, and there is none to ask about.
+        tracking cookies. That is why you were not shown a cookie banner: under UK and EU law a
+        banner is required in order to ask consent for non-essential storage, and there is none
+        to ask about.
       </p>
 
       <h2>What it does store, in your own browser</h2>
@@ -75,6 +75,19 @@ export default function Cookies() {
       <p>
         You can delete all of it at any time by clearing site data in your browser settings. The
         only effect is that you will be signed out and the app will forget your theme.
+      </p>
+
+      <h2>The one count we do keep</h2>
+      <p>
+        Our host, Cloudflare, counts page views for us so we can tell whether anything is being
+        used at all. It records the page address, the country, and the kind of browser and
+        device, and it does this <strong>without cookies and without any identifier for you</strong>.
+        It cannot follow you between sessions, cannot build a profile, and cannot recognise you
+        on another site. That is precisely why it needs no consent and no banner.
+      </p>
+      <p>
+        We get counts, not people. We cannot tell that the same person came back yesterday and
+        today, and we are not trying to.
       </p>
 
       <h2>Nothing on a page comes from anywhere else</h2>
