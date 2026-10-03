@@ -11,7 +11,7 @@ import { listMyBlocks, removeBlock } from "../lib/api/blocks";
 import FamilyDataPanel from "../components/FamilyDataPanel";
 import IdentitiesPanel from "../components/IdentitiesPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
-import { REASON_LABELS, type Block, type Preferences, type Profile, type PublicCook, type ReportReason } from "../lib/api/types";
+import { reasonLabel, type Block, type Preferences, type Profile, type PublicCook } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
 // Mirrors LENGTHS in MealPlanDetail: the plan lengths the app actually offers.
@@ -214,12 +214,6 @@ export default function Settings() {
   async function handleUndo(cookId: string) {
     await removeBlock(cookId);
     setBlocks((prev) => prev.filter((b) => b.blocked_id !== cookId));
-  }
-
-  // The five labels live in types.ts ONCE. A stored reason that is not one of those keys is
-  // shown as it was written rather than dropped, so a reason added later still reads.
-  function reasonLabel(reason: string): string {
-    return REASON_LABELS[reason as ReportReason] ?? reason;
   }
 
   if (loadError) return <p className="form-error" role="alert">{loadError}</p>;

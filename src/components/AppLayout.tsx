@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import FamilySwitcher from "./FamilySwitcher";
 import { signOut } from "../lib/api/auth";
 import { getMyProfile } from "../lib/api/profile";
+import { reasonLabel, type Profile } from "../lib/api/types";
 import { useAuth } from "../context/AuthContext";
 
 export default function AppLayout() {
@@ -15,18 +16,18 @@ export default function AppLayout() {
   // guard is elsewhere and stays there: the page re-checks is_moderator, and the report rows
   // are unreadable to anyone else under RLS. Someone who types the URL without the flag still
   // gets nothing, which is the behaviour a test pins.
-  const [isModerator, setIsModerator] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
   useEffect(() => {
     if (!userId) {
-      setIsModerator(false);
+      setProfile(null);
       return;
     }
     let ignore = false;
     // A failure here must leave the link hidden rather than break the whole layout, which
     // wraps every signed-in page.
     getMyProfile()
-      .then((p) => { if (!ignore) setIsModerator(!!p.is_moderator); })
-      .catch(() => { if (!ignore) setIsModerator(false); });
+      .then((p) => { if (!ignore) setProfile(p); })
+      .catch(() => { if (!ignore) setProfile(null); });
     return () => { ignore = true; };
   }, [userId]);
 
@@ -63,7 +64,7 @@ export default function AppLayout() {
               <NavLink to="/me">My Profile</NavLink>
               <NavLink to="/families">Families</NavLink>
               <NavLink to="/settings">Settings</NavLink>
-              {isModerator && <NavLink to="/moderation">Moderation</NavLink>}
+              {profile?.is_moderator && <NavLink to="/moderation">Moderation</NavLink>}
             </nav>
             <FamilySwitcher />
             <button type="button" onClick={handleSignOut}>
@@ -79,6 +80,22 @@ export default function AppLayout() {
         )}
       </header>
       <main className="app-main" id="main">
+        {/* Shown on EVERY page while the state holds, and deliberately not dismissible: it
+            describes a live state rather than an event, so a Dismiss button would let a cook
+            hide something that is still true. It clears itself the moment they set a public
+            name, which is also the moment their recipes return to Potluck (0035). Inside
+            <main> on purpose: above it, the skip link would jump a screen-reader user straight
+            past the one notice they most need. */}
+        {profile?.name_cleared_at && !profile.public_name && (
+          <p className="plate panel form-error">
+            Your public name was removed by a moderator
+            {profile.name_cleared_reason ? `: ${reasonLabel(profile.name_cleared_reason)}` : ""}.{" "}
+            <strong>
+              Your public recipes are hidden from Potluck until you set a new public name.
+            </strong>{" "}
+            <Link to="/settings">Set one in Settings</Link>, where you can also appeal.
+          </p>
+        )}
         <Outlet />
       </main>
     </div>

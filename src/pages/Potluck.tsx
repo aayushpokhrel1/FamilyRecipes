@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { listPublicRecipes } from "../lib/api/recipes";
 import { listCoverPhotoUrls } from "../lib/api/photos";
-import { getBylines } from "../lib/api/profile";
+import { getBylines, getMyProfile } from "../lib/api/profile";
 import { listFollowedCookIds } from "../lib/api/follows";
 import { listSavedSourceIds, saveToVault } from "../lib/api/saves";
 import { useFamily } from "../context/FamilyContext";
-import type { Byline, Recipe } from "../lib/api/types";
+import type { Byline, Profile, Recipe } from "../lib/api/types";
 import RecipeCard from "../components/RecipeCard";
 import Skeleton from "../components/Skeleton";
 
@@ -25,6 +25,7 @@ export default function Potluck() {
   // Following nobody is a real answer, not a missing one: it must render the
   // "not following any cooks yet" note rather than fall back to everything.
   const [followingNobody, setFollowingNobody] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -98,6 +99,18 @@ export default function Potluck() {
     };
   }, [recipes]);
 
+  // A failed profile load must leave the feed working, exactly as a failed photo load does:
+  // the note below is an explanation, never a reason for Potluck to stop rendering.
+  useEffect(() => {
+    let ignore = false;
+    getMyProfile()
+      .then((p) => { if (!ignore) setProfile(p); })
+      .catch(() => { if (!ignore) setProfile(null); });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setOffset(0);
@@ -121,6 +134,15 @@ export default function Potluck() {
     <div>
       <h1>Potluck</h1>
       <p className="vault-note">Everything published here, yours included.</p>
+      {profile?.name_cleared_at && !profile.public_name && (
+        // Where the consequence is actually visible, so it is explained here too. Quiet
+        // rather than red: the red banner in the app shell is the alarm, this is the
+        // explanation for the gap in the grid.
+        <p className="vault-note">
+          Your own public recipes are not shown here while your public name is cleared. Set a
+          new one in Settings and they come back.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit}>
         <input

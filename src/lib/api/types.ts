@@ -57,6 +57,14 @@ export const REASON_LABELS: Record<ReportReason, string> = {
   impersonation: "Impersonation",
   other: "Something else",
 };
+
+// One home for turning a stored reason into a label. The Settings notice, the app-wide
+// banner and the removed-recipe banner all need it, and a second copy is how they drift.
+// An unknown reason returns itself rather than blank: a label nobody recognises still beats
+// no reason at all.
+export function reasonLabel(reason: string): string {
+  return REASON_LABELS[reason as ReportReason] ?? reason;
+}
 export type Report = {
   id: string;
   // A report names exactly ONE target: a recipe or a cook, never both and never neither.

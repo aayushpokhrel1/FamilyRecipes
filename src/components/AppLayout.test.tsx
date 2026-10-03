@@ -19,7 +19,12 @@ vi.mock("../context/AuthContext", () => ({ useAuth: () => mockAuth }));
 vi.mock("./FamilySwitcher", () => ({ default: () => <div>switcher</div> }));
 
 // Read at call time like mockAuth above, so a test can set it before rendering.
-let mockProfile: { is_moderator: boolean } = { is_moderator: false };
+let mockProfile: {
+  is_moderator: boolean;
+  name_cleared_at?: string | null;
+  name_cleared_reason?: string | null;
+  public_name?: string | null;
+} = { is_moderator: false };
 vi.mock("../lib/api/profile", () => ({ getMyProfile: () => Promise.resolve(mockProfile) }));
 
 // Reset between tests so one test's visitor cannot leak into the next.
@@ -93,5 +98,38 @@ describe("AppLayout", () => {
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     expect(await screen.findByRole("link", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /moderation/i })).not.toBeInTheDocument();
+  });
+
+  // The notice used to live only in Settings, the one page a cook has no reason to visit.
+  it("tells a cleared cook on every page, not only in Settings", async () => {
+    mockProfile = {
+      is_moderator: false,
+      name_cleared_at: "2026-10-02T00:00:00Z",
+      name_cleared_reason: "impersonation",
+      public_name: null,
+    };
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    const banner = await screen.findByText(/hidden from Potluck/);
+    expect(banner.closest("p")).toHaveTextContent("Impersonation");
+    expect(screen.getByRole("link", { name: /set one in settings/i }))
+      .toHaveAttribute("href", "/settings");
+  });
+
+  it("stops telling them once a public name is set", async () => {
+    mockProfile = {
+      is_moderator: false,
+      name_cleared_at: "2026-10-02T00:00:00Z",
+      name_cleared_reason: "impersonation",
+      public_name: "Nana Rose",
+    };
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    await screen.findByRole("link", { name: "My Profile" });
+    expect(screen.queryByText(/hidden from Potluck/)).not.toBeInTheDocument();
+  });
+
+  it("shows no banner to an ordinary cook", async () => {
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    await screen.findByRole("link", { name: "My Profile" });
+    expect(screen.queryByText(/hidden from Potluck/)).not.toBeInTheDocument();
   });
 });

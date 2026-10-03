@@ -9,6 +9,7 @@ vi.mock("../lib/api/recipes", () => ({
 }));
 vi.mock("../lib/api/profile", () => ({
   getBylines: vi.fn().mockResolvedValue(new Map()),
+  getMyProfile: vi.fn().mockResolvedValue({ id: "u1", is_moderator: false }),
 }));
 vi.mock("../lib/api/follows", () => ({
   listFollowedCookIds: vi.fn().mockResolvedValue([]),
@@ -161,4 +162,36 @@ test("a recipe from your own family has no save button", async () => {
   render(<MemoryRouter><Potluck /></MemoryRouter>);
   await screen.findByText("My Own Dal");
   expect(screen.queryByRole("button", { name: /save my own dal/i })).not.toBeInTheDocument();
+});
+
+test("explains the gap to a cook whose public name was cleared", async () => {
+  const recipes = await import("../lib/api/recipes");
+  const profile = await import("../lib/api/profile");
+  (recipes.listPublicRecipes as any).mockResolvedValue([]);
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1",
+    is_moderator: false,
+    name_cleared_at: "2026-10-02T00:00:00Z",
+    public_name: null,
+  });
+
+  renderPotluck();
+
+  expect(await screen.findByText(/not shown here while your public name is cleared/))
+    .toBeInTheDocument();
+});
+
+test("says nothing to an ordinary cook", async () => {
+  const recipes = await import("../lib/api/recipes");
+  const profile = await import("../lib/api/profile");
+  (recipes.listPublicRecipes as any).mockResolvedValue([]);
+  // Set explicitly: mockResolvedValue from the cleared-cook test above persists across
+  // tests, so without this the profile is still the cleared one.
+  (profile.getMyProfile as any).mockResolvedValue({ id: "u1", is_moderator: false });
+
+  renderPotluck();
+  await screen.findByText("No public recipes yet.");
+
+  expect(screen.queryByText(/not shown here while your public name is cleared/))
+    .not.toBeInTheDocument();
 });
