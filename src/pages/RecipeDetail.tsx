@@ -7,7 +7,7 @@ import { listRecipeTags } from "../lib/api/tags";
 import { listCategoryOverrides } from "../lib/api/ingredientCategories";
 import { getByline } from "../lib/api/profile";
 import type { Byline, Ingredient, Recipe, ReportReason, Step, MealPlan, Tag } from "../lib/api/types";
-import { REASON_LABELS } from "../lib/api/types";
+import { REASON_LABELS, reasonLabel } from "../lib/api/types";
 import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
@@ -194,7 +194,7 @@ export default function RecipeDetail() {
         // in their vault.
         <p className="removed-banner">
           Removed from Potluck{recipe.removed_reason
-            ? `: ${REASON_LABELS[recipe.removed_reason as ReportReason]}`
+            ? `: ${reasonLabel(recipe.removed_reason)}`
             : ""}. It is still in your vault.
         </p>
       )}
