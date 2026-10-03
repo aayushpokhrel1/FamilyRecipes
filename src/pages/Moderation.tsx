@@ -189,9 +189,10 @@ function Appeals() {
   // Which row is mid-action, so its buttons can be disabled and its error shown beside it.
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
-  // The note typed for the row whose buttons are about to be pressed. One field at a time:
-  // only one row can be mid-resolution.
-  const [note, setNote] = useState("");
+  // The note PER ROW, keyed by appeal id. One shared string would show every row the same
+  // text and, worse, send whatever was typed anywhere as the note on whichever appeal was
+  // resolved: a note written for one cook arriving on another cook's decision.
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let ignore = false;
@@ -224,11 +225,10 @@ function Appeals() {
     try {
       // Granting is what performs the undo, and the database does that inside
       // resolve_appeal, so this component never touches profiles or recipes itself.
-      await resolveAppeal(a.id, outcome, note);
+      await resolveAppeal(a.id, outcome, notes[a.id] ?? "");
       // Drop the row locally rather than refetching: the only thing that changed is this
       // one appeal's resolution, and a refetch would also throw away the moderator's place.
       setAppeals((prev) => prev.filter((x) => x.id !== a.id));
-      setNote("");
     } catch (e) {
       // The row stays: a failed resolve must not read as a resolved one.
       setRowError({ id: a.id, message: (e as Error).message });
@@ -267,10 +267,11 @@ function Appeals() {
           <p>{a.body}</p>
           <div className="recipe-actions">
             <input
-              aria-label="Note for the cook"
+              aria-label={"Note for " + (cooks.get(a.cook_id)?.public_name
+                ?? cooks.get(a.cook_id)?.handle ?? "this cook")}
               placeholder="Note (optional)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+              value={notes[a.id] ?? ""}
+              onChange={(e) => setNotes((prev) => ({ ...prev, [a.id]: e.target.value }))}
             />
             <button type="button" disabled={busyId === a.id} onClick={() => resolve(a, "granted")}>
               Grant

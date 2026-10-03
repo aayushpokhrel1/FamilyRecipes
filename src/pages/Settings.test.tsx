@@ -357,8 +357,10 @@ test("shows the API's refusal verbatim", async () => {
   });
   fireEvent.click(screen.getByRole("button", { name: "Appeal this" }));
 
-  expect(await screen.findByRole("alert"))
-    .toHaveTextContent("You already have an open appeal for this.");
+  // findByText, NOT findByRole("alert"): FamilyDataPanel renders its own alert on this
+  // fixture, and a page-wide role query matches whichever arrives first.
+  expect(await screen.findByText("You already have an open appeal for this."))
+    .toHaveAttribute("role", "alert");
 });
 
 test("offers no appeal form to a cook who was never moderated", async () => {

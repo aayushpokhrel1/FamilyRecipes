@@ -258,10 +258,28 @@ test("declines with an optional note", async () => {
   renderPage();
 
   await userEvent.click(await screen.findByRole("button", { name: "Appeals" }));
-  await userEvent.type(await screen.findByLabelText("Note for the cook"), "Not this time.");
+  await userEvent.type(await screen.findByLabelText("Note for Nana Rose"), "Not this time.");
   await userEvent.click(screen.getByRole("button", { name: "Decline" }));
 
   expect(resolveAppeal).toHaveBeenCalledWith("a1", "declined", "Not this time.");
+});
+
+// The note is keyed per row. One shared field showed every row the same text and sent
+// whatever was typed anywhere as the note on whichever appeal was resolved, so a note
+// written about one cook arrived on another cook's decision.
+test("keeps each row's note to that row", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenAppeals.mockResolvedValue([appeal("a1"), appeal("a2", { cook_id: "c2" })]);
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Appeals" }));
+  // c2 is absent from the public_cooks map, so its row falls back to "this cook": the two
+  // inputs are therefore distinguishable, which is the point.
+  await userEvent.type(await screen.findByLabelText("Note for Nana Rose"), "Granting this.");
+  expect(screen.getByLabelText("Note for this cook")).toHaveValue("");
+
+  await userEvent.click(screen.getAllByRole("button", { name: "Decline" })[1]);
+  expect(resolveAppeal).toHaveBeenCalledWith("a2", "declined", "");
 });
 
 test("keeps the row and shows the message when a resolve fails", async () => {
