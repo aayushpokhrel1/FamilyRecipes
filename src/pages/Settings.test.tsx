@@ -33,6 +33,12 @@ vi.mock("../lib/api/blocks", () => ({
 vi.mock("../lib/api/auth", () => ({
   changePassword: vi.fn().mockResolvedValue(undefined),
 }));
+// The appeals list is loaded with ONE listMyAppeals() call, so the mock hands back the whole
+// list, and an empty one by default: the cleared-name notice is hidden for most tests.
+vi.mock("../lib/api/appeals", () => ({
+  listMyAppeals: vi.fn().mockResolvedValue([]),
+  createAppeal: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../lib/theme", () => ({
   getTheme: vi.fn().mockReturnValue("system"),
   setTheme: vi.fn(),
@@ -256,4 +262,116 @@ test("a profile whose name was never cleared shows no such notice", async () => 
   await screen.findByRole("heading", { name: "Settings" });
 
   expect(screen.queryByText(/public name was removed/i)).not.toBeInTheDocument();
+});
+
+// The cleared cook was told in Settings that they can appeal, so Settings is where the form
+// has to be. A form on a page they were never sent to is decorative.
+test("offers the appeal form to a cook whose public name was cleared", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: "2026-09-28T00:00:00Z", name_cleared_reason: "impersonation",
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([]);
+  (appeals.createAppeal as any).mockClear();
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  fireEvent.change(await screen.findByLabelText("Why this was wrong"), {
+    target: { value: "That is my own name." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Appeal this" }));
+
+  await waitFor(() =>
+    expect(appeals.createAppeal).toHaveBeenCalledWith("name", null, "That is my own name."),
+  );
+});
+
+test("shows the pending note instead of the form once an appeal is open", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: "2026-09-28T00:00:00Z", name_cleared_reason: "impersonation",
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([{
+    id: "a1", cook_id: "u1", subject_type: "name", subject_id: null,
+    body: "That is my own name.", created_at: "2026-09-28T00:00:00Z",
+    resolved_at: null, outcome: null, moderator_note: null,
+  }]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(await screen.findByText(/your appeal is with a moderator/i)).toBeInTheDocument();
+  // The cook's own words, so they can see what they said.
+  expect(screen.getByText("That is my own name.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Appeal this" })).not.toBeInTheDocument();
+});
+
+// A declined appeal is final, so the form must not come back: offering it again would invite
+// a second appeal the unique index would refuse anyway.
+test("shows a declined outcome and does not offer the form again", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: "2026-09-28T00:00:00Z", name_cleared_reason: "impersonation",
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([{
+    id: "a1", cook_id: "u1", subject_type: "name", subject_id: null,
+    body: "That is my own name.", created_at: "2026-09-28T00:00:00Z",
+    resolved_at: "2026-09-29T00:00:00Z", outcome: "declined",
+    moderator_note: "The name belongs to someone else.",
+  }]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(await screen.findByText("Your appeal was declined.")).toBeInTheDocument();
+  expect(screen.getByText("The name belongs to someone else.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Appeal this" })).not.toBeInTheDocument();
+});
+
+// The API layer writes the user-facing message, so the screen shows it verbatim rather than
+// restating the rule in a second place.
+test("shows the API's refusal verbatim", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: "2026-09-28T00:00:00Z", name_cleared_reason: "impersonation",
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([]);
+  (appeals.createAppeal as any).mockRejectedValueOnce(
+    new Error("You already have an open appeal for this."),
+  );
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  fireEvent.change(await screen.findByLabelText("Why this was wrong"), {
+    target: { value: "That is my own name." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Appeal this" }));
+
+  expect(await screen.findByRole("alert"))
+    .toHaveTextContent("You already have an open appeal for this.");
+});
+
+test("offers no appeal form to a cook who was never moderated", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: "Aayush", bio: null,
+    name_cleared_at: null, name_cleared_reason: null,
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(screen.queryByRole("button", { name: "Appeal this" })).not.toBeInTheDocument();
 });

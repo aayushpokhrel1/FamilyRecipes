@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMyProfile, getPublicCooks } from "../lib/api/profile";
 import { listOpenReports, resolveReport } from "../lib/api/moderation";
+import { listOpenAppeals, resolveAppeal } from "../lib/api/appeals";
 import {
   deleteUserAccount,
   getAdminStats,
@@ -12,10 +13,10 @@ import {
   type AdminStats,
   type AdminUser,
 } from "../lib/api/admin";
-import { REASON_LABELS, type PublicCook, type ReportRow } from "../lib/api/types";
+import { REASON_LABELS, type AppealRow, type PublicCook, type ReportRow } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
-type View = "reports" | "overview" | "people";
+type View = "reports" | "appeals" | "overview" | "people";
 
 // A short date for the roster. A timestamptz is a real instant, so toLocaleDateString is
 // right here, and a null last sign-in is a real answer (never signed in) rather than a
@@ -99,11 +100,14 @@ export default function Moderation() {
     <div>
       <h1>Moderation</h1>
 
-      {/* Three views, not three routes: the console is one page, and a URL per tab would be
-          three more router entries for no navigational gain. */}
+      {/* Four views, not four routes: the console is one page, and a URL per tab would be
+          four more router entries for no navigational gain. */}
       <div className="group-toggle">
         <button type="button" aria-pressed={view === "reports"} onClick={() => setView("reports")}>
           Reports
+        </button>
+        <button type="button" aria-pressed={view === "appeals"} onClick={() => setView("appeals")}>
+          Appeals
         </button>
         <button type="button" aria-pressed={view === "overview"} onClick={() => setView("overview")}>
           Overview
@@ -162,9 +166,125 @@ export default function Moderation() {
 
       {/* Mounted only once the moderator switches to it, so the roster's service-role call
           never runs on the page's main job, which is the report queue. */}
+      {view === "appeals" && <Appeals />}
       {view === "overview" && <Overview />}
       {view === "people" && <People />}
     </div>
+  );
+}
+
+// What an appeal is against, in words rather than the raw enum. ONE place, because the same
+// mapping read inline in three JSX branches is three copies that drift.
+const SUBJECT_LABELS: Record<AppealRow["subject_type"], string> = {
+  name: "A cleared public name",
+  suspension: "A suspension",
+  recipe: "A removed recipe",
+};
+
+function Appeals() {
+  const [appeals, setAppeals] = useState<AppealRow[]>([]);
+  const [cooks, setCooks] = useState<Map<string, PublicCook>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // Which row is mid-action, so its buttons can be disabled and its error shown beside it.
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
+  // The note typed for the row whose buttons are about to be pressed. One field at a time:
+  // only one row can be mid-resolution.
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+    listOpenAppeals()
+      .then(async (rows) => {
+        if (ignore) return;
+        setAppeals(rows);
+        // ONE call for every appellant in the queue, never one per row. public_cooks is a
+        // security definer view, which is the only reason a moderator can read these names
+        // at all: profiles itself is readable only to its owner.
+        const found = await getPublicCooks(rows.map((r) => r.cook_id)).catch(
+          () => new Map<string, PublicCook>(),
+        );
+        if (!ignore) setCooks(found);
+        setLoading(false);
+      })
+      .catch((e: Error) => {
+        if (ignore) return;
+        setError(e.message);
+        setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  async function resolve(a: AppealRow, outcome: "granted" | "declined") {
+    setBusyId(a.id);
+    setRowError(null);
+    try {
+      // Granting is what performs the undo, and the database does that inside
+      // resolve_appeal, so this component never touches profiles or recipes itself.
+      await resolveAppeal(a.id, outcome, note);
+      // Drop the row locally rather than refetching: the only thing that changed is this
+      // one appeal's resolution, and a refetch would also throw away the moderator's place.
+      setAppeals((prev) => prev.filter((x) => x.id !== a.id));
+      setNote("");
+    } catch (e) {
+      // The row stays: a failed resolve must not read as a resolved one.
+      setRowError({ id: a.id, message: (e as Error).message });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (loading) return <Skeleton shape="plate" count={3} />;
+  // A failed load shows its own message and nothing else, so it can never blank the page.
+  if (error) return <p className="form-error">{error}</p>;
+  if (appeals.length === 0) return <p className="vault-note">No open appeals.</p>;
+
+  return (
+    <ul className="report-list">
+      {appeals.map((a) => (
+        <li key={a.id} className="plate panel">
+          {cooks.get(a.cook_id)?.handle ? (
+            // A cook who has cleared their handle has no public page, so there is nothing to
+            // link to: a link to /cooks/undefined is worse than plain text.
+            <Link to={"/cooks/" + cooks.get(a.cook_id)!.handle}>
+              {cooks.get(a.cook_id)!.public_name ?? cooks.get(a.cook_id)!.handle}
+            </Link>
+          ) : (
+            <span>Unknown cook</span>
+          )}
+          <p className="vault-note">
+            {SUBJECT_LABELS[a.subject_type]}
+            {a.subject_type === "recipe" && a.subject_id && (
+              <>
+                {": "}
+                <Link to={"/recipes/" + a.subject_id}>{a.recipes?.title ?? "Untitled"}</Link>
+              </>
+            )}
+          </p>
+          <p>{a.body}</p>
+          <div className="recipe-actions">
+            <input
+              aria-label="Note for the cook"
+              placeholder="Note (optional)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button type="button" disabled={busyId === a.id} onClick={() => resolve(a, "granted")}>
+              Grant
+            </button>
+            <button type="button" disabled={busyId === a.id} onClick={() => resolve(a, "declined")}>
+              Decline
+            </button>
+          </div>
+          {/* The backend's refusal text is the useful part, so it is shown verbatim beside
+              the row rather than swallowed. */}
+          {rowError?.id === a.id && <p className="form-error">{rowError.message}</p>}
+        </li>
+      ))}
+    </ul>
   );
 }
 

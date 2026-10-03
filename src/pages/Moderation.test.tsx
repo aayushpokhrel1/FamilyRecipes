@@ -18,16 +18,25 @@ vi.mock("../lib/api/moderation", () => ({
   resolveReport: (...a: any[]) => resolveReport(...a),
 }));
 
+const listOpenAppeals = vi.fn();
+const resolveAppeal = vi.fn();
+vi.mock("../lib/api/appeals", () => ({
+  listOpenAppeals: (...a: any[]) => listOpenAppeals(...a),
+  resolveAppeal: (...a: any[]) => resolveAppeal(...a),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: false });
   listOpenReports.mockResolvedValue([]);
+  listOpenAppeals.mockResolvedValue([]);
   // public_cooks is how the queue turns a reported cook id into a name: profiles itself is
   // readable only to its owner, so a PostgREST embed would be null for every cook report.
   getPublicCooks.mockResolvedValue(new Map([
     ["c1", { id: "c1", handle: "nana", public_name: "Nana Rose", bio: null, avatar_url: null }],
   ]));
   resolveReport.mockResolvedValue(undefined);
+  resolveAppeal.mockResolvedValue(undefined);
 });
 
 function report(id: string, overrides: Record<string, unknown> = {}) {
@@ -48,6 +57,24 @@ function report(id: string, overrides: Record<string, unknown> = {}) {
 // name is NOT on the row, it is looked up through public_cooks.
 function cookReport(id: string, overrides: Record<string, unknown> = {}) {
   return report(id, { recipe_id: null, cook_id: "c1", recipes: null, ...overrides });
+}
+
+// An appeal row. subject_id is null for a name appeal, because there the subject IS the cook,
+// and the embedded recipe title is null for anything but a recipe appeal.
+function appeal(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    cook_id: "c1",
+    subject_type: "name" as const,
+    subject_id: null,
+    body: "That is my own name.",
+    created_at: "2026-09-28T00:00:00Z",
+    resolved_at: null,
+    outcome: null,
+    moderator_note: null,
+    recipes: null,
+    ...overrides,
+  };
 }
 
 // The row contains a Link, so every render needs a router.
@@ -190,4 +217,72 @@ test("a reported cook with no public page renders as plain text, not a broken li
 
   expect(await screen.findByText("Unknown cook")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /unknown cook/i })).not.toBeInTheDocument();
+});
+
+// The appeals queue is a separate view, mounted only when it is selected, so its query never
+// runs on the page's main job.
+test("lists an open appeal with the cook, the subject and their words", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenAppeals.mockResolvedValue([appeal("a1")]);
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Appeals" }));
+
+  expect(await screen.findByRole("link", { name: "Nana Rose" })).toHaveAttribute(
+    "href",
+    "/cooks/nana",
+  );
+  expect(screen.getByText("A cleared public name")).toBeInTheDocument();
+  expect(screen.getByText("That is my own name.")).toBeInTheDocument();
+});
+
+test("grants an appeal through the RPC and drops the row", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenAppeals.mockResolvedValue([appeal("a1")]);
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Appeals" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Grant" }));
+
+  expect(resolveAppeal).toHaveBeenCalledWith("a1", "granted", "");
+  // Dropped from local state, not refetched: the queue must not be asked for again.
+  await waitFor(() => expect(screen.queryByText("That is my own name.")).not.toBeInTheDocument());
+  expect(listOpenAppeals).toHaveBeenCalledTimes(1);
+});
+
+// A note is optional for both outcomes: nothing requires a moderator to explain a decline,
+// and forcing prose would produce "no" written longer.
+test("declines with an optional note", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenAppeals.mockResolvedValue([appeal("a1")]);
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Appeals" }));
+  await userEvent.type(await screen.findByLabelText("Note for the cook"), "Not this time.");
+  await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+
+  expect(resolveAppeal).toHaveBeenCalledWith("a1", "declined", "Not this time.");
+});
+
+test("keeps the row and shows the message when a resolve fails", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listOpenAppeals.mockResolvedValue([appeal("a1")]);
+  resolveAppeal.mockRejectedValueOnce(new Error("Only a moderator can resolve an appeal."));
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Appeals" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Grant" }));
+
+  expect(await screen.findByText("Only a moderator can resolve an appeal.")).toBeInTheDocument();
+  // The row stays: a failed resolve must not read as a resolved one.
+  expect(screen.getByText("That is my own name.")).toBeInTheDocument();
+});
+
+test("shows an ordinary cook nothing", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: false });
+  renderPage();
+
+  expect(await screen.findByText("Not found")).toBeInTheDocument();
+  // And it never even asks for the queue.
+  expect(listOpenAppeals).not.toHaveBeenCalled();
 });

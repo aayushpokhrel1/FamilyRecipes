@@ -8,10 +8,11 @@ import {
 import { deleteAccount } from "../lib/api/account";
 import { changePassword } from "../lib/api/auth";
 import { listMyBlocks, removeBlock } from "../lib/api/blocks";
+import { createAppeal, listMyAppeals } from "../lib/api/appeals";
 import FamilyDataPanel from "../components/FamilyDataPanel";
 import IdentitiesPanel from "../components/IdentitiesPanel";
 import { getTheme, setTheme, type ThemeChoice } from "../lib/theme";
-import { reasonLabel, type Block, type Preferences, type Profile, type PublicCook } from "../lib/api/types";
+import { reasonLabel, type Appeal, type Block, type Preferences, type Profile, type PublicCook } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
 // Mirrors LENGTHS in MealPlanDetail: the plan lengths the app actually offers.
@@ -44,6 +45,10 @@ export default function Settings() {
   const [publicError, setPublicError] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockedCooks, setBlockedCooks] = useState<Map<string, PublicCook>>(new Map());
+  const [appeals, setAppeals] = useState<Appeal[]>([]);
+  const [appealBody, setAppealBody] = useState("");
+  const [appealStatus, setAppealStatus] = useState<Status>(null);
+  const [appealBusy, setAppealBusy] = useState(false);
 
   useEffect(() => {
     getMyProfile().then((p) => {
@@ -77,6 +82,17 @@ export default function Settings() {
         if (!ignore) setBlockedCooks(cooks);
       })
       .catch(() => { if (!ignore) setBlocks([]); });
+    return () => { ignore = true; };
+  }, []);
+
+  // The cook's own appeals, so the cleared-name notice can say where the appeal stands. A
+  // failed load falls back to an empty list rather than an error: the rest of Settings is
+  // still usable without it, exactly as the blocks list above.
+  useEffect(() => {
+    let ignore = false;
+    listMyAppeals()
+      .then((rows) => { if (!ignore) setAppeals(rows); })
+      .catch(() => { if (!ignore) setAppeals([]); });
     return () => { ignore = true; };
   }, []);
 
@@ -216,10 +232,36 @@ export default function Settings() {
     setBlocks((prev) => prev.filter((b) => b.blocked_id !== cookId));
   }
 
+  async function handleAppeal(e: FormEvent) {
+    e.preventDefault();
+    setAppealStatus(null);
+    setAppealBusy(true);
+    try {
+      // subject_id is null for a name appeal: there the subject IS the cook.
+      await createAppeal("name", null, appealBody);
+      // The API returns newest first, so the new appeal is the head of the list. Patching
+      // local state rather than refetching keeps the form's replacement instant.
+      setAppeals((prev) => [{
+        id: "pending", cook_id: profile?.id ?? "", subject_type: "name", subject_id: null,
+        body: appealBody.trim(), created_at: new Date().toISOString(),
+        resolved_at: null, outcome: null, moderator_note: null,
+      }, ...prev]);
+      setAppealBody("");
+    } catch (err) {
+      setAppealStatus({ kind: "error", text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setAppealBusy(false);
+    }
+  }
+
   if (loadError) return <p className="form-error" role="alert">{loadError}</p>;
   if (!profile) return <Skeleton shape="plate" count={4} />;
 
   const prefs = profile.preferences ?? {};
+
+  // Only a name appeal belongs under the cleared-name notice, and the API returns newest
+  // first, so the head of the filtered list is the most recent one.
+  const nameAppeal = appeals.find((a) => a.subject_type === "name") ?? null;
 
   return (
     <div>
@@ -382,6 +424,46 @@ export default function Settings() {
             . Your handle and your page are unchanged.
           </p>
         )}
+        {/* The appeal form lives HERE, under the notice, because Settings is where the cook
+            was told to come: an appeal form on a page they were never sent to is decorative.
+            A declined appeal is final, so the form is not offered again; a granted one has
+            already nulled name_cleared_at, so this whole notice is gone. */}
+        {profile.name_cleared_at && nameAppeal?.resolved_at === null && (
+          <>
+            <p className="vault-note">Your appeal is with a moderator. You will see the outcome here.</p>
+            <p>{nameAppeal.body}</p>
+          </>
+        )}
+        {profile.name_cleared_at && nameAppeal?.resolved_at && (
+          <>
+            <p className="vault-note">
+              {nameAppeal.outcome === "granted"
+                ? "Your appeal was granted."
+                : "Your appeal was declined."}
+            </p>
+            {/* Nothing requires a moderator to explain a decline, so a null note renders
+                nothing rather than an empty line. */}
+            {nameAppeal.moderator_note && <p>{nameAppeal.moderator_note}</p>}
+          </>
+        )}
+        {profile.name_cleared_at && !nameAppeal && (
+          <form onSubmit={handleAppeal}>
+            <div className="settings-field">
+              <label htmlFor="appeal-body">Why this was wrong</label>
+              <textarea
+                id="appeal-body"
+                value={appealBody}
+                maxLength={1000}
+                rows={3}
+                onChange={(e) => setAppealBody(e.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={appealBusy || !appealBody.trim()}>
+              Appeal this
+            </button>
+          </form>
+        )}
+        {statusLine(appealStatus)}
         <p className="vault-note">
           A handle publishes you. Recipes you set to Public show your public name and family,
           and get a page anyone can open. Clearing your handle takes all of that back.
