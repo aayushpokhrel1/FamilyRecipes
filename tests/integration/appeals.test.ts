@@ -90,6 +90,31 @@ describe("a cleared public name hides a cook's recipes from Potluck", () => {
     expect(titles(after.data)).toContain(title);
   }, 30000);
 
+  // THE REMEDY IS AIMED AT THE PUBLIC CATALOGUE, NOT AT THE FAMILY WHO LIVE WITH THE COOK.
+  // Without the `p_family_id is not null` guard in 0035 this went the other way: the cleared
+  // cook's own Recipes page read "No recipes yet" while the recipe was still sitting in the
+  // database, and the banner telling them their recipes were hidden "from Potluck" was then
+  // false about where. The unit and integration suites were both green when that shipped; the
+  // browser found it in seconds, which is why it is pinned here.
+  it("still shows the cleared cook their own recipe in their own vault", async () => {
+    const { cook, fam, title } = await cookWithPublicRecipe("ap-vault");
+    await clearName(cook.id);
+
+    const vault = await cook.client.rpc("search_recipes", {
+      p_family_id: fam.id, p_search: null, p_tag_id: null,
+    });
+    expect(vault.error).toBeNull();
+    expect(titles(vault.data)).toContain(title);
+
+    // And the same recipe IS out of the public catalogue, so this test cannot pass by the
+    // hiding rule having been dropped altogether.
+    const stranger = await makeUser(`ap-vault-s-${rand()}@t.dev`);
+    const feed = await stranger.client.rpc("search_recipes", {
+      p_family_id: null, p_search: null, p_tag_id: null,
+    });
+    expect(titles(feed.data)).not.toContain(title);
+  }, 30000);
+
   it("does not hide a cook who was cleared but has since set a public name", async () => {
     const { cook, title } = await cookWithPublicRecipe("ap-named");
     await admin.from("profiles")
