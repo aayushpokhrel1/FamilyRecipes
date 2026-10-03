@@ -92,6 +92,27 @@ export type Block = {
   kind: "mute" | "block";
   created_at: string;
 };
+// An appeal against a moderation action. subject_type says what is being appealed, and
+// subject_id carries the recipe for a 'recipe' appeal and null for the other two, because
+// there the subject IS the cook. Open means resolved_at is null; outcome is null until then.
+export type AppealSubject = "name" | "recipe" | "suspension";
+export type Appeal = {
+  id: string;
+  cook_id: string;
+  subject_type: AppealSubject;
+  subject_id: string | null;
+  body: string;
+  created_at: string;
+  resolved_at: string | null;
+  outcome: "granted" | "declined" | null;
+  moderator_note: string | null;
+};
+// An appeal as the moderator queue reads it: the embedded recipe title comes back from
+// PostgREST's `recipes(title)` select and is null for a name or suspension appeal. There is
+// deliberately NO cook embed, for the same reason the report queue has none: profiles is
+// readable only by its owner, so an embed would be null for every row. The queue resolves the
+// cook through public_cooks instead.
+export type AppealRow = Appeal & { recipes: { title: string } | null };
 export interface RecipePhoto { id: string; recipe_id: string; storage_path: string; is_cover: boolean; }
 export interface Comment { id: string; recipe_id: string; author_id: string; body: string; created_at: string; }
 export interface Tag { id: string; family_id: string; name: string; }
