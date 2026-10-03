@@ -108,16 +108,21 @@ The standing rule is that a migration reaches cloud BEFORE the frontend that nee
 getting it backwards once broke every recipe save on production. **A migration that changes
 what a cook SEES, rather than what the frontend may call, inverts that rule.**
 
-`0035_remedies_and_appeals.sql` is the live example, and it is **committed but deliberately NOT
-applied to cloud**. It hides a name-cleared cook's public recipes from Potluck. The banner that
-tells that cook why is task 2 of the same sub-project and is **not built yet**. Push 0035 alone
-and the recipes simply vanish with nothing on screen explaining it, which is precisely the
+`0035_remedies_and_appeals.sql` was the live example. It hides a name-cleared cook's public
+recipes from Potluck, and the banner that tells that cook why was not built yet, so pushing it
+alone would have made the recipes vanish with nothing on screen explaining it: precisely the
 silent failure the whole sub-project exists to remove.
 
-So 0035 goes to cloud **with or after** the frontend that explains it, not before. Check before
-pushing: `npx supabase migration list --linked` should show 0035 as local-only until the banner
-ships. The test, in general: does this migration change what someone sees without the frontend?
-If yes, ship them together.
+**That banner, the appeal form and the moderator's appeals queue all shipped on 2026-10-02, so
+0035 is now cleared to go to cloud.** It is still local-only until someone pushes it, and the
+ORDER for this one is: apply the migration first, THEN push the commits, because the frontend
+that is already committed calls the `appeals` table and `resolve_appeal`, neither of which
+exists on cloud yet, and Cloudflare builds the frontend by itself on a push to master.
+
+The test, in general: does this migration change what someone SEES without the frontend? If
+yes, ship them together. Does the committed frontend CALL something only the migration
+creates? If yes, the migration goes first. 0035 is both, which is why it waited for the
+frontend and then has to lead it by a few minutes.
 
 The four functions are `extract-recipe`, `delete-account`, `notify-report` and `admin`.
 Deploying one does not deploy the others, and nothing warns you that a function is running

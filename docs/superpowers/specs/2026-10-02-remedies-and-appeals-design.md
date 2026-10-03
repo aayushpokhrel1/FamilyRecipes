@@ -1,7 +1,8 @@
 # Telling a cook what happened, and letting them argue back (Phase 2, sub-project 4c)
 
 Date: 2026-10-02
-Status: SPEC, not built
+Status: SHIPPED 2026-10-02, verified in the browser on the local stack. NOT yet on cloud:
+the migration and the frontend have to go up together, see `docs/OPERATIONS.md`.
 Follows: `docs/superpowers/specs/2026-09-28-moderation-spine-design.md` (4a) and
 `docs/superpowers/specs/2026-09-29-block-mute-and-handles-design.md` (4b), both SHIPPED
 
