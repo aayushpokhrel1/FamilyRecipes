@@ -102,27 +102,32 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
 
-### The exception to "migration first", and it is live right now
+### The exception to "migration first", and what it cost
 
 The standing rule is that a migration reaches cloud BEFORE the frontend that needs it, because
 getting it backwards once broke every recipe save on production. **A migration that changes
 what a cook SEES, rather than what the frontend may call, inverts that rule.**
 
-`0035_remedies_and_appeals.sql` was the live example. It hides a name-cleared cook's public
-recipes from Potluck, and the banner that tells that cook why was not built yet, so pushing it
-alone would have made the recipes vanish with nothing on screen explaining it: precisely the
-silent failure the whole sub-project exists to remove.
+`0035_remedies_and_appeals.sql` was the example. It hides a name-cleared cook's public recipes
+from Potluck, and the banner explaining that was a later task, so pushing it alone would have
+made recipes vanish with nothing on screen saying why. Both halves shipped on 2026-10-02 and
+cloud is now at **0036**.
 
-**That banner, the appeal form and the moderator's appeals queue all shipped on 2026-10-02, so
-0035 is now cleared to go to cloud.** It is still local-only until someone pushes it, and the
-ORDER for this one is: apply the migration first, THEN push the commits, because the frontend
-that is already committed calls the `appeals` table and `resolve_appeal`, neither of which
-exists on cloud yet, and Cloudflare builds the frontend by itself on a push to master.
+**The part worth keeping: the handover said 0035 was local-only, and it was wrong.** 0035 had
+been pushed. A bug was found in it and corrected IN PLACE on the strength of that sentence,
+which would have fixed nothing on production while making the local migration history disagree
+with what the remote had actually run. `npx supabase migration list --linked` caught it during
+the deploy, and the correction became `0036_hiding_rule_is_catalogue_only.sql`.
 
-The test, in general: does this migration change what someone SEES without the frontend? If
-yes, ship them together. Does the committed frontend CALL something only the migration
-creates? If yes, the migration goes first. 0035 is both, which is why it waited for the
-frontend and then has to lead it by a few minutes.
+**So: `npx supabase migration list --linked` is the ONLY authority on what is applied. Run it
+before editing any migration file.** If the version appears under `remote`, it is immutable:
+write the next number instead. A document, this one included, can be stale; the remote cannot.
+
+The two ordering tests, both of which 0035 hit:
+
+- Does this migration change what someone SEES without the frontend? Then ship them together.
+- Does the committed frontend CALL something only the migration creates? Then the migration
+  goes first, since Cloudflare builds the frontend by itself on a push to master.
 
 The four functions are `extract-recipe`, `delete-account`, `notify-report` and `admin`.
 Deploying one does not deploy the others, and nothing warns you that a function is running
