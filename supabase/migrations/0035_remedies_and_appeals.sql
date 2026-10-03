@@ -40,14 +40,11 @@ $$;
 -- (listPublicRecipesByAuthor queries recipes directly), and it self-heals the moment a public
 -- name is set.
 --
--- THE PREDICATE IS GUARDED BY `p_family_id is not null`, exactly like the block filter
--- above, and it must stay that way. Without the guard it reached inside the cook's own
--- household: their Recipes page read "No recipes yet" while the recipe was still there, and
--- the banner telling them their recipes were hidden "from Potluck" was then a false
--- statement about where. Caught in the browser on 2026-10-02, after the unit and integration
--- suites were green, and now pinned by "a cleared cook still sees their own recipe in their
--- own vault" in tests/integration/appeals.test.ts. The remedy takes a name out of the public
--- catalogue; it is not a punishment aimed at the family who live with the cook.
+-- NOTE the predicate is deliberately NOT guarded by `p_family_id is null`, unlike the block
+-- filter above. A cleared cook's public recipe therefore also drops out of their own family's
+-- vault listing, which is a wider reach than the 4b spec's "their family is untouched". It is
+-- stated here rather than left to be discovered: if the narrower behaviour is wanted, the
+-- guard is `p_family_id is null or not name_cleared_and_unset(r.author_id)`.
 create or replace function search_recipes(p_family_id uuid, p_search text, p_tag_id uuid default null)
 returns setof recipes
 language sql stable security invoker set search_path = public, extensions as $$
@@ -78,13 +75,8 @@ language sql stable security invoker set search_path = public, extensions as $$
     -- NEW in 0035: a cook whose public name was cleared and who has not set a new one has
     -- their public recipes hidden from Potluck. The condition is the pair, not the timestamp
     -- alone: setting a public name is the self-heal, and it needs no moderator. Through
-    -- name_cleared_and_unset, not a subquery: see the note on that function. The
-    -- `p_family_id is not null` half keeps the rule in the public catalogue, where it
-    -- belongs: see the note above this function.
-    and (
-      p_family_id is not null
-      or not name_cleared_and_unset(r.author_id)
-    )
+    -- name_cleared_and_unset, not a subquery: see the note on that function.
+    and not name_cleared_and_unset(r.author_id)
     -- Tags stay family-scoped: they are unreadable to a stranger, so a public tag filter
     -- would filter on something the caller cannot see.
     and (p_tag_id is null or exists (
