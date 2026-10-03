@@ -323,7 +323,7 @@ test("shows a declined outcome and does not offer the form again", async () => {
   });
   (appeals.listMyAppeals as any).mockResolvedValue([{
     id: "a1", cook_id: "u1", subject_type: "name", subject_id: null,
-    body: "That is my own name.", created_at: "2026-09-28T00:00:00Z",
+    body: "That is my own name.", created_at: "2026-09-28T09:00:00Z",
     resolved_at: "2026-09-29T00:00:00Z", outcome: "declined",
     moderator_note: "The name belongs to someone else.",
   }]);
@@ -333,6 +333,34 @@ test("shows a declined outcome and does not offer the form again", async () => {
   expect(await screen.findByText("Your appeal was declined.")).toBeInTheDocument();
   expect(screen.getByText("The name belongs to someone else.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Appeal this" })).not.toBeInTheDocument();
+});
+
+// A SECOND clear is a SECOND decision, and it has its own appeal. Before this, Settings read
+// the most recent name appeal whatever it was about, so a cook whose name was cleared again
+// after winning an appeal was shown "Your appeal was granted." about the old decision and was
+// offered no form for the new one: a stale outcome, and no way to argue.
+test("lets a cook appeal again when their name is cleared a second time", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: "2026-10-02T00:00:00Z", name_cleared_reason: "not_theirs",
+  });
+  // Granted, and filed BEFORE the clear that is in force now.
+  (appeals.listMyAppeals as any).mockResolvedValue([{
+    id: "a1", cook_id: "u1", subject_type: "name", subject_id: null,
+    body: "That is my own name.", created_at: "2026-09-28T09:00:00Z",
+    resolved_at: "2026-09-29T00:00:00Z", outcome: "granted",
+    moderator_note: "Checked, it is hers.",
+  }]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+  await screen.findByText(/Your public name was removed by a moderator/);
+
+  expect(screen.getByRole("button", { name: "Appeal this" })).toBeInTheDocument();
+  expect(screen.queryByText("Your appeal was granted.")).not.toBeInTheDocument();
+  expect(screen.queryByText("Checked, it is hers.")).not.toBeInTheDocument();
 });
 
 // The API layer writes the user-facing message, so the screen shows it verbatim rather than

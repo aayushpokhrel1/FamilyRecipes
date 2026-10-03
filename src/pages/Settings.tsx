@@ -261,7 +261,20 @@ export default function Settings() {
 
   // Only a name appeal belongs under the cleared-name notice, and the API returns newest
   // first, so the head of the filtered list is the most recent one.
-  const nameAppeal = appeals.find((a) => a.subject_type === "name") ?? null;
+  //
+  // AND ONLY ONE FILED SINCE THE CLEAR THAT IS IN FORCE NOW. A second clear is a second
+  // decision with its own appeal: without the date test, a cook cleared again after winning
+  // an appeal was shown "Your appeal was granted." about the OLD decision and offered no form
+  // for the new one, which is a stale outcome and no way to argue. Pinned by "lets a cook
+  // appeal again when their name is cleared a second time".
+  // Compared as INSTANTS, not as strings: PostgREST returns "+00:00" while the row this page
+  // appends optimistically after filing uses toISOString()'s "Z", and those two spellings of
+  // the same moment do not sort against each other.
+  const clearedAt = profile.name_cleared_at ? new Date(profile.name_cleared_at).getTime() : null;
+  const nameAppeal = appeals.find((a) =>
+    a.subject_type === "name"
+    && clearedAt !== null
+    && new Date(a.created_at).getTime() >= clearedAt) ?? null;
 
   return (
     <div>
