@@ -5,6 +5,22 @@ on:
     branches: [master]
   pull_request:
 
+# One run per branch at a time, and a new push supersedes the one before it.
+#
+# This does NOT create runner capacity, and it is not a fix for a slow queue. What it stops is
+# a pile-up: during a GitHub incident on 2026-10-05 (delays assigning hosted runners), runs
+# from successive pushes sat queued together competing for the same runners, and the ones that
+# never got a runner inside GitHub's window were cancelled, which arrives as a "CI failed"
+# mail for a job that never executed a single step.
+#
+# With this, only the newest commit on a branch is ever waiting, so a cancellation is one we
+# asked for rather than a mystery. The trade-off, accepted: pushing twice quickly kills the
+# first run mid-flight, so the only commit CI speaks for is the newest one. On a solo project
+# where master is the working branch, that is the commit that matters.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
