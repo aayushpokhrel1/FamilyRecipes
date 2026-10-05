@@ -315,7 +315,10 @@ function Overview() {
   const busiest = Math.max(1, ...days.map((d) => d.count));
 
   const tiles: [string, number][] = [
+    // Two tiles, not one: see the note on AdminStats. "Users" alone showed the profiles count
+    // and read as 6 where there were 3 logins.
     ["Users", stats.users],
+    ["Ever joined", stats.everJoined],
     ["Recipes", stats.recipes],
     ["Published", stats.published],
     ["Removed", stats.removed],

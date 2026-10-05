@@ -25,6 +25,18 @@ vi.mock("../lib/api/appeals", () => ({
   resolveAppeal: (...a: any[]) => resolveAppeal(...a),
 }));
 
+// The Overview tab is the only consumer of these, and it is mounted only when selected, so
+// the roster call never runs on the page's main job.
+const getAdminStats = vi.fn();
+vi.mock("../lib/api/admin", () => ({
+  getAdminStats: (...a: any[]) => getAdminStats(...a),
+  listAdminUsers: vi.fn().mockResolvedValue({ users: [], hasMore: false }),
+  setModerator: vi.fn(),
+  suspendUser: vi.fn(),
+  unsuspendUser: vi.fn(),
+  deleteUserAccount: vi.fn(),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: false });
@@ -36,6 +48,10 @@ beforeEach(() => {
     ["c1", { id: "c1", handle: "nana", public_name: "Nana Rose", bio: null, avatar_url: null }],
   ]));
   resolveReport.mockResolvedValue(undefined);
+  getAdminStats.mockResolvedValue({
+    users: 3, everJoined: 6, recipes: 9, published: 4, removed: 1,
+    families: 2, openReports: 0, suspended: 0, signupsByDay: {},
+  });
   resolveAppeal.mockResolvedValue(undefined);
 });
 
@@ -303,4 +319,20 @@ test("shows an ordinary cook nothing", async () => {
   expect(await screen.findByText("Not found")).toBeInTheDocument();
   // And it never even asks for the queue.
   expect(listOpenAppeals).not.toHaveBeenCalled();
+});
+
+// A profile OUTLIVES its login (0014), so the profiles count includes every account ever
+// deleted. One tile labelled "Users" showing that number read as 6 where there were 3 logins,
+// with nothing on screen saying why. The two counts answer different questions and are shown
+// as two tiles.
+test("shows live logins and accounts-ever-joined as separate tiles", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Overview" }));
+
+  const users = (await screen.findByText("Users")).closest("li");
+  expect(users).toHaveTextContent("3");
+  const ever = screen.getByText("Ever joined").closest("li");
+  expect(ever).toHaveTextContent("6");
 });

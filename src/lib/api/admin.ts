@@ -1,7 +1,11 @@
 import { supabase } from "../supabaseClient";
 
 export type AdminStats = {
-  users: number; recipes: number; published: number; removed: number;
+  // `users` is live LOGINS (auth.users), `everJoined` is profile ROWS. They differ by every
+  // account ever deleted, because a profile outlives its login on purpose (0014): the recipe
+  // keeps its author when the person leaves. Do not collapse them back into one number.
+  users: number; everJoined: number;
+  recipes: number; published: number; removed: number;
   families: number; openReports: number; suspended: number;
   signupsByDay: Record<string, number>;   // "YYYY-MM-DD" -> count, last 30 days
 };

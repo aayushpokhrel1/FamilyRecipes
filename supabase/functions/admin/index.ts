@@ -99,15 +99,31 @@ Deno.serve(async (req) => {
 
   try {
     if (action === "stats") {
-      const [users, recipes, published, removed, families, openReports, suspended] =
+      // TWO DIFFERENT QUESTIONS, and conflating them is what this split exists to stop.
+      //
+      // `everJoined` counts profiles, and a profile deliberately OUTLIVES its login: 0014
+      // dropped the foreign key to auth.users so a recipe keeps its author when the person
+      // leaves. So the profiles count includes every account ever deleted, and it only ever
+      // grows.
+      //
+      // `users` is what a moderator actually reads the word to mean: people who can sign in
+      // right now. That lives in auth.users, which PostgREST does not expose, so it comes
+      // from the auth admin API's own total. perPage: 1 because the ROWS are not wanted, only
+      // the count, and asking for 100 of them to throw away would be the lazy-looking but
+      // slower option.
+      //
+      // Before this split the tile said "Users" and showed the profiles count, which read as
+      // 6 on a database with 3 logins and no way to tell why.
+      const [users, recipes, published, removed, families, openReports, suspended, everJoined] =
         await Promise.all([
-          count("profiles"),
+          admin.auth.admin.listUsers({ page: 1, perPage: 1 }).then((r) => r.data?.total ?? 0),
           count("recipes"),
           count("recipes", (q) => (q as { eq: (a: string, b: unknown) => unknown }).eq("visibility", "public")),
           count("recipes", (q) => (q as { not: (a: string, b: string, c: unknown) => unknown }).not("removed_at", "is", null)),
           count("families"),
           count("reports", (q) => (q as { eq: (a: string, b: unknown) => unknown }).eq("status", "open")),
           count("profiles", (q) => (q as { not: (a: string, b: string, c: unknown) => unknown }).not("suspended_at", "is", null)),
+          count("profiles"),
         ]);
 
       // Signups per day for the last 30 days, computed here rather than in SQL so this needs
@@ -124,7 +140,10 @@ Deno.serve(async (req) => {
       }
 
       return json(
-        { users, recipes, published, removed, families, openReports, suspended, signupsByDay: byDay },
+        {
+          users, recipes, published, removed, families, openReports, suspended,
+          everJoined, signupsByDay: byDay,
+        },
         200,
       );
     }
