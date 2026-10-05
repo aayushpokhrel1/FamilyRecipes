@@ -13,6 +13,10 @@ platform's UI sans for the body line (Segoe UI on Windows, Helvetica on macOS). 
 the brand's, the file format is an implementation detail of this script.
 
 Every colour below is a DESIGN.md token; none is invented here.
+
+AFTER REDRAWING, BUMP `OG_CARD` IN worker/meta.ts AND THE og:image IN index.html. Every
+platform caches a preview by its image URL, so a redraw at the same URL is invisible to
+everyone who has already shared the link.
 """
 from PIL import Image, ImageDraw, ImageFont
 import sys

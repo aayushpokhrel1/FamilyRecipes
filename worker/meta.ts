@@ -1,3 +1,9 @@
+// The shared link-preview card, with a version on it. Facebook, WhatsApp, Slack and X all
+// cache a preview by its image URL and will happily serve a picture that no longer exists on
+// the site for weeks. Bumping this number is what makes them fetch again, so REDRAWING
+// public/og.png without bumping it means nobody sees the new one.
+export const OG_CARD = "/og.png?v=2";
+
 // Pure helpers for the per-recipe OpenGraph tags the Worker injects. Kept free of
 // Worker globals so they can be unit tested without a runtime.
 
@@ -149,7 +155,7 @@ export function buildTags(input: BuildTagsInput): Tags {
     title: `${title}${TITLE_SUFFIX}`,
     description: describe(story),
     url: `${origin}/recipes/${id}`,
-    image: hasPhoto ? `${origin}/og/recipe/${id}.jpg` : `${origin}/og.png`,
+    image: hasPhoto ? `${origin}/og/recipe/${id}.jpg` : `${origin}${OG_CARD}`,
     imageAlt: hasPhoto ? `${title} - a photo of the recipe` : STOCK_IMAGE_ALT,
   };
 }

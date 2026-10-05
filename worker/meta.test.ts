@@ -64,7 +64,7 @@ test("buildTags appends the site suffix to the title", () => {
 
 test("buildTags falls back to the static card and stock alt without a photo", () => {
   const tags = buildTags({ title: "Besan chila", story: null, id: ID, hasPhoto: false, origin: ORIGIN });
-  expect(tags.image).toBe(`${ORIGIN}/og.png`);
+  expect(tags.image).toBe(`${ORIGIN}/og.png?v=2`);
   expect(tags.imageAlt).toBe("Family Recipes, on an enamel plate against a pantry-green wall.");
 });
 
@@ -178,7 +178,7 @@ const JSON_LD_BASE: JsonLdInput = {
   title: "Besan chila",
   description: "A recipe from The Enamel Vault.",
   url: `${ORIGIN}/recipes/${ID}`,
-  image: `${ORIGIN}/og.png`,
+  image: `${ORIGIN}/og.png?v=2`,
   ingredients: [],
   steps: [],
   servings: null,
@@ -200,7 +200,7 @@ describe("buildRecipeJsonLd", () => {
     expect(recipe["@context"]).toBe("https://schema.org");
     expect(recipe["@type"]).toBe("Recipe");
     expect(recipe.name).toBe("Besan chila");
-    expect(recipe.image).toEqual([`${ORIGIN}/og.png`]);
+    expect(recipe.image).toEqual([`${ORIGIN}/og.png?v=2`]);
     for (const key of [
       "recipeIngredient",
       "recipeInstructions",
