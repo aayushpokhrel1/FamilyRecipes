@@ -47,6 +47,10 @@ export default function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="recipes/:id" element={<RecipeDetail />} />
         <Route path="cooks/:handle" element={<CookPage />} />
+        {/* Public for the same reason as the two above: an invitation is for someone who may
+            have no account yet, so guarding it defeats the point. The page itself asks for a
+            sign-in when it needs one, and carries the invite through the sign-in. */}
+        <Route path="join/:code" element={<JoinByCode />} />
         {/* The four public documents, inside AppLayout so they get the header and the footer
             that links to them, and OUTSIDE RequireAuth because someone deciding whether to
             sign up has to be able to read them first. That is not a nicety: a consent notice
@@ -96,7 +100,6 @@ export default function AppRoutes() {
             one canonical public URL. Guarded, because it reads YOUR profile. */}
         <Route path="me" element={<MyProfile />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="join/:code" element={<JoinByCode />} />
       </Route>
     </Routes>
   );
