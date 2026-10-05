@@ -1,11 +1,16 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signUp } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 
 export default function SignUp() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Where RequireAuth was taking them before it sent them here. An invite link is the case
+  // this exists for: without it, signing in drops you on the home page and the invite is
+  // gone.
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +22,7 @@ export default function SignUp() {
     setError(null);
     try {
       const { session } = await signUp(email, password, displayName);
-      if (session) navigate("/");
+      if (session) navigate(from ?? "/");
       else setSent(true);
     } catch (err) {
       reportError("auth:sign-up", err);
@@ -93,7 +98,7 @@ export default function SignUp() {
       <button type="submit">Create account</button>
       <GoogleButton label="Sign up with Google" />
       <p>
-        Already have an account? <Link to="/signin">Sign in</Link>
+        Already have an account? <Link to="/signin" state={location.state}>Sign in</Link>
       </p>
     </form>
   );

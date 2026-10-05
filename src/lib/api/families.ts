@@ -61,3 +61,12 @@ export async function leaveFamily(familyId: string): Promise<void> {
     .delete().eq("family_id", familyId).eq("user_id", uid);
   if (error) throw new Error(error.message);
 }
+
+// The name behind an invite code, so the join page can say WHICH family invited you before
+// you sign in. Null means no family has that code, which is a normal answer (a wrong or a
+// rotated code) rather than an error, so the page renders it instead of throwing.
+export async function familyNameForCode(code: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("family_name_for_code", { p_code: code });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
+}
