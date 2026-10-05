@@ -111,7 +111,7 @@ what a cook SEES, rather than what the frontend may call, inverts that rule.**
 `0035_remedies_and_appeals.sql` was the example. It hides a name-cleared cook's public recipes
 from Potluck, and the banner explaining that was a later task, so pushing it alone would have
 made recipes vanish with nothing on screen saying why. Both halves shipped on 2026-10-02 and
-cloud is now at **0036**.
+cloud is now at **0038**.
 
 **The part worth keeping: the handover said 0035 was local-only, and it was wrong.** 0035 had
 been pushed. A bug was found in it and corrected IN PLACE on the strength of that sentence,

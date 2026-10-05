@@ -24,7 +24,8 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
 
 ## What it does
 
-- **Multiple families per user**: belong to several, switch between them.
+- **Multiple families per user**: belong to several, switch between them, and invite people
+  with a link you can send rather than a code they have to type.
 - **Rich recipes**: ingredients, steps, servings, times, tags, photos, plus a story and
   provenance ("from Grandma, adapted by Mom").
 - **Easy entry**: a guided manual form, or AI pre-fill from pasted text, a URL, a photo of a
