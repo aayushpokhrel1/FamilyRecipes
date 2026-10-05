@@ -50,7 +50,15 @@ export default function AppRoutes() {
         {/* Public for the same reason as the two above: an invitation is for someone who may
             have no account yet, so guarding it defeats the point. The page itself asks for a
             sign-in when it needs one, and carries the invite through the sign-in. */}
-        <Route path="join/:code" element={<JoinByCode />} />
+        {/* Wrapped in TermsGate but NOT in RequireAuth, and the pair is the point. Public,
+            because the person an invitation is for is often the one with no account yet, and
+            guarding it sent them to a bare sign-in page that lost the invite. Gated, because
+            JOINING A FAMILY IS AN ACTION, not a notice: the four documents below are outside
+            both on purpose, since a notice you can only read after consenting is not a
+            notice, but membership is not in that class. TermsGate falls through for a
+            signed-out visitor on its own (getMyProfile throws and its catch renders the
+            children), so this costs the invited stranger nothing. */}
+        <Route path="join/:code" element={<TermsGate><JoinByCode /></TermsGate>} />
         {/* The four public documents, inside AppLayout so they get the header and the footer
             that links to them, and OUTSIDE RequireAuth because someone deciding whether to
             sign up has to be able to read them first. That is not a nicety: a consent notice

@@ -13,7 +13,7 @@ import Skeleton from "../components/Skeleton";
 // account yet, so the page has to be readable signed out and ask for a sign-in itself.
 export default function JoinByCode() {
   const { code } = useParams();
-  const { userId } = useAuth();
+  const { userId, loading: authLoading } = useAuth();
   const { reload } = useFamily();
   const navigate = useNavigate();
   // undefined means still loading, null means no family has that code.
@@ -55,7 +55,10 @@ export default function JoinByCode() {
     <div>
       <h1>Invitation</h1>
       <div className="plate panel">
-        {name === undefined ? (
+        {/* authLoading matters as much as the name: userId is null until the session
+            resolves, so without it a signed-in visitor is shown "Create an account to join"
+            for a beat and may well click it. */}
+        {name === undefined || authLoading ? (
           <Skeleton shape="plate" count={1} />
         ) : name === null ? (
           <>

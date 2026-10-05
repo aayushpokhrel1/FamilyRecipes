@@ -37,6 +37,18 @@ beforeEach(() => {
   joinByCode.mockResolvedValue(undefined);
 });
 
+// userId is null while the session is still resolving, so a signed-in visitor was shown the
+// "create an account" branch for a beat and could click it, landing in signup while already
+// signed in.
+test("waits for the session before deciding what to offer", async () => {
+  mockAuth = { userId: null, loading: true };
+  renderAt("abc123");
+  await waitFor(() => expect(familyNameForCode).toHaveBeenCalled());
+  expect(screen.queryByRole("link", { name: /create an account/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /join this family/i })).not.toBeInTheDocument();
+});
+
+
 test("tells a signed-out visitor which family invited them", async () => {
   renderAt("abc123");
   expect(await screen.findByText("The Pokhrel family")).toBeInTheDocument();
