@@ -26,6 +26,12 @@ export function isSiteHost(hostname: string): boolean {
 // Cards link to the APP host. The recipe pages already live there, already carry their own
 // OpenGraph tags and are already in that host's sitemap; serving or claiming them here would
 // create a second canonical for a page that already has one.
+//
+// THE HEADING IS RETURNED FROM HERE, not written into site.html, and that is deliberate.
+// An empty rack is a state we can reach in production: the Supabase read fails and
+// serveSite degrades to no cards. With the heading in the template it would survive that
+// and the page would serve "Some that are public" above nothing at all. Returning the two
+// together means they appear and vanish together, which is the only way they can agree.
 export function buildRack(cards: SiteCard[]): string {
   if (cards.length === 0) return "";
   const items = cards
@@ -46,7 +52,7 @@ export function buildRack(cards: SiteCard[]): string {
       ].join("");
     })
     .join("");
-  return `<ul class="rack">${items}</ul>`;
+  return `<h2>Some that are public</h2><ul class="rack">${items}</ul>`;
 }
 
 // Returns the template untouched if the placeholder is gone, rather than throwing: a page

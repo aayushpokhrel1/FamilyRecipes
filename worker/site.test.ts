@@ -71,6 +71,13 @@ describe("buildRack", () => {
   it("returns an empty string for no cards, so the section can be dropped", () => {
     expect(buildRack([])).toBe("");
   });
+
+  // The heading travels WITH the cards. If it lived in site.html instead, the degraded
+  // path would serve a heading above an empty space, which is worse than no section.
+  it("carries its own heading, so nothing is left dangling when there are no cards", () => {
+    expect(buildRack([CARD])).toContain("<h2>");
+    expect(buildRack([])).not.toContain("<h2>");
+  });
 });
 
 describe("renderSite", () => {
