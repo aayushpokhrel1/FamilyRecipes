@@ -143,7 +143,7 @@ async function fetchCatalogue(env: Env, limit: number): Promise<SiteCard[]> {
   );
 }
 
-// The static pages are hard-coded because they are the same five for every deployment, and
+// The static pages are hard-coded because they are the same four for every deployment, and
 // they carry no lastmod: there is no per-page timestamp to report and a made-up one would
 // teach Google to distrust the field.
 // NOT "/": on this host the root is behind RequireAuth and bounces a signed-out visitor,
@@ -155,7 +155,7 @@ type RecipeSitemapRow = { id: string; updated_at: string | null };
 type CookSitemapRow = { handle: string | null };
 
 // A sitemap is a nice-to-have; a 500 is not. Any Supabase failure degrades to the static
-// pages, which is still a valid sitemap that lists five real URLs.
+// pages, which is still a valid sitemap that lists four real URLs.
 async function serveSitemap(env: Env, origin: string): Promise<Response> {
   const entries: SitemapEntry[] = STATIC_SITEMAP_PATHS.map((path) => ({ loc: `${origin}${path}` }));
 
@@ -468,6 +468,16 @@ async function route(request: Request, env: Env): Promise<Response> {
   {
     const url = new URL(request.url);
 
+    // The raw template is an asset, so it is fetchable by path on EITHER host, and it is not a
+    // page: on the app host it is a stray one nobody meant to publish, and on the bare host it
+    // is this page with its rack placeholder still in it. serveSite reaches the file through an
+    // internal ASSETS fetch of its own, so refusing it here costs nothing.
+    //
+    // ABOVE the host branch deliberately. Below it, the bare host's catch-all would 302 this to
+    // the app host first and only 404 on the second request, so a crawler would see a redirect
+    // to a dead end rather than a refusal.
+    if (url.pathname === "/site.html") return notFound();
+
     // The bare domain is the marketing surface and answers exactly three things itself.
     // Everything else 302s to the app, which is what the edge redirect rule this replaced did
     // for every path: people hold enamelvault.com/recipes/<id> links. Serving the SPA here
@@ -488,12 +498,6 @@ async function route(request: Request, env: Env): Promise<Response> {
       // 301 is cached effectively forever and a decision you may reverse should not be.
       return Response.redirect(`${APP_ORIGIN}${url.pathname}${url.search}`, 302);
     }
-
-    // The raw template is an asset, so it is fetchable by path on either host. It is not a page:
-    // on the app host it is a stray one nobody meant to publish, and on the bare host it is this
-    // page with its placeholder still in it. serveSite reaches the file through its own internal
-    // ASSETS fetch above, so refusing it here costs nothing.
-    if (url.pathname === "/site.html") return notFound();
 
     const pathname = url.pathname;
 
