@@ -101,6 +101,16 @@ Two things have no mechanical guard and need a human:
   is why the theme bootstrap lives in `public/theme-init.js`. `worker/meta.test.ts` pins the
   policy and `src/lib/browserStorage.test.ts` fails if an inline script returns to
   `index.html`.
+- **The link-preview card is GENERATED, not hand-drawn.** `scripts/og-card.py` draws
+  `public/og.png` from the DESIGN.md tokens and the mark in `public/favicon.svg`. It was made
+  by hand once and drifted: the card shipped for weeks carrying a mark that `favicon.svg` had
+  already rejected in its own comment. **After redrawing it, bump `OG_CARD` in
+  `worker/meta.ts` and the `og:image` in `index.html`**, or every platform keeps serving the
+  cached old picture.
+- **A route that DOES something belongs behind `TermsGate`, even when it is public.** The four
+  public documents are outside it on purpose, because a notice you can only read after
+  consenting is not a notice; `join/:code` is public but gated, because joining a family is an
+  action. `src/routes.terms.test.ts` reads `routes.tsx` and fails if an action route escapes.
 - **Work on `master`** (solo project). Branch only to let CI gate something risky first.
 - **Query the Obsidian vault (`Projects/FamilyRecipes/`) before a big change**, and read
   `docs/OPERATIONS.md` before any deploy. Most vault entries name a bug that recurred *after*

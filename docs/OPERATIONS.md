@@ -89,6 +89,33 @@ CI only triggers on master pushes and PRs, so a plain feature-branch push fires 
 a branch without opening a PR, temporarily add it to `push.branches` (e.g. `'ci/**'`) and strip
 that line before merging.
 
+### Reading a CI failure that is not a failure
+
+**A job with `conclusion: cancelled`, an empty `runner_name` and no steps never ran.** It is
+not your code. GitHub reports the whole RUN as "failure" when any job is cancelled, so the
+mail says CI failed for a job that executed nothing.
+
+This happened repeatedly on 2026-10-05, and GitHub had an open incident saying so: "delays
+when assigning GitHub-hosted runners to Actions jobs". Jobs sat queued and were killed at
+almost exactly fifteen minutes, twice with the integration job alone and once with both.
+
+How to tell the two apart in one command, rather than guessing from the email:
+
+```bash
+gh api repos/<owner>/<repo>/actions/runs/<run-id>/jobs   --jq '.jobs[] | "\(.name): \(.conclusion) runner=\(.runner_name)"'
+```
+
+An empty runner means it never started: re-run it (`gh run rerun <id> --failed`), and check
+<https://www.githubstatus.com/api/v2/incidents.json> before spending any time on the code. A
+real failure names a runner and has steps, and `--log-failed` prints something.
+
+The workflow sets `concurrency: ci-${{ github.ref }}` with `cancel-in-progress`, so only the
+newest commit on a branch is ever queued. That creates no capacity; it stops stale runs
+competing for scarce runners, and it means a cancellation is usually one we asked for by
+pushing again. **The honest signal while CI is unavailable is the local suite**, which is the
+same commands: `npm run lint`, `npx tsc -b`, `npm test`, and `npm run test:int` with the three
+`SB_*` variables exported.
+
 ## Deployment
 
 Three targets that are deployed **separately**. Confusing them wastes time.
