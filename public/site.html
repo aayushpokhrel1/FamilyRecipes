@@ -1,0 +1,374 @@
+<!doctype html>
+<!-- The page before sign-up, on enamelvault.com. Served by worker/index.ts via serveSite(),
+     which replaces the RACK placeholder below with real public recipes.
+
+     NO SCRIPT, EVER. The CSP this Worker sends is script-src 'self', and a blocked inline
+     script does not warn, it silently never runs. This page needs none.
+
+     THE COLOURS ARE A SECOND COPY OF THE PALETTE. src/site.tokens.test.ts reads the real
+     values out of src/index.css and fails if any of them drifts from this file. Change a
+     token there and this file is part of that change. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Enamel Vault - a place for a family's recipes</title>
+    <meta
+      name="description"
+      content="A private vault where a family keeps its recipes, with the story and whose they were. Free to use."
+    />
+    <link rel="canonical" href="https://enamelvault.com/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Enamel Vault" />
+    <meta property="og:title" content="The Enamel Vault - a place for a family's recipes" />
+    <meta
+      property="og:description"
+      content="A private vault where a family keeps its recipes, with the story and whose they were."
+    />
+    <meta property="og:url" content="https://enamelvault.com/" />
+    <meta property="og:image" content="https://enamelvault.com/og.png?v=2" />
+    <meta
+      property="og:image:alt"
+      content="Family Recipes, on an enamel plate against a pantry-green wall."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- A DATA island, not code: the browser never executes application/ld+json, so this is
+         not the inline script that script-src 'self' forbids. src/site.a11y.test.ts allows
+         this one type and fails on any other, which is the line worth holding. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "The Enamel Vault",
+        "url": "https://enamelvault.com/",
+        "description": "A private vault where a family keeps its recipes, with the story and whose they were."
+      }
+    </script>
+
+    <style>
+      /* Zilla Slab, from our own assets. This Worker serves /fonts on both hostnames, which
+         is one of the reasons the page is not a separate project: under font-src 'self' a
+         second host would need its own copy of the files. */
+      @font-face {
+        font-family: "Zilla Slab";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url("/fonts/zilla-slab-500-latin.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Zilla Slab";
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url("/fonts/zilla-slab-700-latin.woff2") format("woff2");
+      }
+
+      :root {
+        --wall: #1f3b34;
+        --wall-deep: #16302a;
+        --plate: #f3ede1;
+        --rim: #16302a;
+        --ink: #182b25;
+        --ink-soft: #4f605a;
+        --on-wall: #f3ede1;
+        --action: #b53514;
+        --action-deep: #8f260b;
+        --action-lit: #ff8f73;
+        --on-action: #fdf3ec;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--wall);
+        color: var(--on-wall);
+        font-family: "Zilla Slab", Georgia, serif;
+        font-weight: 500;
+        line-height: 1.5;
+        /* 16px gutter at phone width, and nothing scrolls sideways. */
+        padding: 0 16px 48px;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      /* On the green wall, links take the LIT vermilion. The dark one drops to 2.7:1 here. */
+      a {
+        color: var(--action-lit);
+      }
+      /* Inside a bone plate it flips, because the lit one fails on bone. */
+      .plate a,
+      .plate {
+        color: var(--ink);
+      }
+      .plate a {
+        color: var(--action);
+      }
+
+      header.masthead {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--wall-deep);
+      }
+      .masthead img {
+        display: block;
+      }
+      .wordmark {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 1.05rem;
+      }
+      .masthead nav {
+        margin-left: auto;
+      }
+
+      h1 {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        font-size: clamp(1.9rem, 6vw, 3rem);
+        line-height: 1.1;
+        margin: 40px 0 16px;
+      }
+      .lede {
+        font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+        color: var(--on-wall);
+        max-width: 42ch;
+        margin: 0 0 32px;
+      }
+
+      h2 {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.95rem;
+        margin: 40px 0 16px;
+      }
+
+      /* A bone plate: dark rim keyline, inner highlight, one soft shadow. */
+      .plate {
+        background: var(--plate);
+        border: 1px solid var(--rim);
+        border-radius: 10px;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.6),
+          0 2px 8px rgba(16, 36, 32, 0.35);
+        padding: 20px;
+      }
+
+      .doors {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 720px) {
+        .doors {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .doors h3 {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.95rem;
+        margin: 0 0 8px;
+      }
+      .doors p {
+        color: var(--ink-soft);
+        margin: 0 0 16px;
+      }
+
+      /* The one committing action, in the one reserved colour. */
+      .action {
+        display: inline-block;
+        background: var(--action);
+        color: var(--on-action);
+        text-decoration: none;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 11px 18px;
+        border-radius: 6px;
+      }
+      .action:active {
+        background: var(--action-deep);
+      }
+
+      ul.does {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 720px) {
+        ul.does {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      ul.does strong {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.9rem;
+      }
+      ul.does span {
+        color: var(--ink-soft);
+      }
+
+      /* FLEX, NOT A THREE-COLUMN GRID, and that is the whole point of this block.
+         There is exactly ONE public recipe today, and a 3-column grid holding one card
+         renders a card stretched across a third of a page with two empty cells, which
+         reads as broken rather than as sparse. This wraps instead: one card is one card
+         at its natural width, and three fill the row with no change here. Adding the
+         other two recipes is a publish, not an edit to this file. */
+      ul.rack {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .rack-item {
+        flex: 0 1 280px;
+        max-width: 340px;
+      }
+      .rack-card {
+        display: block;
+        text-decoration: none;
+        padding: 12px;
+      }
+      .rack-card img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 6px;
+        margin-bottom: 10px;
+      }
+      .rack-title {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 0.95rem;
+      }
+
+      footer.site-foot {
+        margin-top: 56px;
+        padding-top: 20px;
+        border-top: 1px solid var(--wall-deep);
+        font-size: 0.9rem;
+      }
+      footer.site-foot nav a {
+        margin-right: 16px;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--action-lit);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <img src="/favicon.svg" width="32" height="32" alt="" />
+        <span class="wordmark">The Enamel Vault</span>
+        <nav aria-label="Account">
+          <a href="https://recipes.enamelvault.com/signin">Sign in</a>
+        </nav>
+      </header>
+
+      <main>
+        <h1>A family's recipes, kept properly</h1>
+        <p class="lede">
+          A private vault for the food your family actually cooks, with the story behind each
+          dish and whose recipe it was. Not a blog, and not a folder of photos you cannot
+          search.
+        </p>
+
+        <h2>Two ways in</h2>
+        <div class="doors">
+          <div class="plate">
+            <h3>For a family</h3>
+            <p>
+              Start a vault, invite the family with a link, and put the first recipe in. Free
+              to use.
+            </p>
+            <a class="action" href="https://recipes.enamelvault.com/signup">Create a vault</a>
+          </div>
+          <div class="plate">
+            <h3>For a professional kitchen</h3>
+            <p>
+              A version for kitchens developing dishes, with costs, yields and who changed
+              what, is being worked on. It does not exist yet. If that is your problem, I
+              would like to hear how you work now.
+            </p>
+            <a href="mailto:hello@enamelvault.com?subject=Recipes%20for%20a%20professional%20kitchen">
+              Tell me about your kitchen
+            </a>
+          </div>
+        </div>
+
+        <h2>What it does</h2>
+        <ul class="does">
+          <li class="plate">
+            <strong>A private vault</strong>
+            <span>
+              Every recipe is private, family-only or public, one recipe at a time. Nothing is
+              public because of a default.
+            </span>
+          </li>
+          <li class="plate">
+            <strong>The story, not just the method</strong>
+            <span>
+              Who it came from and who changed it, kept with the ingredients and the steps,
+              because that is the part that gets lost.
+            </span>
+          </li>
+          <li class="plate">
+            <strong>Put one in from a photo or your voice</strong>
+            <span>
+              Photograph a handwritten card, paste a page, or just talk. It drafts the recipe
+              and you check it before anything is saved.
+            </span>
+          </li>
+          <li class="plate">
+            <strong>For the day you cook it</strong>
+            <span>
+              A grocery list that knows an either-or ingredient is one item, and a cooking view
+              in big type that keeps the screen awake.
+            </span>
+          </li>
+        </ul>
+
+        <!-- NO HEADING HERE. buildRack() in worker/site.ts returns its own <h2> along with
+             the cards, so the two appear and vanish together. A heading written here would
+             survive the degraded path (Supabase unreachable, no cards) and the page would
+             serve "Some that are public" above an empty space. -->
+        <!--RACK-->
+      </main>
+
+      <footer class="site-foot">
+        <nav aria-label="Documents">
+          <a href="https://recipes.enamelvault.com/terms">Terms</a>
+          <a href="https://recipes.enamelvault.com/privacy">Privacy</a>
+          <a href="https://recipes.enamelvault.com/cookies">Cookies</a>
+          <a href="https://recipes.enamelvault.com/help">Help</a>
+        </nav>
+        <p>Run by Aayush Pokhrel. This site sets no cookies and uses no analytics.</p>
+      </footer>
+    </div>
+  </body>
+</html>
