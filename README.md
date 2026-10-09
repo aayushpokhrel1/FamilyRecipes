@@ -5,7 +5,9 @@ with photos, story, and provenance. Each recipe carries a visibility flag (Priva
 Public) so an opt-in public recipe feed can grow on top later. A community of food lovers, built
 family-first.
 
-**Live at <https://recipes.enamelvault.com>.**
+**Live at <https://recipes.enamelvault.com>**, with the page that explains it at
+<https://enamelvault.com>. The bare domain is the marketing surface and the subdomain is the
+app; both are served by the same Cloudflare Worker, which branches on hostname.
 
 ## Documentation
 

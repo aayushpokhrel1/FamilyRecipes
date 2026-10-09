@@ -162,7 +162,8 @@ older code than the repo holds.
 
 ### Frontend
 
-Live at <https://recipes.enamelvault.com>. `enamelvault.com` is a Cloudflare zone (Free plan)
+Live at <https://recipes.enamelvault.com>, with the landing page at
+<https://enamelvault.com>. `enamelvault.com` is a Cloudflare zone (Free plan)
 and `recipes.` is attached to the `familyrecipes` worker as a **Custom Domain**, so Cloudflare
 provisioned the proxied `AAAA` and the certificate itself.
 
@@ -183,17 +184,35 @@ VITE_SUPABASE_ANON_KEY=<publishable key sb_publishable_...>
 `VITE_SUPABASE_URL` must be the **base project URL**: not the `/rest/v1` Data API URL, and no
 trailing slash. `assertEnv` strips a trailing slash defensively.
 
-### Root and www redirect
+### Root and www: the marketing surface
 
-Both `enamelvault.com` and `www` have a proxied `AAAA` -> `100::` placeholder (the same discard
-address Cloudflare uses; the proxy answers and the origin is never reached), plus a Single
-Redirect rule in the `http_request_dynamic_redirect` ruleset (zone
-`534b45be9cc7ffdd92e4792900bbec9c`, rule `59ace7314da34a3fb1b282f48e3ec99e`) sending both to
-`https://recipes.enamelvault.com` with the path and query preserved.
+**The bare domain is no longer a redirect.** `enamelvault.com` is a custom domain on the same
+`familyrecipes` Worker and serves the landing page. The Single Redirect rule that used to send
+every bare-domain path to the app (ruleset `http_request_dynamic_redirect`, zone
+`534b45be9cc7ffdd92e4792900bbec9c`, rule `59ace7314da34a3fb1b282f48e3ec99e`) is gone.
 
-**302, not 301, on purpose:** a 301 is cached hard by every browser that sees it, so putting a
-landing page on the bare domain later would be fought by every previous visitor's cache. There
-is no SEO here to trade away for that.
+That rule was deliberately a **302 and not a 301** so this change would be possible: a 301 is
+cached hard by every browser that saw it, and putting a page here later would have been fought
+by every previous visitor's cache. The decision paid for itself.
+
+`route()` in `worker/index.ts` branches on hostname before anything else. The bare host answers
+exactly three things itself and 302s everything else to the app host, path and query preserved,
+which is what the old rule did for every path and why links people already hold still work:
+
+| On `enamelvault.com` | Answer |
+| --- | --- |
+| `/` | the landing page, `public/site.html` with the recipe rack injected |
+| `/robots.txt`, `/sitemap.xml` | its own, from `worker/site.ts`, not the app's |
+| anything else | 302 to the same path on `recipes.enamelvault.com` |
+
+**`/site.html` is 404 on BOTH hosts, deliberately.** It is an asset, so it is fetchable by
+path, but it is not a page: on the app host it is a stray one nobody meant to publish, and on
+the bare host it is the landing page with its rack placeholder still in it. The refusal sits
+ABOVE the host branch so the bare host answers 404 directly instead of redirecting a crawler
+into a dead end.
+
+**If you ever remove the custom domain, put a redirect rule back in the same motion**, or the
+apex answers nothing at all.
 
 A proxied `AAAA`-only record still gets Cloudflare IPv4 anycast answers, so v4-only clients are
 fine. A stale `NXDOMAIN` in a local resolver can hide `www` for a few minutes; that is caching,
@@ -444,9 +463,13 @@ actions nobody can do from this repo.
 
 1. **Verify the domain in Google Search Console** at <https://search.google.com/search-console>,
    using the DNS TXT method on `enamelvault.com` since Cloudflare already holds the zone.
-2. **Submit `https://recipes.enamelvault.com/sitemap.xml`** there once. Google will re-read it
-   on its own afterwards; it does not need resubmitting per recipe.
-3. **Request indexing for the home page once**, which usually pulls in the rest within days.
+2. **Submit BOTH sitemaps**, because the two hosts each have their own:
+   `https://recipes.enamelvault.com/sitemap.xml` (the recipes, the cooks, and the four public
+   documents) and `https://enamelvault.com/sitemap.xml` (the landing page, one URL). Google
+   re-reads them on its own afterwards; neither needs resubmitting per recipe.
+3. **Request indexing for `https://enamelvault.com/` once.** That is the root worth indexing.
+   The app host's `/` is behind `RequireAuth` and bounces a crawler to `/signin`, which is why
+   it was removed from `STATIC_SITEMAP_PATHS`: do not put it back.
 
 Bing has the equivalent at Bing Webmaster Tools and can import the Search Console setup.
 
