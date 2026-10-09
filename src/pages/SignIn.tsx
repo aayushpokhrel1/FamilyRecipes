@@ -79,6 +79,13 @@ export default function SignIn() {
       <p>
         Need an account? <Link to="/signup" state={location.state}>Sign up</Link>
       </p>
+      {/* A plain <a>, NOT a <Link>, because the explanation lives on the other host: a
+          router link would resolve it as a route inside this app. Every guarded route sends
+          a signed-out visitor here, so someone arriving from a shared recipe link lands on
+          this form knowing nothing about the product, and this was a dead end for them. */}
+      <p>
+        <a href="https://enamelvault.com/">What is this?</a>
+      </p>
     </form>
   );
 }
