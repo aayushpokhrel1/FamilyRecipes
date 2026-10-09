@@ -214,6 +214,19 @@ into a dead end.
 **If you ever remove the custom domain, put a redirect rule back in the same motion**, or the
 apex answers nothing at all.
 
+**The trap when attaching the custom domain.** The API refuses with `100117: Hostname already
+has externally managed DNS records` while the hand-made `AAAA -> 100::` placeholder is still
+on the hostname. A Worker custom domain CREATES its own identical `AAAA -> 100::` proxied
+record, which is why `recipes` has one, and Cloudflare will not adopt one it did not make. The
+placeholder has to be deleted first, which means the hostname answers nothing for the seconds
+in between, so delete and attach in one motion and be ready to recreate the record if the
+attach fails. The dashboard does this for you behind a "replace existing DNS records" prompt;
+the API does not, which makes the dashboard the easier path here.
+
+**Do not touch the `MX` and `TXT` records on the apex while doing this.** They are Cloudflare
+Email Routing and the SPF and DKIM for `moderation@enamelvault.com`, and the landing page's
+one business contact link now depends on that address delivering.
+
 A proxied `AAAA`-only record still gets Cloudflare IPv4 anycast answers, so v4-only clients are
 fine. A stale `NXDOMAIN` in a local resolver can hide `www` for a few minutes; that is caching,
 not the record.
