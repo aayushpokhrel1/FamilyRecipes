@@ -67,6 +67,15 @@ describe("site.html structure", () => {
     expect(hrefs.some((h) => h.startsWith("mailto:"))).toBe(true);
   });
 
+  // The committing action sits inside a .plate, and `.plate a` colours link text with the
+  // SAME vermilion that fills this button. A bare `.action` selector loses to it on
+  // specificity and the label renders vermilion on vermilion: an empty red rectangle. That
+  // is what shipped, and only opening the page caught it, because the contrast test measures
+  // token pairs and cannot see a cascade. This is the tripwire for the override.
+  it("colours the action button at a specificity that beats .plate a", () => {
+    expect(html).toContain(".plate a.action");
+  });
+
   // PRODUCT.md forbids inventing any of these, and a marketing page is where they appear
   // by accident. This is the mechanical half of that rule.
   it("claims no price, no rating and no customer count", () => {

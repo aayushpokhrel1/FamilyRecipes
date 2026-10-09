@@ -188,8 +188,16 @@
         margin: 0 0 16px;
       }
 
-      /* The one committing action, in the one reserved colour. */
-      .action {
+      /* The one committing action, in the one reserved colour.
+         THE SELECTOR CARRIES a.action AND MUST KEEP DOING SO. This button sits inside a
+         .plate, and `.plate a` above sets link text to --action, the same vermilion that
+         fills this button. At equal specificity that rule wins on source order and the
+         label becomes vermilion on vermilion: a solid rectangle with invisible text. It
+         shipped exactly that way and was caught by opening the page, not by a test, because
+         src/index.contrast.test.ts measures token PAIRS and cannot see the cascade.
+         Writing this as a bare `.action` is the bug. */
+      a.action,
+      .plate a.action {
         display: inline-block;
         background: var(--action);
         color: var(--on-action);
@@ -200,7 +208,8 @@
         padding: 11px 18px;
         border-radius: 6px;
       }
-      .action:active {
+      a.action:active,
+      .plate a.action:active {
         background: var(--action-deep);
       }
 
