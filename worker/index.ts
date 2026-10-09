@@ -17,6 +17,14 @@ import {
   type SitemapEntry,
   type Tags,
 } from "./meta";
+import {
+  APP_ORIGIN,
+  isSiteHost,
+  renderSite,
+  siteRobots,
+  siteSitemap,
+  type SiteCard,
+} from "./site";
 
 export interface Env {
   ASSETS: Fetcher;
@@ -104,10 +112,44 @@ async function fetchHasPhoto(env: Env, id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+type CatalogueRow = { id: string; title: string };
+
+// THE RPC, NEVER THE recipes TABLE. The rule that hides a cleared cook's public recipes
+// lives inside search_recipes and nowhere else, and 0035 says so in a comment at the
+// function: a second path that queried recipes directly silently bypassed every rule the
+// function held, and a muted cook stayed in the feed until you typed something.
+// src/lib/api/recipes.ts refuses to grow a second path for the same reason. A landing page
+// reading the table would be a PUBLIC bypass of a live moderation decision, which is worse
+// than the bug that comment describes.
+async function fetchCatalogue(env: Env, limit: number): Promise<SiteCard[]> {
+  const url = `${env.SUPABASE_URL}/rest/v1/rpc/search_recipes?select=id,title&limit=${limit}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { ...supabaseHeaders(env), "Content-Type": "application/json" },
+    body: JSON.stringify({ p_family_id: null, p_search: null, p_tag_id: null }),
+  });
+  if (!response.ok) return [];
+
+  const rows = (await response.json()) as CatalogueRow[];
+  const cards = rows.filter((row) => row.id && row.title).slice(0, limit);
+  // One request per card, in parallel, and each failure is just "no photo". hasPhoto only
+  // decides whether an <img> is drawn, so getting it wrong costs a picture, never the page.
+  return Promise.all(
+    cards.map(async (row) => ({
+      id: row.id,
+      title: row.title,
+      hasPhoto: await fetchHasPhoto(env, row.id),
+    })),
+  );
+}
+
 // The static pages are hard-coded because they are the same five for every deployment, and
 // they carry no lastmod: there is no per-page timestamp to report and a made-up one would
 // teach Google to distrust the field.
-const STATIC_SITEMAP_PATHS = ["/", "/terms", "/privacy", "/cookies", "/help"];
+// NOT "/": on this host the root is behind RequireAuth and bounces a signed-out visitor,
+// crawlers included, to /signin. The root worth indexing is https://enamelvault.com/, which
+// is in that host's own sitemap.
+const STATIC_SITEMAP_PATHS = ["/terms", "/privacy", "/cookies", "/help"];
 
 type RecipeSitemapRow = { id: string; updated_at: string | null };
 type CookSitemapRow = { handle: string | null };
@@ -148,6 +190,34 @@ async function serveSitemap(env: Env, origin: string): Promise<Response> {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
+    },
+  });
+}
+
+const SITE_CARDS = 3;
+
+// Degrades in every direction on purpose. A failed template fetch serves whatever the asset
+// layer gave us; a failed or empty catalogue drops the rack and serves the rest. The page
+// must not 500 and must not come back blank, which is the Worker rule in CLAUDE.md.
+async function serveSite(request: Request, env: Env): Promise<Response> {
+  const template = await env.ASSETS.fetch(new Request(`${new URL(request.url).origin}/site.html`));
+  if (!template.ok) return template;
+
+  const html = await template.text();
+  let cards: SiteCard[] = [];
+  try {
+    cards = await fetchCatalogue(env, SITE_CARDS);
+  } catch {
+    // The rack is the only thing lost, and renderSite removes the placeholder for an
+    // empty list, so no visible hole is left behind.
+  }
+
+  return new Response(renderSite(html, cards), {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      // Five minutes. A crawl must not mean one Supabase round trip per hit, and the
+      // catalogue changing five minutes late costs nothing.
+      "Cache-Control": "public, max-age=300",
     },
   });
 }
@@ -396,7 +466,36 @@ export default {
 
 async function route(request: Request, env: Env): Promise<Response> {
   {
-    const pathname = new URL(request.url).pathname;
+    const url = new URL(request.url);
+
+    // The bare domain is the marketing surface and answers exactly three things itself.
+    // Everything else 302s to the app, which is what the edge redirect rule this replaced did
+    // for every path: people hold enamelvault.com/recipes/<id> links. Serving the SPA here
+    // instead would put the whole app on a second hostname as duplicate content.
+    if (isSiteHost(url.hostname)) {
+      if (url.pathname === "/") return serveSite(request, env);
+      if (url.pathname === "/robots.txt") {
+        return new Response(siteRobots(), {
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+        });
+      }
+      if (url.pathname === "/sitemap.xml") {
+        return new Response(siteSitemap(), {
+          headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+        });
+      }
+      // 302, not 301, for the same reason the bare-domain redirect was a 302 on 2026-09-25: a
+      // 301 is cached effectively forever and a decision you may reverse should not be.
+      return Response.redirect(`${APP_ORIGIN}${url.pathname}${url.search}`, 302);
+    }
+
+    // The raw template is an asset, so it is fetchable by path on either host. It is not a page:
+    // on the app host it is a stray one nobody meant to publish, and on the bare host it is this
+    // page with its placeholder still in it. serveSite reaches the file through its own internal
+    // ASSETS fetch above, so refusing it here costs nothing.
+    if (url.pathname === "/site.html") return notFound();
+
+    const pathname = url.pathname;
 
     // First, and deliberately cheap: an outage check has to answer when the rest is unwell.
     if (pathname === HEALTH_PATH) return checkExtract(env.SUPABASE_URL);

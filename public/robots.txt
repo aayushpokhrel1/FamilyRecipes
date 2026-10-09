@@ -19,4 +19,8 @@ Disallow: /join/
 Disallow: /*/edit
 Disallow: /*/cook
 
+# The marketing template on the bare domain. It is an asset, so it is fetchable by path, but
+# it is not a page: it still carries the rack placeholder.
+Disallow: /site.html
+
 Sitemap: https://recipes.enamelvault.com/sitemap.xml
