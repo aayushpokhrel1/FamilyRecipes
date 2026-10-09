@@ -157,6 +157,29 @@ untouched asset.
 
 **Five minutes of `Cache-Control`,** so a crawl does not query Supabase once per hit.
 
+### Every other path on the bare host redirects to the app
+
+The edge rule being deleted today redirects **every** bare-domain path to the app host, so
+`enamelvault.com/recipes/<id>` works for anyone holding such a link. That must not regress
+into the SPA being served on a second hostname, which would be duplicate content under a
+second canonical.
+
+So the bare host answers exactly three things itself: `/`, `/robots.txt` and `/sitemap.xml`.
+Everything else is a 302 to the same path on `recipes.enamelvault.com`, which is what visitors
+already get today.
+
+### The composition is a pure string function, not HTMLRewriter
+
+`worker/index.ts` injects OpenGraph tags with `HTMLRewriter`, and the obvious move would be to
+reuse it here. It is the wrong choice for this page: `HTMLRewriter` is a Worker runtime global
+with no implementation under Vitest, which is why `worker/index.ts` has no unit test today and
+every pure helper lives in `worker/meta.ts` instead.
+
+The template therefore carries a comment placeholder, and `renderSite(template, cards)` is a
+pure function that returns the finished HTML. All of the logic that could be wrong is then
+testable without a Worker runtime, and `worker/index.ts` keeps only the I/O, exactly as the
+project rule in `CLAUDE.md` requires.
+
 ### `/site.html` is not a URL
 
 The template is an asset, so without a guard it is also reachable as `/site.html` on both
@@ -214,10 +237,19 @@ change.
 | --- | --- |
 | `worker/site.test.ts` | The pure helpers breaking: card HTML, escaping, the injection, and the two degraded cases (query failed, query empty) removing the rack rather than leaving a hole |
 | the same file | The bare host's `robots.txt` and `sitemap.xml` bodies changing by accident |
-| `worker/site.tokens.test.ts` | `public/site.html` drifting from the real tokens in `src/index.css`. This is the mechanical half of the not-React decision and it is not optional |
+| `src/site.tokens.test.ts` | `public/site.html` drifting from the real tokens in `src/index.css`. This is the mechanical half of the not-React decision and it is not optional |
 | `index.contrast.test.ts` | A colour pair on the new page dropping below AA. The landing page's pairs are added to the existing test, which reads the real tokens |
-| `worker/site.a11y.test.ts` | A missing `alt`, a second `h1`, a bare "click here" link, or a missing landmark. The existing `accessibility.test.ts` works on React trees and cannot see this file |
+| `src/site.a11y.test.ts` | A missing `alt`, a second `h1`, a bare "click here" link, or a missing landmark. The existing `accessibility.test.ts` works on React trees and cannot see this file |
 | `worker/meta.test.ts` | The CSP changing. Already pinned; the new code must not need an exception |
+
+**Why two of those tests live in `src/` and not beside the Worker.** They read
+`public/site.html` with Vite's `?raw` import, the same mechanism `index.contrast.test.ts`
+already uses to read the real `index.css`. That import needs `vite/client` types, and
+`tsconfig.worker.json` deliberately carries only `@cloudflare/workers-types`, with
+`lib: ["ES2023"]` and no DOM. Adding `vite/client` there would pull DOM types into the Worker
+project and mask the Worker-specific type errors that config exists to catch. Putting two test
+files in `src/` costs nothing; weakening the Worker's typecheck to avoid that would cost
+something real.
 
 And one thing no test can do. **This page is walked in a browser, signed out, in a private
 window, at mobile width, before it is called done.** Six defects on this project have shipped
