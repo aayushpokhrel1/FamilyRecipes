@@ -231,11 +231,16 @@ into a dead end.
 **If you ever remove the custom domain, put a redirect rule back in the same motion**, or the
 apex answers nothing at all.
 
-**Cloudflare Web Analytics injects a beacon script into this page**, from
-`static.cloudflareinsights.com`. Our own CSP (`script-src 'self'`) blocks it, so no data
-leaves and the page's "no analytics" line stays true, but it is true BY ACCIDENT: relax the
-CSP and the claim silently becomes false. Turn the injection off at the zone rather than
-relying on the CSP to keep a public promise honest.
+**Cloudflare Web Analytics auto-injection is OFF** (turned off 2026-10-10, confirmed by
+fetching the live page and finding no `cloudflareinsights` reference). It had been injecting a
+beacon from `static.cloudflareinsights.com` into the landing page. Our CSP (`script-src
+'self'`) blocked it, so no data ever left, but that made the page's "no analytics" line true BY
+ACCIDENT: relax the CSP and the claim silently becomes false. A public promise should be kept
+by the setting that governs the behaviour, not by a security header downstream of it.
+
+The site record still exists in Analytics & Logs -> Web Analytics with `auto_install: false`,
+so **re-enabling automatic setup there would start injecting the beacon again** and quietly
+falsify the footer. Delete the site if you want that to be impossible rather than merely off.
 
 **The trap when attaching the custom domain.** The API refuses with `100117: Hostname already
 has externally managed DNS records` while the hand-made `AAAA -> 100::` placeholder is still
@@ -513,9 +518,20 @@ the queries are reconstructible from the tables listed above.
   mailing yourself: DMARC is `p=none`, so a misaligned message will not bounce, it will just
   quietly land in spam.
 
-- **DMARC deliberately has no `rua=`.** A reporting address on a different domain needs an
-  authorisation record at that domain, which Gmail does not publish, so reports would be
-  silently discarded.
+- **DMARC now HAS a `rua=`**, set 2026-10-10 once the domain started sending real mail:
+  `v=DMARC1; p=none; rua=mailto:moderation@enamelvault.com`. Without it there were no
+  aggregate reports, so an alignment failure would have been invisible.
+
+  **It points at an address on THIS domain on purpose.** The earlier note here said a `rua=`
+  was impossible, and it was right about the case it considered: a reporting address on a
+  DIFFERENT domain needs an authorisation record at that domain
+  (`enamelvault.com._report._dmarc.gmail.com`), which Gmail does not publish, so reports to a
+  Gmail address are silently discarded. An address on the same domain needs no such record,
+  and Email Routing forwards it to the inbox anyway. That option did not exist when the note
+  was written, because `moderation@` was not yet a working mailbox.
+
+  **Do NOT move `p=none` to `p=quarantine` until a week of those reports has been read.**
+  Raising the policy before confirming alignment is how a domain starts bouncing its own mail.
 
 ## Landmine: custom aisles would be silently dropped
 
@@ -580,7 +596,8 @@ actions nobody can do from this repo.
    landing page, one URL). Google re-reads them on its own afterwards, so **neither needs
    resubmitting when a recipe is published.** A Domain property takes a full URL here; a
    URL-prefix property would only take a path, and would need two properties.
-3. **Request indexing for `https://enamelvault.com/` once.** That is the root worth indexing.
+3. **Indexing for `https://enamelvault.com/` was requested** (2026-10-10). That is the root
+   worth indexing, and it is a one-off.
    The app host's `/` is behind `RequireAuth` and bounces a crawler to `/signin`, which is why
    it was removed from `STATIC_SITEMAP_PATHS`: do not put it back.
 
