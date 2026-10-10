@@ -770,6 +770,20 @@ button[aria-pressed="true"] {
   margin: 6vh auto;
   padding: 30px 30px 26px;
 }
+/* The mark at the top of an auth card, which doubles as the way back to the landing page.
+   The card is outside AppLayout, so without this there is no branding and no exit. */
+.auth-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-family: var(--sign);
+  font-weight: 600;
+  /* No colour of its own: .plate a already makes a link vermilion, which is what the rest of
+     this card uses, and an --ink wordmark here would read as dead text, not a way out. */
+  text-decoration: none;
+}
+.auth-mark:hover { text-decoration: underline; }
 .auth-card h1 { margin-top: 0; }
 .auth-card label { color: var(--ink-soft); }
 .auth-card p { color: var(--ink); }

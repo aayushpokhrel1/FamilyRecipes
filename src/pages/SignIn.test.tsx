@@ -23,3 +23,17 @@ test("points a stranger at the page that explains what this is", () => {
   // link would try to resolve it as a route inside the app and 404 into the SPA fallback.
   expect(link).toHaveAttribute("href", "https://enamelvault.com/");
 });
+
+// The mark at the top of the card is the other half of the same thing, and the one a visitor
+// recognises as a way out: this page is outside AppLayout, so nothing else on it links away.
+test("the mark goes back to the landing page", () => {
+  render(
+    <MemoryRouter>
+      <SignIn />
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole("link", { name: /family recipes/i })).toHaveAttribute(
+    "href",
+    "https://enamelvault.com/",
+  );
+});
