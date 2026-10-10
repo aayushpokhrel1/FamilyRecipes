@@ -18,6 +18,12 @@ let mockAuth: { userId: string | null; loading: boolean } = { userId: "u1", load
 vi.mock("../context/AuthContext", () => ({ useAuth: () => mockAuth }));
 vi.mock("./FamilySwitcher", () => ({ default: () => <div>switcher</div> }));
 
+const navigateSpy = vi.fn();
+vi.mock("react-router-dom", async () => ({
+  ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
+  useNavigate: () => navigateSpy,
+}));
+
 // Read at call time like mockAuth above, so a test can set it before rendering.
 let mockProfile: {
   is_moderator: boolean;
@@ -32,6 +38,7 @@ beforeEach(() => {
   mockAuth = { userId: "u1", loading: false };
   // Default to the ordinary cook. A test that wants the moderator says so.
   mockProfile = { is_moderator: false };
+  navigateSpy.mockReset();
 });
 
 describe("AppLayout", () => {
@@ -131,5 +138,27 @@ describe("AppLayout", () => {
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     await screen.findByRole("link", { name: "My Profile" });
     expect(screen.queryByText(/hidden from Potluck/)).not.toBeInTheDocument();
+  });
+});
+
+describe("signing out", () => {
+  // Leaving the guarded page BEFORE the session goes is the whole fix. Sign out from
+  // /moderation and RequireAuth saw a signed-out visitor still standing on a guarded route,
+  // so it redirected to /signin?next=%2Fmoderation and the NEXT person to sign in on that
+  // browser landed on the previous person's page. The page itself refused them, so this was
+  // a papercut rather than a hole, but a shared machine should not hand over a destination.
+  it("leaves the guarded page before the session is dropped", async () => {
+    const order: string[] = [];
+    const { signOut } = await import("../lib/api/auth");
+    (signOut as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      order.push("signOut");
+    });
+    navigateSpy.mockImplementation((to: string) => { order.push(`navigate:${to}`); });
+
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    screen.getByRole("button", { name: "Sign out" }).click();
+    await vi.waitFor(() => expect(order).toContain("signOut"));
+
+    expect(order).toEqual(["navigate:/signin", "signOut"]);
   });
 });

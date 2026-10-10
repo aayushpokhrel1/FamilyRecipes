@@ -405,3 +405,52 @@ test("offers no appeal form to a cook who was never moderated", async () => {
 
   expect(screen.queryByRole("button", { name: "Appeal this" })).not.toBeInTheDocument();
 });
+
+// Winning the appeal is the ONE outcome the cook was never told about. Granting nulls
+// name_cleared_at, the notice this lived under is keyed on that column, so the whole block
+// vanished: no "granted", and not a word of the moderator's note. The spec's line is "the
+// cook sees the outcome where they saw the notice", and on the happy path they saw nothing.
+// Found by walking 4c on the local stack, 2026-10-10.
+test("tells a cook their appeal was granted, after the notice has gone", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    // Granting nulled this. That is exactly the state the old code could not render.
+    name_cleared_at: null, name_cleared_reason: null,
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([{
+    id: "a1", cook_id: "u1", subject_type: "name", subject_id: null,
+    body: "That is my own name.", created_at: new Date(Date.now() - 86400000).toISOString(),
+    resolved_at: new Date(Date.now() - 3600000).toISOString(), outcome: "granted",
+    moderator_note: "You are right, sorry about that.",
+  }]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(await screen.findByText("Your appeal was granted.")).toBeInTheDocument();
+  expect(screen.getByText("You are right, sorry about that.")).toBeInTheDocument();
+});
+
+// It is news, not a permanent fixture of the page. Without a bound it would sit in Settings
+// for the life of the account, and there is nowhere to record a dismissal without a column.
+test("stops showing a granted outcome once it is old news", async () => {
+  const profile = await import("../lib/api/profile");
+  const appeals = await import("../lib/api/appeals");
+  (profile.getMyProfile as any).mockResolvedValue({
+    id: "u1", display_name: "Ada", avatar_url: null, preferences: {},
+    handle: "yusha", public_name: null, bio: null,
+    name_cleared_at: null, name_cleared_reason: null,
+  });
+  (appeals.listMyAppeals as any).mockResolvedValue([{
+    id: "a1", cook_id: "u1", subject_type: "name", subject_id: null,
+    body: "That is my own name.", created_at: "2026-01-01T00:00:00Z",
+    resolved_at: "2026-01-02T00:00:00Z", outcome: "granted",
+    moderator_note: "You are right, sorry about that.",
+  }]);
+  render(<MemoryRouter><Settings /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Settings" });
+
+  expect(screen.queryByText("Your appeal was granted.")).not.toBeInTheDocument();
+});

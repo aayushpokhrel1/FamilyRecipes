@@ -276,6 +276,24 @@ export default function Settings() {
     && clearedAt !== null
     && new Date(a.created_at).getTime() >= clearedAt) ?? null;
 
+  // The one outcome the cook was never told: a GRANT. Granting nulls name_cleared_at, and
+  // everything above is keyed on that column, so the whole block disappeared and took the
+  // moderator's note with it. The spec says the cook sees the outcome where they saw the
+  // notice; on the happy path they saw nothing at all.
+  //
+  // Bounded to a fortnight because there is nowhere to record that they have read it: a
+  // dismissal needs a column, and an unbounded "Your appeal was granted." would sit in
+  // Settings for the life of the account. News, then gone.
+  const GRANTED_NOTICE_DAYS = 14;
+  const recentGrant = profile.name_cleared_at
+    ? null
+    : appeals.find((a) =>
+        a.subject_type === "name"
+        && a.outcome === "granted"
+        && a.resolved_at !== null
+        && Date.now() - new Date(a.resolved_at).getTime() < GRANTED_NOTICE_DAYS * 86400000,
+      ) ?? null;
+
   return (
     <div>
       <h1>Settings</h1>
@@ -457,6 +475,14 @@ export default function Settings() {
             {/* Nothing requires a moderator to explain a decline, so a null note renders
                 nothing rather than an empty line. */}
             {nameAppeal.moderator_note && <p>{nameAppeal.moderator_note}</p>}
+          </>
+        )}
+        {recentGrant && (
+          <>
+            <p className="vault-note">Your appeal was granted.</p>
+            {/* Shown here for the same reason as on a decline: a moderator's words about
+                YOUR account should reach you, and this is the only place they can. */}
+            {recentGrant.moderator_note && <p>{recentGrant.moderator_note}</p>}
           </>
         )}
         {profile.name_cleared_at && !nameAppeal && (

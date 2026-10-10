@@ -31,9 +31,16 @@ export default function AppLayout() {
     return () => { ignore = true; };
   }, [userId]);
 
+  // LEAVE THE PAGE FIRST, then drop the session. The order is the fix, not a style: signing
+  // out while still standing on a guarded route lets RequireAuth see a signed-out visitor
+  // there, and it redirects to /signin?next=<that page>. The next person to sign in on the
+  // same browser then lands on the previous person's page. The page re-checks and refuses
+  // them, so nothing leaks, but a shared machine should not hand over a destination at all.
+  //
+  // Navigating while still signed in is harmless: /signin is public. The other order is not.
   async function handleSignOut() {
-    await signOut();
     navigate("/signin");
+    await signOut();
   }
 
   return (
