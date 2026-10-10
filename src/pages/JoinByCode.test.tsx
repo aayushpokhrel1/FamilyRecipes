@@ -55,10 +55,19 @@ test("tells a signed-out visitor which family invited them", async () => {
   expect(joinByCode).not.toHaveBeenCalled();
 });
 
-test("offers a signed-out visitor a way to create an account, carrying the invite", async () => {
+// Both links, and the ?next= on them, not just the presence of a link.
+//
+// This test was here, under this name, while the invite rode in React Router's `state`, which
+// an href cannot show: it asserted href="/signup" and passed all the way through the bug.
+// Router state dies when the browser leaves the page, and three of the four ways in do leave
+// it, so a cook who signed up by email landed on the home page with no family. Found on
+// production, 2026-10-10. The destination is in the URL now precisely so a test can see it.
+test("offers a signed-out visitor both doors, each carrying the invite", async () => {
   renderAt("abc123");
-  const link = await screen.findByRole("link", { name: /create an account/i });
-  expect(link).toHaveAttribute("href", "/signup");
+  const create = await screen.findByRole("link", { name: /create an account/i });
+  expect(create).toHaveAttribute("href", "/signup?next=%2Fjoin%2Fabc123");
+  const signin = screen.getByRole("link", { name: /already have an account/i });
+  expect(signin).toHaveAttribute("href", "/signin?next=%2Fjoin%2Fabc123");
 });
 
 test("asks a signed-in visitor before joining", async () => {

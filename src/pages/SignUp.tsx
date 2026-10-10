@@ -1,17 +1,18 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { signUp } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 import AuthMark from "../components/AuthMark";
+import { safeNext, withNext } from "../lib/nextPath";
 
 export default function SignUp() {
   const navigate = useNavigate();
-  const location = useLocation();
-  // Where RequireAuth was taking them before it sent them here. An invite link is the case
-  // this exists for: without it, signing in drops you on the home page and the invite is
-  // gone.
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+  const [params] = useSearchParams();
+  // Where the invite page was taking them. It goes to the CONFIRMATION EMAIL as well as to
+  // navigate() below, because with email confirmation on, the link in the inbox is the step
+  // that actually lands them, often in another tab. See lib/nextPath.ts.
+  const next = safeNext(params.get("next"));
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,8 +23,8 @@ export default function SignUp() {
     e.preventDefault();
     setError(null);
     try {
-      const { session } = await signUp(email, password, displayName);
-      if (session) navigate(from ?? "/");
+      const { session } = await signUp(email, password, displayName, next);
+      if (session) navigate(next ?? "/");
       else setSent(true);
     } catch (err) {
       reportError("auth:sign-up", err);
@@ -101,7 +102,7 @@ export default function SignUp() {
       <button type="submit">Create account</button>
       <GoogleButton label="Sign up with Google" />
       <p>
-        Already have an account? <Link to="/signin" state={location.state}>Sign in</Link>
+        Already have an account? <Link to={withNext("/signin", next)}>Sign in</Link>
       </p>
     </form>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getSession } from "../lib/api/auth";
+import { safeNext } from "../lib/nextPath";
 import AuthMark from "../components/AuthMark";
 
 // Google reports a refusal by redirecting BACK with an error on the URL rather than
@@ -25,6 +26,15 @@ function errorFromUrl(): string | null {
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  // Read DURING RENDER, never inside the getSession callback below, and that is a fix rather
+  // than a style: this effect can run twice (StrictMode does it in development), the first
+  // run navigates away, and navigating CLEARS THE QUERY. A second read then finds nothing
+  // and sends the person home over the top of the invite they were going to. Found in a
+  // browser on the local stack, 2026-10-10, after the suite was green.
+  //
+  // window.location, not useSearchParams: this page is the landing point of a FULL page
+  // load, which is the whole reason the destination travels in the URL. See lib/nextPath.ts.
+  const next = safeNext(new URLSearchParams(window.location.search).get("next"));
 
   useEffect(() => {
     const fromUrl = errorFromUrl();
@@ -36,13 +46,15 @@ export default function AuthCallback() {
     // URL, so by here the exchange has either happened or genuinely failed.
     getSession()
       .then((session) => {
-        if (session) navigate("/", { replace: true });
+        // Both doors that leave this app, Google and an email confirmation link, come back
+        // here, so this is where an invite is finally honoured or finally lost.
+        if (session) navigate(next ?? "/", { replace: true });
         else setError("That sign-in did not complete. Please try again.");
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : String(err));
       });
-  }, [navigate]);
+  }, [navigate, next]);
 
   if (error) {
     return (

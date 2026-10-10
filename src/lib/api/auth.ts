@@ -1,9 +1,20 @@
 import { supabase } from "../supabaseClient";
 import { forgetPhotoUrls } from "./photos";
+import { withNext } from "../nextPath";
 
-export async function signUp(email: string, password: string, displayName: string) {
+// `next` is where the confirmation link should land them, and it is NOT optional decoration:
+// the link is opened later, usually in another tab, so router state is long gone by then. An
+// invite link sent to someone with no account is the whole reason it is threaded through here.
+export async function signUp(
+  email: string, password: string, displayName: string, next?: string | null,
+) {
   const { data, error } = await supabase.auth.signUp({
-    email, password, options: { data: { display_name: displayName } },
+    email, password, options: {
+      data: { display_name: displayName },
+      // Through /auth/callback rather than straight at `next`: that page is the one that
+      // waits for supabase-js to take the session out of the URL before it navigates.
+      emailRedirectTo: `${window.location.origin}${withNext("/auth/callback", next)}`,
+    },
   });
   if (error) throw new Error(error.message);
   // With email confirmation ON, Supabase returns a user but no session until the link is
@@ -60,10 +71,12 @@ export async function setNewPassword(newPassword: string): Promise<void> {
 // Redirects the browser to Google, so nothing after this runs on the success path.
 // It comes back to /auth/callback, which exists to show a failure rather than dump
 // the person on /signin with no explanation. See routes.tsx.
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(next?: string | null): Promise<void> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: {
+      redirectTo: `${window.location.origin}${withNext("/auth/callback", next)}`,
+    },
   });
   if (error) throw new Error(error.message);
 }

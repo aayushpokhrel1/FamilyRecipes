@@ -1,17 +1,17 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { signIn, requestPasswordReset } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 import AuthMark from "../components/AuthMark";
+import { safeNext, withNext } from "../lib/nextPath";
 
 export default function SignIn() {
   const navigate = useNavigate();
-  const location = useLocation();
-  // Where RequireAuth was taking them before it sent them here. An invite link is the case
-  // this exists for: without it, signing in drops you on the home page and the invite is
-  // gone.
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+  const [params] = useSearchParams();
+  // Where RequireAuth or an invite page was taking them before it sent them here. In the
+  // URL, not in router state: see lib/nextPath.ts for why that distinction is the whole bug.
+  const next = safeNext(params.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export default function SignIn() {
     setError(null);
     try {
       await signIn(email, password);
-      navigate(from ?? "/");
+      navigate(next ?? "/");
     } catch (err) {
       reportError("auth:sign-in", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -79,7 +79,7 @@ export default function SignIn() {
       )}
       <GoogleButton label="Sign in with Google" />
       <p>
-        Need an account? <Link to="/signup" state={location.state}>Sign up</Link>
+        Need an account? <Link to={withNext("/signup", next)}>Sign up</Link>
       </p>
       {/* A plain <a>, NOT a <Link>, because the explanation lives on the other host: a
           router link would resolve it as a route inside this app. Every guarded route sends

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { familyNameForCode, joinByCode } from "../lib/api/families";
 import { useAuth } from "../context/AuthContext";
 import { useFamily } from "../context/FamilyContext";
+import { withNext } from "../lib/nextPath";
 import Skeleton from "../components/Skeleton";
 
 // This page no longer joins on mount. An invite link gets forwarded, pasted into group
@@ -73,10 +74,10 @@ export default function JoinByCode() {
             <p>
               You have been invited to join <strong>{name}</strong>.
             </p>
-            <Link className="action" to="/signup" state={{ from: { pathname: `/join/${code}` } }}>
+            <Link className="action" to={withNext("/signup", `/join/${code}`)}>
               Create an account to join
             </Link>
-            <Link to="/signin" state={{ from: { pathname: `/join/${code}` } }}>
+            <Link to={withNext("/signin", `/join/${code}`)}>
               Already have an account? Sign in
             </Link>
           </>

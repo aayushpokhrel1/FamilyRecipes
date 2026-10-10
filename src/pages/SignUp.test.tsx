@@ -12,8 +12,8 @@ vi.mock("../lib/api/auth", () => ({ signUp: (...a: unknown[]) => signUp(...a) })
 
 import SignUp from "./SignUp";
 
-function submit() {
-  render(<MemoryRouter><SignUp /></MemoryRouter>);
+function submit(at = "/signup") {
+  render(<MemoryRouter initialEntries={[at]}><SignUp /></MemoryRouter>);
   // All three, not just the email: the fields are `required`, so an empty display name or
   // password now makes the browser refuse the submit before handleSubmit ever runs. Filling
   // only the email used to be enough and silently stopped being enough.
@@ -36,5 +36,24 @@ test("tells the user to check their inbox when there is no session yet", async (
 test("goes straight in when confirmation is off and a session comes back", async () => {
   signUp.mockResolvedValue({ user: { id: "u1" }, session: { access_token: "t" } });
   submit();
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith("/"));
+});
+
+// The fourth argument is what puts the invite in the confirmation EMAIL. Without it the link
+// in the inbox lands on the home page, which is how a cook joined by link on production and
+// ended up with a kitchen of their own and no family.
+test("carries the invite into the confirmation email", async () => {
+  signUp.mockResolvedValue({ user: { id: "u1" }, session: null });
+  submit("/signup?next=%2Fjoin%2Fabc123");
+  await waitFor(() =>
+    expect(signUp).toHaveBeenCalledWith("a@b.dev", "hunter2hunter2", "A", "/join/abc123"),
+  );
+});
+
+test("refuses a destination pointing at another host", async () => {
+  // ?next= comes off a URL anyone can write, so this is the open-redirect case: a freshly
+  // signed-up cook must never be handed to someone else's page. lib/nextPath.ts is the guard.
+  signUp.mockResolvedValue({ user: { id: "u1" }, session: { access_token: "t" } });
+  submit("/signup?next=https%3A%2F%2Fevil.example");
   await waitFor(() => expect(navigate).toHaveBeenCalledWith("/"));
 });

@@ -1,17 +1,22 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { signInWithGoogle } from "../lib/api/auth";
+import { safeNext } from "../lib/nextPath";
 
 // Shared by SignIn and SignUp. On Google's side the two are the same act, and
 // duplicating the error handling in both pages would mean fixing it twice.
 export default function GoogleButton({ label }: { label: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Read here rather than passed in as a prop: both pages that render this button already
+  // carry ?next in their own URL, and a prop would be a third place to forget it.
+  const [params] = useSearchParams();
 
   async function go() {
     setError(null);
     setBusy(true);
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(safeNext(params.get("next")));
       // On success the browser is already leaving for Google, so busy stays true
       // deliberately: clearing it would flash the button back to ready mid-redirect.
     } catch (err) {

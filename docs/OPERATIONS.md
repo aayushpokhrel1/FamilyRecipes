@@ -389,6 +389,21 @@ the queries are reconstructible from the tables listed above.
 
 ## Environment gotchas
 
+- **Supabase's redirect allow list does NOT match a URL that carries a query string, unless
+  the entry ends in a globstar.** An invite now travels to the confirmation email and through
+  Google as `/auth/callback?next=%2Fjoin%2F<code>`. With the entry spelled exactly
+  (`http://localhost:5174/auth/callback`) GoTrue rejected it and silently substituted the
+  **Site URL**, so the link in the inbox landed on the home page and the invite was gone.
+  Measured on the local stack on 2026-10-10 by reading the actual link out of Mailpit, first
+  with the exact entry and then with `…/auth/callback**`; only the globstar carried the
+  parameter through. There is no error anywhere: a rejected redirect looks exactly like a
+  person who was always going to the home page.
+
+  **Both the hosted project and `supabase/config.toml` therefore need a globstar entry.**
+  Hosted: Authentication -> URL Configuration -> Redirect URLs must contain
+  `https://recipes.enamelvault.com/auth/callback**`. Without it the destination plumbing is
+  inert: nothing breaks that was working, but an invite is still lost on every door except a
+  password sign-in in the same tab.
 - **`insert().select()` + a membership-gated SELECT policy fails for the creator.** The
   RETURNING applies the SELECT policy to the new row, and a family creator is not a member yet.
   Fixed in `0007` (creator reads via `created_by = auth.uid()`). Integration tests missed it
