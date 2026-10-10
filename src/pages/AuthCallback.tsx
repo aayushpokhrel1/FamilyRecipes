@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getSession } from "../lib/api/auth";
+import AuthMark from "../components/AuthMark";
 
 // Google reports a refusal by redirecting BACK with an error on the URL rather than
 // by failing the request, so without somewhere to read it the person lands on a
@@ -46,6 +47,7 @@ export default function AuthCallback() {
   if (error) {
     return (
       <div className="plate auth-card">
+        <AuthMark />
         <h1>Could not sign you in</h1>
         <p role="alert">{error}</p>
         <p>
@@ -57,6 +59,7 @@ export default function AuthCallback() {
 
   return (
     <div className="plate auth-card">
+      <AuthMark />
       <h1>Signing you in</h1>
       <p role="status">One moment.</p>
     </div>

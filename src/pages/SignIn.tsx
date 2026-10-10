@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signIn, requestPasswordReset } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
+import AuthMark from "../components/AuthMark";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -47,15 +48,7 @@ export default function SignIn() {
 
   return (
     <form onSubmit={handleSubmit} className="plate auth-card">
-      {/* A plain <a>, NOT a <Link>, for the same reason as "What is this?" at the foot of
-          this form: the landing page lives on the other host, so a router link would
-          resolve it as a route inside this app. This page is outside AppLayout, so the mark
-          is the only branding on it and the only way back out. alt="" on purpose: the link
-          text beside it already names it, and a second announcement is noise. */}
-      <a className="auth-mark" href="https://enamelvault.com/">
-        <img src="/favicon.svg" alt="" width="34" height="34" />
-        Family Recipes
-      </a>
+      <AuthMark />
       <h1>Sign in</h1>
       <label>
         Email
