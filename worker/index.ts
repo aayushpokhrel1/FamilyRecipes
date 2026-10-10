@@ -19,6 +19,7 @@ import {
 } from "./meta";
 import {
   APP_ORIGIN,
+  isSiteAsset,
   isSiteHost,
   renderSite,
   siteRobots,
@@ -494,6 +495,13 @@ async function route(request: Request, env: Env): Promise<Response> {
           headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
         });
       }
+      // The fonts, the mark and the share card are served HERE, not redirected. They are the
+      // same assets on the same Worker, but a 302 to the app host makes them cross-origin,
+      // and font-src 'self' and img-src 'self' then refuse them. The page kept serving and
+      // silently wore its fallback typeface, which is the shape of failure this whole file
+      // is written to avoid.
+      if (isSiteAsset(url.pathname)) return env.ASSETS.fetch(request);
+
       // 302, not 301, for the same reason the bare-domain redirect was a 302 on 2026-09-25: a
       // 301 is cached effectively forever and a decision you may reverse should not be.
       return Response.redirect(`${APP_ORIGIN}${url.pathname}${url.search}`, 302);

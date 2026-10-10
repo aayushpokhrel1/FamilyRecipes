@@ -23,6 +23,23 @@ export function isSiteHost(hostname: string): boolean {
   return host === SITE_HOST || host === `www.${SITE_HOST}`;
 }
 
+// The static files the landing page references, which the bare host must SERVE rather than
+// redirect. This exists because the first version redirected everything but three paths to
+// the app host, and a cross-origin redirect for a font is refused by `font-src 'self'`: the
+// live page quietly rendered in the Georgia fallback, the favicon was blocked, and og.png
+// pointed at a redirect, so the share card broke. The page still served, which is why no
+// check caught it and opening the page did.
+//
+// AN ALLOWLIST, NOT A CATCH-ALL, and it must stay one. Serving whatever the asset store has
+// would put the app's index.html and JS bundle on this hostname too, which is the duplicate
+// content the host split exists to avoid. Anchored, so no traversal or suffix slips through.
+// ADD A FILE TO site.html? Add it here, or it will 302 away and be blocked.
+const SITE_ASSET = /^\/(favicon\.svg|og\.png|fonts\/[a-z0-9-]+\.woff2)$/;
+
+export function isSiteAsset(pathname: string): boolean {
+  return SITE_ASSET.test(pathname);
+}
+
 // Cards link to the APP host. The recipe pages already live there, already carry their own
 // OpenGraph tags and are already in that host's sitemap; serving or claiming them here would
 // create a second canonical for a page that already has one.

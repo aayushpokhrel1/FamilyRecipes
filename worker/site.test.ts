@@ -3,6 +3,7 @@ import {
   APP_ORIGIN,
   RACK_PLACEHOLDER,
   buildRack,
+  isSiteAsset,
   isSiteHost,
   renderSite,
   siteRobots,
@@ -37,6 +38,38 @@ describe("isSiteHost", () => {
   it("rejects a host that merely ends with or contains the domain", () => {
     expect(isSiteHost("enamelvault.com.evil.example")).toBe(false);
     expect(isSiteHost("notenamelvault.com")).toBe(false);
+  });
+});
+
+describe("isSiteAsset", () => {
+  // THE BUG THIS EXISTS FOR. The bare host answered / and 302'd everything else to the app
+  // host, which included /fonts, /favicon.svg and /og.png. A cross-origin redirect for a font
+  // is refused by font-src 'self', so the live page rendered in the Georgia fallback, the
+  // favicon was blocked, and the link-preview card pointed at a redirect. Nothing failed
+  // loudly: the page still served, just wearing the wrong typeface.
+  it("claims the assets the landing page actually references", () => {
+    expect(isSiteAsset("/favicon.svg")).toBe(true);
+    expect(isSiteAsset("/og.png")).toBe(true);
+    expect(isSiteAsset("/fonts/zilla-slab-500-latin.woff2")).toBe(true);
+    expect(isSiteAsset("/fonts/zilla-slab-700-latin-ext.woff2")).toBe(true);
+  });
+
+  // An allowlist, not a catch-all: the bare host must not start serving the app's JS bundle
+  // or its index.html, which would put the whole SPA on a second hostname.
+  it("claims nothing else", () => {
+    expect(isSiteAsset("/")).toBe(false);
+    expect(isSiteAsset("/index.html")).toBe(false);
+    expect(isSiteAsset("/assets/index-a1b2c3.js")).toBe(false);
+    expect(isSiteAsset("/theme-init.js")).toBe(false);
+    expect(isSiteAsset("/recipes/abc")).toBe(false);
+  });
+
+  // Path traversal and lookalikes: this value comes off the wire.
+  it("refuses a traversal or a lookalike", () => {
+    expect(isSiteAsset("/fonts/../index.html")).toBe(false);
+    expect(isSiteAsset("/fonts/evil.js")).toBe(false);
+    expect(isSiteAsset("/fonts/")).toBe(false);
+    expect(isSiteAsset("/og.png/extra")).toBe(false);
   });
 });
 
