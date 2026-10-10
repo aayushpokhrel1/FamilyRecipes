@@ -464,7 +464,32 @@ the queries are reconstructible from the tables listed above.
   That was checked against the actual `from:` in `notify-report` rather than assumed.
   Forwarding is only as good as its destination: the destination address must stay verified in
   Cloudflare, and if it is ever removed, mail starts disappearing silently again.
-- **Sending AS `moderation@enamelvault.com` is HALF DONE** (2026-10-10). Cloudflare Email
+- **Sending AS `moderation@enamelvault.com` WORKS** (confirmed 2026-10-10 via mail-tester):
+  SPF passes, DKIM is valid and aligned to `enamelvault.com`, and the message leaves through
+  Resend's infrastructure rather than Google's. **The apex SPF was correctly left alone**: the
+  return path is the `send.` subdomain, which carries its own SPF, and that aligns with the
+  From domain under DMARC's relaxed rules. Do not add Resend to the apex SPF record.
+
+  **The trap that cost a round of debugging:** the first test looked like a domain problem and
+  was not sent from the domain at all. Gmail defaults the From field to your own address, so
+  the message went out as `aayus.pok@gmail.com` through Google's servers, and every auth result
+  in the report was GOOGLE's. The tells are `FREEMAIL_FROM` naming a gmail.com address and a
+  relay IP in Google's `209.85.x.x` range. **When testing a send-as, check the From field in
+  the report before reading anything else in it**, or you will tune records that were never
+  involved. Set "When replying to a message: reply from the same address the message was sent
+  to" so moderation replies do not depend on remembering.
+
+  **Remaining negative, and it is not fixable:** `FROM_FMBLA_NEWDOM28`, "domain registered in
+  the last 14-28 days", worth -0.8 and the largest single penalty in the report. The domain was
+  registered 2026-09-25. Nothing configurable improves it; it ages out. A brand-new sending
+  domain lands in spam more often regardless of perfect authentication, and a reply from a real
+  recipient is worth more than any record change.
+
+  **Still open: DMARC has no `rua=`**, so there are no aggregate reports and alignment problems
+  are invisible. Add one before considering a move from `p=none` to `p=quarantine`; raising the
+  policy before seeing a week of clean reports is how people break their own mail.
+
+- **The earlier half-done state, for context.** Cloudflare Email
   Routing is receive-only, so replying needs an SMTP sender, and the landing page now invites
   strangers to write to that address, which makes replying from a personal Gmail a live
   problem rather than a tidiness one.
