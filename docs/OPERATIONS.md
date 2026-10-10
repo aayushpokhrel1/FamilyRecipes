@@ -203,7 +203,24 @@ which is what the old rule did for every path and why links people already hold 
 | --- | --- |
 | `/` | the landing page, `public/site.html` with the recipe rack injected |
 | `/robots.txt`, `/sitemap.xml` | its own, from `worker/site.ts`, not the app's |
+| `/favicon.svg`, `/og.png`, `/fonts/*.woff2` | served here, from the asset store |
 | anything else | 302 to the same path on `recipes.enamelvault.com` |
+
+**Why the assets are served and not redirected, which cost a live defect on 2026-10-10.**
+They are the same files on the same Worker, so redirecting them looks harmless. It is not: a
+302 to the app host makes them CROSS-ORIGIN, and `font-src 'self'` and `img-src 'self'` then
+refuse them. The live page rendered in the Georgia fallback, the mark was blocked and `og.png`
+pointed at a redirect, so the share card broke. It still answered 200 throughout. `isSiteAsset`
+in `worker/site.ts` is the allowlist; **add a file to `site.html` and you must add it there**,
+and it must stay an allowlist, or this host starts serving the app's `index.html` and bundle.
+
+**`www` is a redirect, not a second Worker host.** `www.enamelvault.com` has its own proxied
+`AAAA -> 100::` and the Single Redirect rule (now matching `http.host eq
+"www.enamelvault.com"` only) sends it to the apex with path and query preserved, still 302.
+The Workers custom-domain form REFUSES `www.enamelvault.com` with "No zones match" and then
+offers to onboard it as a new zone: **do not accept that**, it would create a second zone
+competing with the one holding the MX and DKIM records. `isSiteHost` still accepts `www`, so
+pointing it at the Worker later needs no code change.
 
 **`/site.html` is 404 on BOTH hosts, deliberately.** It is an asset, so it is fetchable by
 path, but it is not a page: on the app host it is a stray one nobody meant to publish, and on
@@ -213,6 +230,12 @@ into a dead end.
 
 **If you ever remove the custom domain, put a redirect rule back in the same motion**, or the
 apex answers nothing at all.
+
+**Cloudflare Web Analytics injects a beacon script into this page**, from
+`static.cloudflareinsights.com`. Our own CSP (`script-src 'self'`) blocks it, so no data
+leaves and the page's "no analytics" line stays true, but it is true BY ACCIDENT: relax the
+CSP and the claim silently becomes false. Turn the injection off at the zone rather than
+relying on the CSP to keep a public promise honest.
 
 **The trap when attaching the custom domain.** The API refuses with `100117: Hostname already
 has externally managed DNS records` while the hand-made `AAAA -> 100::` placeholder is still
