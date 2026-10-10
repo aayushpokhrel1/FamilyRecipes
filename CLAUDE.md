@@ -111,6 +111,13 @@ Two things have no mechanical guard and need a human:
   public documents are outside it on purpose, because a notice you can only read after
   consenting is not a notice; `join/:code` is public but gated, because joining a family is an
   action. `src/routes.terms.test.ts` reads `routes.tsx` and fails if an action route escapes.
+- **Anything that must survive signing in goes in the URL, never in router state.** Three of
+  the four ways into this app leave the page: Google redirects through another origin, and an
+  email confirmation link is opened later, often in another tab. `src/lib/nextPath.ts` is the
+  single place that builds and validates `?next=`, and `safeNext` is a trust boundary, not a
+  tidy-up: without it the sign-in page is an open redirector. The hosted Supabase redirect
+  allow list needs a GLOBSTAR entry for `/auth/callback**`, or it silently substitutes the
+  Site URL and the whole mechanism is inert; `docs/OPERATIONS.md` has the measurement.
 - **Work on `master`** (solo project). Branch only to let CI gate something risky first.
 - **Query the Obsidian vault (`Projects/FamilyRecipes/`) before a big change**, and read
   `docs/OPERATIONS.md` before any deploy. Most vault entries name a bug that recurred *after*

@@ -300,6 +300,13 @@ inside an existing plate (never a plate within a plate).
 - **States:** active tab gets a dark inset fill and an enamel-yellow underglow; hover
   lightens. Wraps to its own full-width row on phones.
 
+### Auth mark (the way off an auth page)
+The mark from `public/favicon.svg` at 34px beside the wordmark in Zilla Slab, vermilion like
+any other link on a plate, at the top of every `.plate.auth-card`. **The auth pages are the
+only ones outside `AppLayout`**, so they carry no header: without this they have no branding
+and nothing that leads anywhere. It links OFF this host, to the landing page, which is why it
+is a plain `<a>` and not a router link.
+
 ### Provenance stamp (signature)
 A vermilion outline rounded rectangle, tracked caps, rotated ~2.5 degrees, heading the
 provenance panel. It is the emotional signature of the world: the hand behind the recipe.
