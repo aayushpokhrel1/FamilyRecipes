@@ -534,10 +534,12 @@ actions nobody can do from this repo.
    Search Console's flow can jump straight to checking without ever showing you the record,
    which then fails because nothing was added. The record is recoverable from
    Settings -> Ownership verification.
-2. **Submit BOTH sitemaps**, because the two hosts each have their own:
-   `https://recipes.enamelvault.com/sitemap.xml` (the recipes, the cooks, and the four public
-   documents) and `https://enamelvault.com/sitemap.xml` (the landing page, one URL). Google
-   re-reads them on its own afterwards; neither needs resubmitting per recipe.
+2. **Both sitemaps are SUBMITTED** (2026-10-10), into the one Domain property, because the
+   two hosts each have their own: `https://recipes.enamelvault.com/sitemap.xml` (the recipes,
+   the cooks, and the four public documents) and `https://enamelvault.com/sitemap.xml` (the
+   landing page, one URL). Google re-reads them on its own afterwards, so **neither needs
+   resubmitting when a recipe is published.** A Domain property takes a full URL here; a
+   URL-prefix property would only take a path, and would need two properties.
 3. **Request indexing for `https://enamelvault.com/` once.** That is the root worth indexing.
    The app host's `/` is behind `RequireAuth` and bounces a crawler to `/signin`, which is why
    it was removed from `STATIC_SITEMAP_PATHS`: do not put it back.
