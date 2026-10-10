@@ -449,6 +449,30 @@ the queries are reconstructible from the tables listed above.
   That was checked against the actual `from:` in `notify-report` rather than assumed.
   Forwarding is only as good as its destination: the destination address must stay verified in
   Cloudflare, and if it is ever removed, mail starts disappearing silently again.
+- **Sending AS `moderation@enamelvault.com` is HALF DONE** (2026-10-10). Cloudflare Email
+  Routing is receive-only, so replying needs an SMTP sender, and the landing page now invites
+  strangers to write to that address, which makes replying from a personal Gmail a live
+  problem rather than a tidiness one.
+
+  **Two SEPARATE Resend domains now exist, and confusing them wastes a session.**
+  `mail.enamelvault.com` was verified earlier and is what the `notify-report` edge function
+  sends as. `enamelvault.com`, the ROOT, was added on 2026-10-10 for the Gmail send-as path,
+  and is a different domain entry with its own records and its own DKIM key.
+
+  The root's three records are in the zone and **all DNS-only, confirmed**:
+  `send.enamelvault.com` and `rsend.enamelvault.com` CNAMEs to `*.forge.rmta.net`, plus a
+  `resend._domainkey.enamelvault.com` TXT. They are on SUBDOMAINS, so they do not collide with
+  the apex `MX` records Email Routing uses. **If Resend ever asks for an apex `MX`, stop:**
+  that would fight Email Routing and break receiving.
+
+  What remains once Resend reports the root verified: create a sending API key, then in Gmail,
+  Accounts and Import -> Send mail as -> add `moderation@enamelvault.com` with SMTP host
+  `smtp.resend.com`, port 587, username the literal word `resend`, password the API key, TLS.
+  Gmail mails a confirmation code to that address, which Email Routing forwards to the inbox.
+  **Verify by sending to an OUTSIDE account and reading the headers for `DKIM: PASS`**, not by
+  mailing yourself: DMARC is `p=none`, so a misaligned message will not bounce, it will just
+  quietly land in spam.
+
 - **DMARC deliberately has no `rua=`.** A reporting address on a different domain needs an
   authorisation record at that domain, which Gmail does not publish, so reports would be
   silently discarded.
@@ -497,8 +521,19 @@ actions nobody can do from this repo.
 
 ### The manual steps, which nobody in this repo can do for you
 
-1. **Verify the domain in Google Search Console** at <https://search.google.com/search-console>,
-   using the DNS TXT method on `enamelvault.com` since Cloudflare already holds the zone.
+1. **Search Console is VERIFIED** (2026-10-10), as a **Domain property** on `enamelvault.com`
+   using the DNS TXT method. A Domain property is the right shape here because it covers the
+   apex, `www` and `recipes` in one; a URL-prefix property covers a single host, and the
+   HTML-file method cannot work on the apex at all, since that host 302s any path it does not
+   explicitly serve, so the verification file would redirect away.
+
+   The `google-site-verification` TXT sits on the apex **alongside** the SPF TXT. Two TXT
+   records on one name is correct and required: **never merge them, and never edit the SPF row
+   to make room.**
+
+   Search Console's flow can jump straight to checking without ever showing you the record,
+   which then fails because nothing was added. The record is recoverable from
+   Settings -> Ownership verification.
 2. **Submit BOTH sitemaps**, because the two hosts each have their own:
    `https://recipes.enamelvault.com/sitemap.xml` (the recipes, the cooks, and the four public
    documents) and `https://enamelvault.com/sitemap.xml` (the landing page, one URL). Google
@@ -506,6 +541,15 @@ actions nobody can do from this repo.
 3. **Request indexing for `https://enamelvault.com/` once.** That is the root worth indexing.
    The app host's `/` is behind `RequireAuth` and bounces a crawler to `/signin`, which is why
    it was removed from `STATIC_SITEMAP_PATHS`: do not put it back.
+
+**A cloud routine checks the routing weekly**, Saturdays 09:00 ET: "FamilyRecipes: weekly SEO
+routing health", `trig_01AGramTdpShHBEsFPTezBFR`, at
+<https://claude.ai/code/routines/trig_01AGramTdpShHBEsFPTezBFR>. It curls both hosts and
+asserts the eight invariants that produce Search Console's "Excluded by robots.txt" and "Page
+with redirect", including that the apex assets are not redirected. **It cannot read Search
+Console** (that needs a Google login), so it reports the routing facts and asks a human to
+read the report. It has no Write or Edit tool and can change nothing. Its results appear in
+its own run sessions at that link, not by email.
 
 Bing has the equivalent at Bing Webmaster Tools and can import the Search Console setup.
 
