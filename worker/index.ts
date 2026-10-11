@@ -6,6 +6,7 @@
 // exactly what the assets-only config did before. Keep it that way: a recipe page must never
 // fail to load because a preview could not be built.
 import { checkExtract, HEALTH_PATH } from "./health";
+import { isKitchenHost, isSharedAsset, kitchenRobots, KITCHEN_ENTRY } from "./kitchen";
 import {
   avatarHandleFromPath,
   buildRecipeJsonLd,
@@ -469,15 +470,16 @@ async function route(request: Request, env: Env): Promise<Response> {
   {
     const url = new URL(request.url);
 
-    // The raw template is an asset, so it is fetchable by path on EITHER host, and it is not a
-    // page: on the app host it is a stray one nobody meant to publish, and on the bare host it
-    // is this page with its rack placeholder still in it. serveSite reaches the file through an
-    // internal ASSETS fetch of its own, so refusing it here costs nothing.
+    // Neither raw entry is a page. site.html is the landing template with its rack
+    // placeholder still in it; kitchen.html is the kitchen app's shell, which on the app host
+    // would be a second copy of a product on the wrong hostname. Both are fetched internally
+    // by the branches below, so refusing them as paths costs nothing.
     //
-    // ABOVE the host branch deliberately. Below it, the bare host's catch-all would 302 this to
-    // the app host first and only 404 on the second request, so a crawler would see a redirect
-    // to a dead end rather than a refusal.
-    if (url.pathname === "/site.html") return notFound();
+    // ABOVE the host branches deliberately. Below them, the bare host's catch-all would 302
+    // this to the app host first and only 404 on the second request, so a crawler would see a
+    // redirect to a dead end rather than a refusal, and the kitchen host would serve its own
+    // shell for a path that is not a page.
+    if (url.pathname === "/site.html" || url.pathname === KITCHEN_ENTRY) return notFound();
 
     // The bare domain is the marketing surface and answers exactly three things itself.
     // Everything else 302s to the app, which is what the edge redirect rule this replaced did
@@ -505,6 +507,32 @@ async function route(request: Request, env: Env): Promise<Response> {
       // 302, not 301, for the same reason the bare-domain redirect was a 302 on 2026-09-25: a
       // 301 is cached effectively forever and a decision you may reverse should not be.
       return Response.redirect(`${APP_ORIGIN}${url.pathname}${url.search}`, 302);
+    }
+
+    // The professional-kitchen app, a separate product on its own hostname. It serves its own
+    // shell for every route, because the asset layer's single-page-application fallback would
+    // otherwise hand a kitchen deep link the FAMILY app's index.html.
+    if (isKitchenHost(url.hostname)) {
+      if (url.pathname === "/robots.txt") {
+        return new Response(kitchenRobots(), {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      }
+      // There is no sitemap on this host on purpose: nothing here should be indexed yet.
+      if (url.pathname === "/sitemap.xml") return notFound();
+      // Real files: the bundle, the mark, the fonts, the theme bootstrap. Served, not
+      // rewritten, or the browser gets HTML where it asked for javascript.
+      if (isSharedAsset(url.pathname)) return env.ASSETS.fetch(request);
+
+      const shell = await env.ASSETS.fetch(new Request(`${url.origin}${KITCHEN_ENTRY}`));
+      // noindex as a HEADER too. A meta tag only reaches a crawler that renders the page,
+      // and the ones that matter here do not.
+      const headers = new Headers(shell.headers);
+      headers.set("X-Robots-Tag", "noindex, nofollow");
+      return new Response(shell.body, { status: shell.status, headers });
     }
 
     const pathname = url.pathname;
