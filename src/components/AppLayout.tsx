@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import FamilySwitcher from "./FamilySwitcher";
 import { signOut } from "../lib/api/auth";
+import { forgetPhotoUrls } from "../lib/api/photos";
 import { getMyProfile } from "../lib/api/profile";
 import { reasonLabel, type Profile } from "../lib/api/types";
 import { useAuth } from "../context/AuthContext";
@@ -41,6 +42,11 @@ export default function AppLayout() {
   async function handleSignOut() {
     navigate("/signin");
     await signOut();
+    // Remembered photo urls outlive the session by up to a day otherwise, so the next person
+    // to sign in on this browser would be served the last person's photos. This lived inside
+    // signOut until 2026-10-11; it moved here so the auth module stays family-free, and
+    // AppLayout.signout.test.tsx is what stops it being dropped.
+    forgetPhotoUrls();
   }
 
   return (

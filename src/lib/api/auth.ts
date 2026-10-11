@@ -1,5 +1,4 @@
 import { supabase } from "../supabaseClient";
-import { forgetPhotoUrls } from "./photos";
 import { withNext } from "../nextPath";
 
 // `next` is where the confirmation link should land them, and it is NOT optional decoration:
@@ -26,10 +25,13 @@ export async function signIn(email: string, password: string) {
   if (error) throw new Error(error.message);
   return data.user!;
 }
+// NO family imports in this file. It is shared with the professional-kitchen app, which must
+// not be able to reach a family table, and `supabase/kitchen_seal.test.ts` fails if that
+// changes. Anything a sign-out must clean up on the family side belongs at the call site,
+// which today is AppLayout.
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
-  forgetPhotoUrls(); // remembered photo urls outlive the session otherwise, for up to a day
 }
 export async function getSession() {
   const { data } = await supabase.auth.getSession();

@@ -114,8 +114,13 @@ function rememberUrl(path: string, url: string): void {
   }
 }
 
-// Signing out has to drop these. A remembered url is a bearer token for a private photo, and
-// leaving a day's worth behind on a shared device would be handing the next person the keys.
+/**
+ * Drops every remembered signed url.
+ *
+ * CALL THIS ON SIGN-OUT. It is not called by `signOut` any more: that module is shared with
+ * the kitchen app and may not import this one. `AppLayout` is the only caller, and
+ * `AppLayout.signout.test.tsx` fails if it stops being one.
+ */
 export function forgetPhotoUrls(): void {
   try {
     for (const key of Object.keys(localStorage)) {
