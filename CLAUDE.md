@@ -17,6 +17,7 @@ model swap the same file recorded as already tried and rejected.
 | a **code comment at the site** | A rule about specific code ("any new ingredient column must be added here too") |
 | the **Obsidian vault** | A lesson that would change how I work on a *different* project |
 | `docs/superpowers/specs/` | The design of one feature, written before building it. Still tracked: a spec explains why the code is shaped as it is |
+| `supabase/kitchen_seal.test.ts` | The rule that the professional kitchen's schema touches the family's in exactly one migration. Change the bridge, change this test, and say why in the spec |
 | `docs/superpowers/plans/` | The task breakdown for one feature. **Gitignored since 2026-10-02**, same reason as `PRODUCT.md`; canonical copy in the vault at `Projects/FamilyRecipes/plans/` |
 | `HANDOVER.md` | **Only** current state: commit, versions, test counts, what is half-done, what is next |
 | nowhere | A dated narrative of what you did today. `git log` already holds it, in detail |

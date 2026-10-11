@@ -409,6 +409,23 @@ the queries are reconstructible from the tables listed above.
   `https://recipes.enamelvault.com/auth/callback**`. Without it the destination plumbing is
   inert: nothing breaks that was working, but an invite is still lost on every door except a
   password sign-in in the same tab.
+
+- **The kitchen schema is invisible until the hosted project exposes it.** `supabase/config.toml`
+  lists the exposed schemas for the LOCAL stack only. The hosted project has its own list at
+  **Settings -> API -> Exposed schemas**, and **no migration changes it**. Apply `0039` and later
+  to cloud, then add `kitchen` there BY HAND, or every kitchen call returns "The schema must be
+  one of the following" while the whole test suite stays green. Same shape as the redirect allow
+  list needing a globstar entry: a setting outside the repo that silently makes correct code
+  inert. `tests/integration/kitchen_org.test.ts` asserts reachability as its FIRST test, so run
+  it against cloud once the setting changes.
+- **Locally the kitchen schema has an order trap** (met 2026-10-11). `npx supabase start`
+  restores the database from a backup and only then starts PostgREST, so a `config.toml` that
+  exposes `kitchen` before any migration has created it makes PostgREST exit 503 with
+  `schema "kitchen" does not exist`, and `db reset` cannot run while the stack is down. To break
+  the cycle: take `kitchen` out of `config.toml`, `npx supabase start`, `npx supabase db reset`
+  (which creates the schema), put `kitchen` back, then stop and start again. **A fresh clone
+  meets this on its very first `supabase start`.**
+
 - **`insert().select()` + a membership-gated SELECT policy fails for the creator.** The
   RETURNING applies the SELECT policy to the new row, and a family creator is not a member yet.
   Fixed in `0007` (creator reads via `created_by = auth.uid()`). Integration tests missed it
