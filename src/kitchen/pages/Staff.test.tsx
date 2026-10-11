@@ -3,10 +3,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Staff from "./Staff";
-import { listStaff, listSites } from "../../lib/api/kitchen/orgs";
+import { listStaff, listSites, myRole } from "../../lib/api/kitchen/orgs";
 import { createInvite } from "../../lib/api/kitchen/invites";
 
-vi.mock("../../lib/api/kitchen/orgs", () => ({ listStaff: vi.fn(), listSites: vi.fn() }));
+vi.mock("../../lib/api/kitchen/orgs", () => ({
+  listStaff: vi.fn(),
+  listSites: vi.fn(),
+  myRole: vi.fn(),
+}));
 vi.mock("../../lib/api/kitchen/invites", () => ({ createInvite: vi.fn() }));
 
 function renderPage() {
@@ -21,6 +25,9 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Owner by default, so the tests written in plan 2, which all press the invite button,
+  // keep passing now that the form is the owner's alone.
+  vi.mocked(myRole).mockResolvedValue("owner");
   vi.mocked(listSites).mockResolvedValue([
     { id: "site-1", org_id: "org-1", name: "Shoreditch" },
   ]);
@@ -66,5 +73,20 @@ describe("the staff page", () => {
     await screen.findByText("Sam");
     await userEvent.click(screen.getByRole("button", { name: /make a link/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("only an owner may invite staff");
+  });
+
+  it("offers the invite form to an owner", async () => {
+    vi.mocked(myRole).mockResolvedValue("owner");
+    renderPage();
+    expect(await screen.findByRole("button", { name: /make a link/i })).toBeInTheDocument();
+  });
+
+  it("hides the invite form from a chef, whom the database refuses anyway", async () => {
+    // Showing somebody a control that always fails is not a security hole, it is a bad page.
+    // create_invite answers KIT01 for anyone but an owner.
+    vi.mocked(myRole).mockResolvedValue("chef");
+    renderPage();
+    await screen.findByText("Sam");
+    expect(screen.queryByRole("button", { name: /make a link/i })).not.toBeInTheDocument();
   });
 });

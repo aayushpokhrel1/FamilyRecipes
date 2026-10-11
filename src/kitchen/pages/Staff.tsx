@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { listSites, listStaff } from "../../lib/api/kitchen/orgs";
 import { createInvite } from "../../lib/api/kitchen/invites";
 import type { Site, StaffMember, StaffRole } from "../../lib/api/kitchen/types";
+import { useMyRole } from "../lib/useMyRole";
 
 const ROLES: StaffRole[] = ["chef", "site_manager", "cook"];
 const ROLE_LABEL: Record<StaffRole, string> = {
@@ -14,6 +15,7 @@ const ROLE_LABEL: Record<StaffRole, string> = {
 
 export default function Staff() {
   const { id = "" } = useParams();
+  const { role: myRole } = useMyRole(id);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [role, setRole] = useState<StaffRole>("chef");
@@ -56,34 +58,43 @@ export default function Staff() {
         ))}
       </ul>
 
-      <h2>Invite somebody</h2>
-      <label htmlFor="role">Role</label>
-      <select id="role" value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
-        {ROLES.map((r) => (
-          <option key={r} value={r}>
-            {ROLE_LABEL[r]}
-          </option>
-        ))}
-      </select>
-      {role !== "chef" && (
+      {/* The roster stays visible to every staff member: the database lets any of them read
+          it, and knowing who your colleagues are is the point of the page. The invite form
+          is the owner's alone, because create_invite answers KIT01 for anyone else, and
+          offering somebody a button that always fails is a bad page rather than a hole. */}
+      {myRole === "owner" && (
         <>
-          <label htmlFor="site">Site</label>
-          <select id="site" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-            <option value="">No site, group wide</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+          <h2>Invite somebody</h2>
+          <label htmlFor="role">Role</label>
+          <select id="role" value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
               </option>
             ))}
           </select>
+          {role !== "chef" && (
+            <>
+              <label htmlFor="site">Site</label>
+              <select id="site" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+                <option value="">No site, group wide</option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <button type="button" onClick={makeLink}>
+            Make a link
+          </button>
+          {/* Shown to be copied. We send no email: who the link reaches is the owner's
+              business. */}
+          {link && <p>{link}</p>}
         </>
       )}
-      <button type="button" onClick={makeLink}>
-        Make a link
-      </button>
       {error && <p role="alert">{error}</p>}
-      {/* Shown to be copied. We send no email: who the link reaches is the owner's business. */}
-      {link && <p>{link}</p>}
     </div>
   );
 }
