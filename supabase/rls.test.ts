@@ -27,34 +27,100 @@ const sql = readdirSync(dir)
 
 const all = sql.map((s) => s.text).join("\n");
 
-/** Tables created anywhere in the migration history, with the file that created each. */
-function createdTables(): { file: string; table: string }[] {
+type Migration = { file: string; text: string };
+
+/** Regex-safe form of a table name, since a schema-qualified one contains a dot. */
+const esc = (s: string) => s.replace(/\./g, "\\.");
+
+/**
+ * Tables created anywhere in the given migrations, with the file that created each.
+ *
+ * It no longer skips other schemas. It used to, with the comment "a table in another schema
+ * is not ours to police", which was true while every table this project owned lived in
+ * `public`. The professional kitchen puts a whole product in `kitchen`, and under the old
+ * rule every one of its tables would have shipped with no RLS and this suite green. The
+ * schemas Supabase owns really are not ours, so those are still skipped.
+ */
+const THEIRS = ["auth.", "storage.", "extensions.", "realtime.", "vault.", "supabase_"];
+
+function scanTables(migrations: Migration[]): { file: string; table: string }[] {
   const found: { file: string; table: string }[] = [];
-  for (const { file, text } of sql) {
+  for (const { file, text } of migrations) {
     const create = /create\s+table\s+(?:if\s+not\s+exists\s+)?([a-z0-9_.]+)/gi;
     for (const [, name] of text.matchAll(create)) {
-      // A table in another schema is not ours to police.
-      if (name.includes(".") && !name.startsWith("public.")) continue;
+      if (THEIRS.some((p) => name.startsWith(p))) continue;
       found.push({ file, table: name.replace(/^public\./, "") });
     }
   }
   return found;
 }
 
+/** Tables created without `enable row level security`. */
+function rlsMissing(migrations: Migration[]): string[] {
+  const all = migrations.map((m) => m.text).join("\n");
+  return scanTables(migrations)
+    .filter(({ table }) => {
+      const re = new RegExp(
+        String.raw`alter\s+table\s+(?:public\.)?${esc(table)}\s+enable\s+row\s+level\s+security`,
+        "i",
+      );
+      return !re.test(all);
+    })
+    .map((t) => t.table);
+}
+
+/** Tables with RLS on and no policy, excluding the ones where that is the design. */
+function unpoliced(migrations: Migration[]): string[] {
+  const all = migrations.map((m) => m.text).join("\n");
+  return scanTables(migrations)
+    .filter(({ table }) => !(table in DELIBERATELY_UNPOLICED))
+    .filter(({ table }) => {
+      const re = new RegExp(
+        String.raw`create\s+policy\s+[a-z0-9_]+\s+on\s+(?:public\.)?${esc(table)}\b`,
+        "i",
+      );
+      return !re.test(all);
+    })
+    .map((t) => t.table);
+}
+
+/**
+ * Tables in a non-public schema with no grant.
+ *
+ * `public` is granted to `anon` and `authenticated` by Supabase itself. A NEW SCHEMA IS
+ * GRANTED TO NOBODY, so any new table there needs its grant in the same migration, either
+ * per table or through `on all tables in schema`. This test is the only thing that will tell
+ * you, because a missing grant and a missing policy fail in completely different ways.
+ */
+function ungranted(migrations: Migration[]): string[] {
+  const all = migrations.map((m) => m.text).join("\n");
+  return scanTables(migrations)
+    .filter(({ table }) => table.includes("."))
+    .filter(({ table }) => {
+      const [schema, name] = table.split(".");
+      const wide = new RegExp(
+        String.raw`grant[^;]*on\s+all\s+tables\s+in\s+schema\s+${schema}\s+to`,
+        "i",
+      );
+      const narrow = new RegExp(String.raw`grant[^;]*on\s+(?:table\s+)?${schema}\.${name}\s+to`, "i");
+      return !wide.test(all) && !narrow.test(all);
+    })
+    .map((t) => t.table);
+}
+
 it("has migrations to read, since an empty list would guard nothing", () => {
   expect(sql.length).toBeGreaterThan(20);
-  expect(createdTables().length).toBeGreaterThan(15);
+  expect(scanTables(sql).length).toBeGreaterThan(15);
 });
 
 it("enables row level security on every table it creates", () => {
-  const missing = createdTables().filter(({ table }) => {
-    const enabled = new RegExp(
-      String.raw`alter\s+table\s+(?:public\.)?${table}\s+enable\s+row\s+level\s+security`,
-      "i",
-    );
-    return !enabled.test(all);
-  });
-  expect(missing.map((m) => `${m.table} (created in ${m.file})`)).toEqual([]);
+  // Named with the file that created it, because the first question on a red run is always
+  // "which migration did this", and the table name alone does not answer it.
+  const missing = rlsMissing(sql);
+  const named = scanTables(sql)
+    .filter(({ table }) => missing.includes(table))
+    .map((m) => `${m.table} (created in ${m.file})`);
+  expect(named).toEqual([]);
 });
 
 // Tables where having NO policy is the design. RLS with no policy denies everything, so this
@@ -69,19 +135,66 @@ const DELIBERATELY_UNPOLICED: Record<string, string> = {
   extract_log: "rate-limit ledger, reachable only through claim_extraction()",
 };
 
-it("gives every table it creates at least one policy", () => {
-  // RLS with no policy denies everything. That fails closed, so it is safe, but it is almost
-  // always a half-finished migration rather than an intention.
-  const unpoliced = createdTables()
-    .filter(({ table }) => !(table in DELIBERATELY_UNPOLICED))
-    .filter(({ table }) => {
-    const policy = new RegExp(
-      String.raw`create\s+policy\s+[a-z0-9_]+\s+on\s+(?:public\.)?${table}\b`,
-      "i",
-    );
-      return !policy.test(all);
-    });
-  expect(unpoliced.map((m) => m.table)).toEqual([]);
+// Fixtures, so the scanner can be tested rather than only run. Every disk-backed test below
+// passes the real `sql` into the same four functions, so a fixture passing and production
+// failing is impossible.
+const fixture = (text: string) => [{ file: "9999_fixture.sql", text }];
+
+it("sees a table in a non-public schema, which it used to skip", () => {
+  const found = scanTables(fixture("create table kitchen.dishes (id uuid primary key);"));
+  expect(found.map((t) => t.table)).toEqual(["kitchen.dishes"]);
+});
+
+it("still ignores the schemas Supabase owns", () => {
+  const found = scanTables(fixture("create table auth.sessions (id uuid primary key);"));
+  expect(found).toEqual([]);
+});
+
+it("fails a kitchen table with no row level security", () => {
+  expect(rlsMissing(fixture("create table kitchen.dishes (id uuid primary key);")))
+    .toEqual(["kitchen.dishes"]);
+});
+
+it("fails a kitchen table with row level security but no policy", () => {
+  expect(
+    unpoliced(
+      fixture(`create table kitchen.dishes (id uuid primary key);
+               alter table kitchen.dishes enable row level security;`),
+    ),
+  ).toEqual(["kitchen.dishes"]);
+});
+
+it("fails a kitchen table that has policies but no grant", () => {
+  // A new schema carries no privileges at all, so a table with perfect policies and no grant
+  // is a permission error on every single call, which looks nothing like an RLS problem
+  // while you debug it. RLS and grants are two separate locks and this guard held one.
+  expect(
+    ungranted(
+      fixture(`create table kitchen.sites (id uuid primary key);
+               alter table kitchen.sites enable row level security;
+               create policy p on kitchen.sites for select using (true);`),
+    ),
+  ).toEqual(["kitchen.sites"]);
+});
+
+it("accepts a grant written per table or across the schema", () => {
+  const narrow = `create table kitchen.sites (id uuid primary key);
+                  grant select on kitchen.sites to authenticated;`;
+  const wide = `create table kitchen.sites (id uuid primary key);
+                grant select, insert, update, delete on all tables in schema kitchen
+                  to authenticated;`;
+  expect(ungranted(fixture(narrow))).toEqual([]);
+  expect(ungranted(fixture(wide))).toEqual([]);
+});
+
+it("does not demand a grant for a table in public, which Supabase grants itself", () => {
+  expect(ungranted(fixture("create table recipes (id uuid primary key);"))).toEqual([]);
+});
+
+it("holds every real table to all three locks", () => {
+  expect(rlsMissing(sql)).toEqual([]);
+  expect(unpoliced(sql)).toEqual([]);
+  expect(ungranted(sql)).toEqual([]);
 });
 
 it("sets search_path on every security definer function", () => {
