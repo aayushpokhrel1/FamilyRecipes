@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readdirSync as readDirs, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
 
@@ -46,5 +46,67 @@ it("keeps the family migrations ignorant of the kitchen", () => {
     const isKitchen = /create\s+(table|function|type|schema)\s+kitchen/i.test(text);
     return !isKitchen && /\bkitchen\./i.test(text);
   });
+  expect(offenders).toEqual([]);
+});
+
+/**
+ * The CODE seal, next to the database one.
+ *
+ * The kitchen app may import `auth.ts` and `kitchen/*` from `src/lib/api/`, and nothing else.
+ * `auth.ts` is permitted because one login serves both products and a second copy of the auth
+ * module would mean an auth bug in two places.
+ *
+ * That exclusion is PINNED by the second test below, which fails if `auth.ts` ever imports a
+ * family module again. An unguarded exclusion in a safety check is a dated assumption, and
+ * this project has already shipped one: rls.test.ts skipped tables outside `public` on
+ * purpose, and the day a second product arrived in its own schema that skip would have
+ * shipped it with no row level security at all.
+ *
+ * Tests in `supabase/` are run by vitest but are NOT type-checked by `tsc -b`, because no
+ * tsconfig project includes that directory, which is why reading files with `node:fs` is fine
+ * here and is not fine under `src/`.
+ */
+const sourceFiles = (dir: string): string[] => {
+  const out: string[] = [];
+  for (const entry of readDirs(dir, { withFileTypes: true })) {
+    const path = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...sourceFiles(path));
+    else if (/\.tsx?$/.test(entry.name)) out.push(path);
+  }
+  return out;
+};
+
+const ALLOWED_FROM_KITCHEN = /\/lib\/api\/(auth|kitchen\/[a-z]+)$/;
+
+it("lets the kitchen app import no family data module", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles("src/kitchen")) {
+    const text = readFileSync(file, "utf8");
+    for (const [, spec] of text.matchAll(/from\s+"([^"]+)"/g)) {
+      if (!spec.includes("lib/api/")) continue;
+      if (ALLOWED_FROM_KITCHEN.test(spec)) continue;
+      offenders.push(`${file} imports ${spec}`);
+    }
+  }
+  expect(offenders).toEqual([]);
+});
+
+it("keeps the shared auth module free of family modules, which is why it is allowed", () => {
+  const text = readFileSync("src/lib/api/auth.ts", "utf8");
+  const imports = [...text.matchAll(/from\s+"([^"]+)"/g)].map(([, spec]) => spec);
+  // supabaseClient and nextPath are fine: neither knows a table name. A sibling in
+  // ./api is not.
+  expect(imports.filter((spec) => /^\.\/[a-z]/.test(spec))).toEqual([]);
+});
+
+it("keeps the family app out of the kitchen data layer", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles("src")) {
+    if (file.startsWith("src/kitchen/")) continue;
+    if (file.includes("/api/kitchen/")) continue;
+    if (/\.test\.tsx?$/.test(file)) continue;
+    const text = readFileSync(file, "utf8");
+    if (/from\s+"[^"]*api\/kitchen\//.test(text)) offenders.push(file);
+  }
   expect(offenders).toEqual([]);
 });

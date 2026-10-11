@@ -62,11 +62,13 @@ pages.**
   kitchen-only prop.** If it has to diverge it forks, and the fork belongs to the kitchen app.
 - Data access lives in `src/lib/api/kitchen/`, which keeps the project rule that only
   `src/lib/api/` touches Supabase.
-- **The app itself is a second Vite entry in this repo**, at `kitchen/`, with its own
-  `index.html`, router and pages, built by the same `npm run build` and served by the same
-  Worker. Not a separate repo, because the shared tokens and components are the reason B is
-  affordable, and not a route inside the family app, because the point is that a family never
-  sees any of it.
+- **The app itself is a second Vite entry in this repo**: `kitchen.html` at the root, booting
+  `src/kitchen/`, built by the same `npm run build` and served by the same Worker. **Under
+  `src/`, not a top-level `kitchen/`, because `npm test` runs `vitest run src supabase worker
+  scripts`**: a test outside those four directories never runs at all, and a directory of
+  silently skipped tests is the exact failure class this project keeps paying for. The HTML
+  entry is at the root rather than in `public/` because it must be BUILT; `public/` is copied
+  verbatim and would ship an entry pointing at an unbuilt module.
 
 ### Getting staff into an org
 

@@ -51,7 +51,7 @@ export default function Staff() {
       <ul>
         {staff.map((member) => (
           <li key={member.user_id}>
-            {member.display_name} <span className="muted">{ROLE_LABEL[member.role]}</span>
+            {member.display_name} <span>{ROLE_LABEL[member.role]}</span>
           </li>
         ))}
       </ul>

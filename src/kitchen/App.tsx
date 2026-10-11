@@ -6,10 +6,12 @@ import { Link, Outlet } from "react-router-dom";
 export default function KitchenApp() {
   return (
     <div className="site">
-      <header className="appbar">
-        <Link to="/" className="wordmark">
-          Enamel Vault <span className="muted">for kitchens</span>
-        </Link>
+      {/* `app-header` is the family app's real class, and the classes this file first used
+          (`appbar`, `wordmark`, `muted`) do not exist in index.css at all, so the header
+          rendered as unstyled text. Found by opening the page, not by a test: nothing fails
+          when a class name is simply absent. Only use class names that index.css defines. */}
+      <header className="app-header">
+        <Link to="/">Enamel Vault for kitchens</Link>
       </header>
       <main>
         <Outlet />
