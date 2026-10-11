@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import NewOrg from "./pages/NewOrg";
 import Sites from "./pages/Sites";
 import Staff from "./pages/Staff";
+import Dishes from "./pages/Dishes";
+import DishDetail from "./pages/DishDetail";
 import JoinByLink from "./pages/JoinByLink";
 
 // RequireAuth is the family app's, reused on purpose: it holds the rule that the destination
@@ -53,6 +55,22 @@ export default function KitchenRoutes() {
           element={
             <RequireAuth>
               <Staff />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orgs/:id/dishes"
+          element={
+            <RequireAuth>
+              <Dishes />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orgs/:id/dishes/:dishId"
+          element={
+            <RequireAuth>
+              <DishDetail />
             </RequireAuth>
           }
         />

@@ -39,7 +39,8 @@ export default function Dashboard() {
           {orgs.map((org) => (
             <li key={org.id}>
               {org.name} <Link to={`/orgs/${org.id}/sites`}>Sites</Link>{" "}
-              <Link to={`/orgs/${org.id}/staff`}>Staff</Link>
+              <Link to={`/orgs/${org.id}/staff`}>Staff</Link>{" "}
+              <Link to={`/orgs/${org.id}/dishes`}>Dishes</Link>{" "}
             </li>
           ))}
         </ul>
