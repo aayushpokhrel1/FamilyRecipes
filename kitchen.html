@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enamel Vault for kitchens</title>
+    <meta
+      name="description"
+      content="One answer to what the current version of a dish is, and who approved it."
+    />
+    <!-- noindex while the landing page says this is in development. A crawler that indexed
+         this host would make that claim false, and the claim is the one the public page
+         makes to professional kitchens. The Worker sends a matching robots.txt and header,
+         because a meta tag alone does nothing for a crawler that never runs the page. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <link
+      rel="preload"
+      href="/fonts/zilla-slab-700-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <!-- A file, not inline: the Worker's Content-Security-Policy is script-src 'self', and a
+         blocked inline script does not warn, it just never runs. -->
+    <script src="/theme-init.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/kitchen/main.tsx"></script>
+  </body>
+</html>
