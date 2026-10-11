@@ -301,7 +301,16 @@ npx supabase secrets set MODEL_BASE_URL=... MODEL_NAME=<vision model> MODEL_API_
 ```
 
 `MODEL_NAME` serves text, url AND photo, and **must be vision-capable** or photo mode breaks.
-It is currently **Gemini 3.8 Flash** via Google's OpenAI-compatibility layer.
+It is currently **Gemini 3.8 Flash** via Google's OpenAI-compatibility layer, so
+`MODEL_BASE_URL` is `https://generativelanguage.googleapis.com/v1beta/openai`.
+
+**That hostname is written out here on purpose, and `supabase/processors.test.ts` reads this
+file looking for it.** The endpoint lives in a Supabase secret, so it appears nowhere in the
+source and no amount of grepping the code can tell you who receives a user's recipe. This
+paragraph is the only in-repo record of the live provider, which makes it load-bearing rather
+than informational: change the secret without changing this line and the test cannot see the
+drift, which is exactly how `src/pages/Privacy.tsx` came to spend two weeks telling people that
+nothing but sign-in ever reached Google.
 
 **An optional second provider, used only when the first says "not now"** (added 2026-09-30,
 after a free-tier 429 and a 503 from the same model within an hour both ended a recipe
@@ -425,6 +434,19 @@ the queries are reconstructible from the tables listed above.
   the cycle: take `kitchen` out of `config.toml`, `npx supabase start`, `npx supabase db reset`
   (which creates the schema), put `kitchen` back, then stop and start again. **A fresh clone
   meets this on its very first `supabase start`.**
+
+- **The kitchen host needs three things done by hand, and none of them is in the repo.** A DNS
+  record for `kitchen.enamelvault.com` pointing at the Worker, a Worker route for that
+  hostname, and **its own globstar entries in the hosted Supabase redirect allow list**
+  (`https://kitchen.enamelvault.com/auth/callback**`, plus the dev form
+  `http://localhost:5174/auth/callback**` if the kitchen entry is opened there). Sign-up and
+  Google both build `redirectTo` from `window.location.origin`, so without the allow list
+  entry GoTrue silently substitutes the Site URL and the person lands on the FAMILY app with
+  their invite lost. That substitution is silent: nothing errors.
+- **`kitchen.html` is refused as a path on every host.** It is fetched internally by the
+  Worker, exactly as `site.html` is. If you add a file that `kitchen.html` references, add it
+  to `isSharedAsset` in `worker/kitchen.ts` or the kitchen host will rewrite the request to
+  the app shell and the browser will be handed HTML where it asked for javascript.
 
 - **`insert().select()` + a membership-gated SELECT policy fails for the creator.** The
   RETURNING applies the SELECT policy to the new row, and a family creator is not a member yet.
@@ -660,17 +682,34 @@ anyone remembering, because the failure mode is never ignorance, it is not re-re
 | --- | --- | --- |
 | No cookies and no trackers, so no consent banner | `src/pages/Cookies.tsx` | `src/lib/browserStorage.test.ts` |
 | WCAG 2.2 AA | `src/pages/Help.tsx` | `src/index.contrast.test.ts`, `src/lib/accessibility.test.ts` |
-| The processors we name are the processors we use | `src/pages/Privacy.tsx` | Nothing. This one is manual, see below |
+| The processors we name are the processors we use | `src/pages/Privacy.tsx` | `supabase/processors.test.ts` |
+| The accepted terms version matches the terms text | `src/components/TermsGate.tsx` | `src/components/TermsGate.version.test.ts` |
 
 **Adding analytics, an embed, or any non-essential storage makes a cookie banner legally
 mandatory**, and `browserStorage.test.ts` is wired to go red at that moment. When it does, the
 job is two things, not one: add the banner, and correct `Cookies.tsx`.
 
-**The processor list is the weak link.** There is no mechanical check that
-`src/pages/Privacy.tsx` names every third party the app sends data to, and the easy ones to
-forget are the ones nobody thinks of as a processor: the Google Fonts stylesheet in
-`index.html`, the error log in `src/lib/api/errorLog.ts`, and the transcription API in
-`extract-recipe`. If you add an outbound call to anything, that page is part of the change.
+**The processor list used to be the weak link, and it failed in production.** From 2026-09-26
+to 2026-10-11 `MODEL_BASE_URL` pointed at Google Gemini while `/privacy` said, under its Google
+heading, that Google was used for sign-in only. Every photographed recipe card was going to a
+company the page promised it did not reach. Nothing in the codebase changed when that happened,
+so no test, review or type check could have caught it.
+
+`supabase/processors.test.ts` now holds it, and it reads BOTH the code and this document,
+because the live provider is a secret and this document is the only place in the repo that
+records it. It fails when an AI endpoint is configured or documented without the company being
+named on the privacy page, when a new outbound hostname appears in the code, or if the typeface
+ever returns to Google Fonts.
+
+**It is a weaker guard than it looks, and the limit is worth knowing:** it cannot read the
+actual secret, so it catches drift between the docs and the page, not between the page and
+reality. The way to check reality is `npx supabase secrets list`, which returns sha256 digests
+rather than values, so compare a candidate with
+`printf '%s' 'https://host/v1' | sha256sum`. That is how the Gemini switch was eventually found.
+
+**The order matters when you change provider:** edit `Privacy.tsx`, add the endpoint to
+`AI_PROVIDERS` in the test, update the paragraph above, deploy the page, and only then set the
+secret. Backwards means the page is false for as long as it takes someone to notice.
 
 ### Cloudflare Web Analytics is ON, and the tests cannot see it
 
@@ -763,13 +802,19 @@ is the fastest possible diagnosis once you think to look.
   external stylesheet, font, embed or script makes that page false and a consent banner
   arguable. `src/lib/browserStorage.test.ts` fails on any absolute-URL `<link>`, `<script src>`
   or CSS `url()`, which is the check that notices.
-- **The AI import sends user content outside the UK and EU**, to DeepSeek by default and to
-  Groq for voice. It is disclosed on the privacy page and it is the only path by which user
-  content leaves our own infrastructure. Changing `MODEL_BASE_URL` changes who receives it,
-  so that env var is a privacy decision, not just a config value.
-- **`TERMS_VERSION` in `src/components/TermsGate.tsx` must be bumped whenever `Terms.tsx`
-  changes.** Nothing enforces it. Shipping wording without a bump means the stored
-  `terms_accepted_at` claims people agreed to text they never saw.
+- **The AI import sends user content to another company**, and that is the only path by which
+  user content leaves our own infrastructure. Today: **Google Gemini** for text, url and photo,
+  **DeepSeek** only as the fallback when Gemini returns a status that can fix itself, and
+  **Groq** for voice transcription. All three are named on `/privacy`. Changing `MODEL_BASE_URL`
+  changes who receives a user's recipe, so that env var is a privacy decision, not a config
+  value, and `supabase/processors.test.ts` is what now notices when the page disagrees with it.
+- **DMCA designated agent is NOT registered.** `/terms` carries a copyright complaints route
+  and acts on notices, which is the substance, but safe harbour under 17 U.S.C. 512(c) also
+  requires a designated agent registered with the US Copyright Office
+  (<https://dmca.copyright.gov>, $6, renew every three years). Until that is filed, a rights
+  holder could in principle sue the operator directly for a user's infringing post rather than
+  being limited to a takedown. Low exposure while Potluck is small, and it rises with every
+  stranger who publishes.
 - **The contact address `moderation@enamelvault.com` appears on all four public pages**, via
   `src/lib/legal.ts`. A data protection policy naming a dead mailbox is worse than one naming
   none, so if inbound mail routing changes, that constant and `MODERATION_EMAIL` move together.

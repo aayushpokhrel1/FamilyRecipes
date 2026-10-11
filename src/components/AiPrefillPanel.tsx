@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import { extractRecipe } from "../lib/api/extract";
 import { reportError } from "../lib/api/errorLog";
 import type { RecipeDraft } from "../lib/api/types";
@@ -66,6 +67,17 @@ export default function AiPrefillPanel({ onDraft }: { onDraft: (draft: RecipeDra
   return (
     <div className="plate ai-panel">
       <h2>Prefill with AI</h2>
+      {/* The DISCLOSURE, not decoration. src/pages/Privacy.tsx relies on the importer saying
+          where content goes BEFORE it is sent: this panel is the only moment a user can decide
+          not to, because pressing a button here is what sends their recipe card to another
+          company. Keep it above the controls, keep the provider link, and keep the allergen
+          line, which the terms also carry: a dropped ingredient is this feature's worst case. */}
+      <p className="vault-note">
+        What you paste, photograph or record here is sent to an AI provider to be read. Nothing
+        is sent until you press the button, and typing a recipe in by hand sends nothing at all.{" "}
+        <Link to="/privacy">Who receives it</Link>. Always check the result against the original
+        before you cook, especially for allergens.
+      </p>
       <div className="tag-row">
         {modes.map((m) => (
           <button

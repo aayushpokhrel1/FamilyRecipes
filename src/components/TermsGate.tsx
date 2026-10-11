@@ -4,9 +4,12 @@ import { acceptTerms, getMyProfile } from "../lib/api/profile";
 
 // BUMP THIS WHENEVER THE WORDING IN Terms.tsx CHANGES. The gate compares it against the
 // accepted version, so an edit shipped without a bump means nobody is re-asked and the stored
-// terms_accepted_at claims people accepted text they never saw. There is nothing mechanical
-// stopping that, which is exactly why this warning sits here rather than in a doc.
-export const TERMS_VERSION = "2026-10-01";
+// terms_accepted_at claims people accepted text they never saw.
+//
+// TermsGate.version.test.ts now holds this mechanically: it hashes Terms.tsx and fails if the
+// wording moved without this constant moving with it. When it fails, bump BOTH this and
+// TERMS_UPDATED in lib/legal.ts, then paste the new hash the failure prints into that test.
+export const TERMS_VERSION = "2026-10-11";
 
 // The gate sits AFTER authentication, not on the signup form. A signup checkbox would
 // miss Google sign-in, which never touches that form, and would miss every account that
