@@ -1,20 +1,31 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  getDish, getVersion, listVersions, menuVersionId, reviseDish,
+  getDish, getSnapshot, getVersion, listDeviations, listVersions, menuVersionId, reviseDish,
 } from "../../lib/api/kitchen/dishes";
-import type { Dish, DishIngredient, DishStep, DishVersion } from "../../lib/api/kitchen/types";
+import { listSites, listStaff } from "../../lib/api/kitchen/orgs";
+import type {
+  Deviation, Dish, DishIngredient, DishStep, DishVersion, Site, Snapshot,
+} from "../../lib/api/kitchen/types";
 import { canWriteDishes, useMyRole } from "../lib/useMyRole";
 import { STAGE_WORDS } from "./Dishes";
 import DishEditor from "../components/DishEditor";
+import PipelineActions from "../components/PipelineActions";
+import PublishPanel from "../components/PublishPanel";
+import { useAuth } from "../../context/AuthContext";
 
 export default function DishDetail() {
   const { id = "", dishId = "" } = useParams();
   const { role } = useMyRole(id);
+  const { userId } = useAuth();
   const [dish, setDish] = useState<Dish | null>(null);
   const [checked, setChecked] = useState(false);
   const [versions, setVersions] = useState<DishVersion[]>([]);
   const [liveId, setLiveId] = useState<string | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [deviations, setDeviations] = useState<Deviation[]>([]);
+  const [mySiteId, setMySiteId] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [draft, setDraft] = useState<{ ingredients: DishIngredient[]; steps: DishStep[] }>({
     ingredients: [],
     steps: [],
@@ -32,7 +43,18 @@ export default function DishDetail() {
     setVersions(vs);
     setLiveId(live);
     if (vs.length) setDraft(await getVersion(vs[0].id));
-  }, [dishId]);
+    const [siteRows, deviationRows, staff] = await Promise.all([
+      listSites(id),
+      listDeviations(dishId),
+      // The viewer's own site decides what a site manager may record. A viewer with no staff
+      // row, or a build where the roster is not readable, simply has no site of their own.
+      listStaff(id),
+    ]);
+    setSites(siteRows);
+    setDeviations(deviationRows);
+    setMySiteId(staff.find((s) => s.user_id === userId)?.site_id ?? null);
+    setSnapshot(await getSnapshot(dishId));
+  }, [dishId, id, userId]);
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Could not load."));
@@ -73,6 +95,36 @@ export default function DishDetail() {
           {newest && newest.id !== live.id && ` Version ${newest.n} is not signed off.`}
         </p>
       )}
+
+      <PipelineActions
+        dish={dish}
+        newestVersionId={newest?.id ?? null}
+        sites={sites}
+        role={role}
+        mySiteId={mySiteId}
+        onDone={() => void load()}
+      />
+
+      {deviations.length > 0 && (
+        <>
+          <h2>What sites changed</h2>
+          <ul>
+            {deviations.map((d) => (
+              <li key={d.id}>
+                {sites.find((s) => s.id === d.site_id)?.name ?? "A site"}: {d.note}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <PublishPanel
+        dish={dish}
+        menuVersionId={liveId}
+        snapshot={snapshot}
+        role={role}
+        onDone={() => void load()}
+      />
 
       <h2>Versions</h2>
       <ul>

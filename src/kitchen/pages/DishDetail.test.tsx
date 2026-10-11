@@ -5,15 +5,16 @@ import DishDetail from "./DishDetail";
 import {
   getDish, listVersions, getVersion, menuVersionId, listDeviations, getSnapshot,
 } from "../../lib/api/kitchen/dishes";
-import { listSites } from "../../lib/api/kitchen/orgs";
-import { myRole } from "../../lib/api/kitchen/orgs";
+import { listSites, listStaff, myRole } from "../../lib/api/kitchen/orgs";
 
 vi.mock("../../lib/api/kitchen/dishes", () => ({
   getDish: vi.fn(), listVersions: vi.fn(), getVersion: vi.fn(), menuVersionId: vi.fn(),
   listDeviations: vi.fn(), getSnapshot: vi.fn(), reviseDish: vi.fn(), sendToTrial: vi.fn(),
   signOff: vi.fn(), recordDeviation: vi.fn(), publishDish: vi.fn(), unpublishDish: vi.fn(),
 }));
-vi.mock("../../lib/api/kitchen/orgs", () => ({ listSites: vi.fn(), myRole: vi.fn() }));
+vi.mock("../../lib/api/kitchen/orgs", () => ({
+  listSites: vi.fn(), myRole: vi.fn(), listStaff: vi.fn(),
+}));
 
 function renderPage() {
   return render(
@@ -29,6 +30,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(myRole).mockResolvedValue("chef");
   vi.mocked(listSites).mockResolvedValue([{ id: "s1", org_id: "o1", name: "Shoreditch" }]);
+  // The page reads the roster to find the VIEWER's own site, which is what decides
+  // whether a site manager may record a deviation here.
+  vi.mocked(listStaff).mockResolvedValue([
+    { user_id: "u1", role: "chef", site_id: null, display_name: "Ada" },
+  ]);
   vi.mocked(getDish).mockResolvedValue({
     id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "menu", trial_site_id: null,
   });
