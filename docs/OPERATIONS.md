@@ -443,6 +443,17 @@ the queries are reconstructible from the tables listed above.
   Google both build `redirectTo` from `window.location.origin`, so without the allow list
   entry GoTrue silently substitutes the Site URL and the person lands on the FAMILY app with
   their invite lost. That substitution is silent: nothing errors.
+- **A published dish is an ordinary public recipe on the APP host.** It is a SNAPSHOT, so a
+  later revision does not change the public page until somebody publishes again, and the
+  Worker's per-recipe OpenGraph tags and the sitemap pick it up like any other public recipe.
+  What goes out is the version the sites are cooking, the latest APPROVED one, never the
+  newest. A moderator takedown blocks republishing by design, because
+  `enforce_publish_rules` fires on the bridge's update too, and the owner reads that refusal
+  verbatim in the kitchen app.
+- **Taking a dish down leaves its snapshot row in place**, with `unpublished_at` set. That is
+  deliberate: the row holds the recipe id, so re-publishing reuses the same public URL and a
+  link somebody already sent keeps working. "Is it public" is therefore
+  `unpublished_at is null`, never the row existing.
 - **`kitchen.html` is refused as a path on every host.** It is fetched internally by the
   Worker, exactly as `site.html` is. If you add a file that `kitchen.html` references, add it
   to `isSharedAsset` in `worker/kitchen.ts` or the kitchen host will rewrite the request to
