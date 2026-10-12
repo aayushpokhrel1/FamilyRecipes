@@ -1,14 +1,17 @@
 import { test, expect, describe, it } from "vitest";
 import {
   avatarHandleFromPath,
+  buildCookTags,
   buildRecipeJsonLd,
   buildSitemap,
+  cookHandleFromPath,
   securityHeaders,
   buildTags,
   escapeAttr,
   ogIdFromPath,
   recipeIdFromPath,
   shellTags,
+  truncateDescription,
   PUBLIC_PAGE_COPY,
   STATIC_SITEMAP_PATHS,
   type JsonLdInput,
@@ -374,5 +377,96 @@ describe("shellTags", () => {
       expect(copy.description.length, `${path} description`).toBeGreaterThan(50);
       expect(copy.description.length, `${path} description`).toBeLessThanOrEqual(170);
     }
+  });
+});
+
+describe("cookHandleFromPath", () => {
+  it("matches a public cook page", () => {
+    expect(cookHandleFromPath("/cooks/yusha")).toBe("yusha");
+  });
+
+  it("tolerates a trailing slash", () => {
+    expect(cookHandleFromPath("/cooks/yusha/")).toBe("yusha");
+  });
+
+  // This pattern is the sanitiser: the value is interpolated into a PostgREST filter, so
+  // anything it lets through reaches the query. Same character class as the handle check
+  // constraint in migration 0020.
+  it("refuses anything outside the handle character class", () => {
+    expect(cookHandleFromPath("/cooks/Yusha")).toBeNull();
+    expect(cookHandleFromPath("/cooks/bad.handle")).toBeNull();
+    expect(cookHandleFromPath("/cooks/bad-handle")).toBeNull();
+    expect(cookHandleFromPath("/cooks/no")).toBeNull();
+    expect(cookHandleFromPath("/cooks/" + "x".repeat(31))).toBeNull();
+  });
+
+  it("is anchored, so it does not match a longer path or a suffix", () => {
+    expect(cookHandleFromPath("/cooks/yusha/recipes")).toBeNull();
+    expect(cookHandleFromPath("/evil/cooks/yusha")).toBeNull();
+  });
+});
+
+describe("truncateDescription", () => {
+  it("reads whitespace only as absent", () => {
+    expect(truncateDescription("   \n  ")).toBeNull();
+    expect(truncateDescription(null)).toBeNull();
+  });
+
+  it("collapses runs of whitespace", () => {
+    expect(truncateDescription("a\n\n  b")).toBe("a b");
+  });
+
+  it("cuts at a word boundary and marks the cut", () => {
+    const long = "word ".repeat(60);
+    const out = truncateDescription(long)!;
+    expect(out.length).toBeLessThanOrEqual(164);
+    expect(out.endsWith("...")).toBe(true);
+    expect(out).not.toContain("word word...word");
+  });
+});
+
+describe("buildCookTags", () => {
+  it("uses the cook's published name", () => {
+    const tags = buildCookTags({
+      publicName: "Yusha",
+      handle: "yusha",
+      bio: "Cooks mostly Nepali food.",
+      origin: "https://x.test",
+    });
+    expect(tags.title).toBe("Yusha - The Enamel Vault");
+    expect(tags.description).toBe("Cooks mostly Nepali food.");
+    expect(tags.url).toBe("https://x.test/cooks/yusha");
+  });
+
+  // public_name is nullable in 0020: a cook can claim a handle without publishing a name,
+  // and "null - The Enamel Vault" is what a missing fallback ships.
+  it("falls back to the handle when no name is published", () => {
+    const tags = buildCookTags({
+      publicName: null,
+      handle: "yusha",
+      bio: null,
+      origin: "https://x.test",
+    });
+    expect(tags.title).toBe("yusha - The Enamel Vault");
+  });
+
+  it("falls back to a stock line when there is no bio", () => {
+    const tags = buildCookTags({
+      publicName: "Yusha",
+      handle: "yusha",
+      bio: "   ",
+      origin: "https://x.test",
+    });
+    expect(tags.description).toBe("Recipes published by Yusha on The Enamel Vault.");
+  });
+
+  it("keeps a long bio inside the description limit", () => {
+    const tags = buildCookTags({
+      publicName: "Yusha",
+      handle: "yusha",
+      bio: "a".repeat(400),
+      origin: "https://x.test",
+    });
+    expect(tags.description!.length).toBeLessThanOrEqual(164);
   });
 });

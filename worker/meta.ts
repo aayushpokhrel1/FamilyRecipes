@@ -17,6 +17,10 @@ const OG_PATH = new RegExp(`^/og/recipe/(${UUID})\\.jpg$`);
 // interpolated into a PostgREST filter, so the pattern is the sanitiser: nothing outside
 // [a-z0-9_] can reach it.
 const AVATAR_PATH = new RegExp("^/avatar/([a-z0-9_]{3,30})\\.jpg$");
+// Same character class as the handle check constraint in 0020, same as AVATAR_PATH, and
+// anchored. This value is interpolated into a PostgREST filter, so the pattern IS the
+// sanitiser: nothing outside [a-z0-9_] can reach it.
+const COOK_PATH = new RegExp("^/cooks/([a-z0-9_]{3,30})/?$");
 
 const TITLE_SUFFIX = " - The Enamel Vault";
 const STOCK_DESCRIPTION = "A recipe from The Enamel Vault.";
@@ -35,6 +39,11 @@ export function ogIdFromPath(pathname: string): string | null {
 
 export function avatarHandleFromPath(pathname: string): string | null {
   const match = AVATAR_PATH.exec(pathname);
+  return match ? match[1] : null;
+}
+
+export function cookHandleFromPath(pathname: string): string | null {
+  const match = COOK_PATH.exec(pathname);
   return match ? match[1] : null;
 }
 
@@ -62,15 +71,21 @@ export type Tags = {
   imageAlt: string;
 };
 
-function describe(story: string | null): string {
-  const collapsed = (story ?? "").replace(/\s+/g, " ").trim();
-  if (!collapsed) return STOCK_DESCRIPTION;
+// Shared by a recipe's story and a cook's bio. Returns null for absent or whitespace-only
+// text, so each caller supplies its OWN stock line rather than inheriting the other's.
+export function truncateDescription(text: string | null): string | null {
+  const collapsed = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!collapsed) return null;
   if (collapsed.length <= DESCRIPTION_LIMIT) return collapsed;
 
   const cut = collapsed.slice(0, DESCRIPTION_LIMIT);
   const lastSpace = cut.lastIndexOf(" ");
   const head = (lastSpace === -1 ? cut : cut.slice(0, lastSpace)).replace(/[\s,;:.]+$/, "");
   return `${head}...`;
+}
+
+function describe(story: string | null): string {
+  return truncateDescription(story) ?? STOCK_DESCRIPTION;
 }
 
 // EVERY route in the family app is served the SAME index.html, whose canonical and og:url
@@ -124,6 +139,21 @@ export function shellTags(pathname: string, origin: string): ShellTags {
     url: `${origin}${path}`,
     title: `${copy.title}${TITLE_SUFFIX}`,
     description: copy.description,
+  };
+}
+
+export function buildCookTags(input: {
+  publicName: string | null;
+  handle: string;
+  bio: string | null;
+  origin: string;
+}): ShellTags {
+  const name = input.publicName?.trim() || input.handle;
+  return {
+    url: `${input.origin}/cooks/${input.handle}`,
+    title: `${name}${TITLE_SUFFIX}`,
+    description:
+      truncateDescription(input.bio) ?? `Recipes published by ${name} on The Enamel Vault.`,
   };
 }
 
