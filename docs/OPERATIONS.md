@@ -122,12 +122,54 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 
 | target | how | automatic? |
 | --- | --- | --- |
-| Frontend | Cloudflare Workers Builds, Git-connected to master | **yes**, on push |
+| Frontend | Cloudflare Workers Builds, Git-connected to master | usually, on push, but **verify** |
 | Database | `npx supabase db push` | no |
 | Edge function | `npx supabase functions deploy <name>`, one at a time | **no, never** |
 
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
+
+### "Automatic" is not a guarantee: the push that never built (2026-10-12)
+
+**A push can land on GitHub, pass CI, and never produce a Cloudflare build at all.** On
+2026-10-12 five commits sat undeployed for over three hours. GitHub had them and CI was green,
+so everything that is easy to check said "shipped". The Workers Builds trigger simply never
+fired: the build list's newest entry was the PREVIOUS push, no failed build, no notification.
+
+**The failure is silent in the worst way: the old Worker keeps serving 200s.** Nothing is
+broken, nothing alerts, and the only symptom is that the change is missing.
+
+**`ci.yml` does NOT deploy.** It runs `build-and-test` and `integration` only. A green tick on
+GitHub says the code is sound, never that it is live. Do not read it as a deploy signal.
+
+**Check that the deploy actually happened, by looking at the deployed Worker rather than at
+git.** The fastest honest check is to curl something only the new code can produce:
+
+```bash
+curl -s "https://recipes.enamelvault.com/help?cb=$RANDOM" | grep -c "prose plate"
+```
+
+Beware a check that can pass on the old code. The first attempt here searched for content
+after `<div id="root">`, which matched the closing `</div>` and reported success against an
+empty root for three hours. **Grep for a string the new code emits and the old one cannot.**
+
+**To trigger a build by hand** (account `c057c576d1280408b962f56d8b8528e5`, script tag
+`f9d5098b1c454b0096c8fd2477509e79`), find the trigger uuid then start it:
+
+```
+GET  /accounts/{account}/builds/workers/{script_tag}/triggers
+POST /accounts/{account}/builds/triggers/{trigger_uuid}/builds   body: {"branch": "master"}
+GET  /accounts/{account}/builds/builds/{build_uuid}              until status is "stopped"
+```
+
+The manual build took 36 seconds and deployed correctly, so the build command was never the
+problem: only the webhook was. The deploy config itself is intact (`npm run build`, then
+`npx wrangler deploy`, branch `master`), which is worth confirming before touching anything,
+because **disconnecting the repo in Workers Builds DELETES the build configuration** (see the
+environment gotcha below).
+
+Related, and the reason this is a landmine rather than a one-off: the Worker's own
+`/health/extract` does not cover this, because an outdated Worker is perfectly healthy.
 
 ### The exception to "migration first", and what it cost
 
