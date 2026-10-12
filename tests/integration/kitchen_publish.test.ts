@@ -146,6 +146,37 @@ describe("publishing a dish out to Potluck", () => {
     expect(error).not.toBeNull();
   });
 
+  it("records a takedown on the snapshot, and clears it when published again", async () => {
+    // The snapshot ROW survives a takedown, because it holds the recipe id and re-publishing
+    // must reuse the same public URL. So the row existing cannot mean "published", and
+    // without this column the kitchen app could not tell an owner whether their dish was
+    // public: it said "published" either way until 2026-10-11.
+    const { dishId, versionId } = await dishOnMenu("Takedown state");
+    await k(owner.client).rpc("publish_dish", { p_version: versionId });
+
+    const snap = async () => {
+      const { data } = await admin
+        .schema("kitchen")
+        .from("published_snapshots")
+        .select("unpublished_at")
+        .eq("dish_id", dishId)
+        .single();
+      return data!.unpublished_at as string | null;
+    };
+
+    expect(await snap()).toBeNull();
+
+    await k(owner.client).rpc("unpublish_dish", { p_dish: dishId });
+    expect(await snap()).not.toBeNull();
+
+    // Taking down what is already down is refused, rather than silently moving the date.
+    const { error: again } = await k(owner.client).rpc("unpublish_dish", { p_dish: dishId });
+    expect(again?.code).toBe("KIT04");
+
+    await k(owner.client).rpc("publish_dish", { p_version: versionId });
+    expect(await snap()).toBeNull();
+  });
+
   it("refuses to publish a version nobody signed off", async () => {
     const { data: dish } = await k(chef.client).rpc("create_dish", {
       p_org: orgId,

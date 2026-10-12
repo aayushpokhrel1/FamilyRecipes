@@ -185,7 +185,17 @@ export default function Potluck() {
                   recipe={r}
                   showVisibility={false}
                   photoUrl={photoUrls.get(r.id) ?? null}
-                  byline={b ? (b.public_name ?? "A cook") + " · " + b.family_name : undefined}
+                  // With no handle and no public name there is nobody to name, so the family
+                  // name stands alone: that is how a dish published by a professional
+                  // kitchen reads, where the byline is the venue. A handle means there IS a
+                  // cook page, and "A cook" is the right label for one.
+                  byline={
+                    b
+                      ? b.handle || b.public_name
+                        ? (b.public_name ?? "A cook") + " · " + b.family_name
+                        : b.family_name
+                      : undefined
+                  }
                   // No button on your own household's recipes: Potluck shows everything
                   // published, yours included, and a recipe already in your vault has
                   // nothing to save. RecipeDetail hides it on the same condition.

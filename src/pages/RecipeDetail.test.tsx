@@ -217,8 +217,12 @@ test("a byline with no handle stays plain text, not a link to /cooks/null", asyn
       <Routes><Route path="/recipes/:id" element={<RecipeDetail />} /></Routes>
     </MemoryRouter>,
   );
-  expect(await screen.findByText(/A cook/)).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: /A cook/ })).not.toBeInTheDocument();
+  // The family name ALONE. With no handle there is no person to name or link to, and
+  // "A cook" in front of it is noise on a family recipe and wrong on a published dish: a
+  // restaurant group's tart read "A cook - Walk Group" in the browser on 2026-10-11, which
+  // attributes a venue's dish to a person who does not exist.
+  expect(await screen.findByText("Pokhrel")).toBeInTheDocument();
+  expect(screen.queryByText(/A cook/)).not.toBeInTheDocument();
 });
 
 // Extraction sometimes writes the amount into the item field, and the quantity column

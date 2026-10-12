@@ -143,7 +143,7 @@ export async function unpublishDish(dishId: string): Promise<void> {
 export async function getSnapshot(dishId: string): Promise<Snapshot | null> {
   const { data, error } = await kitchen()
     .from("published_snapshots")
-    .select("recipe_id,version_id,published_at")
+    .select("recipe_id,version_id,published_at,unpublished_at")
     .eq("dish_id", dishId)
     .maybeSingle();
   if (error) throw new Error(error.message);

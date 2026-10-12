@@ -30,6 +30,11 @@ export default function DishDetail() {
     ingredients: [],
     steps: [],
   });
+  const [shownId, setShownId] = useState<string | null>(null);
+  const [shown, setShown] = useState<{ ingredients: DishIngredient[]; steps: DishStep[] }>({
+    ingredients: [],
+    steps: [],
+  });
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,7 +47,20 @@ export default function DishDetail() {
     const [vs, live] = await Promise.all([listVersions(dishId), menuVersionId(dishId)]);
     setVersions(vs);
     setLiveId(live);
-    if (vs.length) setDraft(await getVersion(vs[0].id));
+    // TWO versions are in play and they are not the same thing. `shown` is what the sites
+    // are cooking, which is the latest APPROVED version, and it is what the read-only part
+    // of this page lists: a site manager or a cook reading it is the person who actually
+    // cooks the dish. `draft` is the NEWEST version, which seeds the editor a chef revises
+    // from. Listing the newest to everyone was shipped on 2026-10-11 and caught in a
+    // browser: the page said the sites were cooking version 1 and then showed version 2's
+    // quantities underneath.
+    const showId = live ?? vs[0]?.id ?? null;
+    setShownId(showId);
+    const newestContents = vs.length ? await getVersion(vs[0].id) : { ingredients: [], steps: [] };
+    setDraft(newestContents);
+    setShown(
+      showId && showId !== vs[0]?.id ? await getVersion(showId) : newestContents,
+    );
     const [siteRows, deviationRows, staff] = await Promise.all([
       listSites(id),
       listDeviations(dishId),
@@ -83,6 +101,7 @@ export default function DishDetail() {
 
   const newest = versions[0];
   const live = versions.find((v) => v.id === liveId) ?? null;
+  const shownVersion = versions.find((v) => v.id === shownId) ?? newest ?? null;
 
   return (
     <div className="prose plate">
@@ -136,16 +155,20 @@ export default function DishDetail() {
         ))}
       </ul>
 
-      <h2>{newest ? `Version ${newest.n}` : "Nothing written yet"}</h2>
+      <h2>
+        {shownVersion
+          ? `Version ${shownVersion.n}${shownVersion.id === liveId ? " (live)" : ""}`
+          : "Nothing written yet"}
+      </h2>
       <ul>
-        {draft.ingredients.map((row) => (
+        {shown.ingredients.map((row) => (
           <li key={row.position}>
             {[row.quantity, row.unit, row.item].filter(Boolean).join(" ")}
           </li>
         ))}
       </ul>
       <ol>
-        {draft.steps.map((row) => (
+        {shown.steps.map((row) => (
           <li key={row.position}>{row.text}</li>
         ))}
       </ol>

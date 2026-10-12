@@ -82,6 +82,33 @@ describe("the dish page", () => {
     expect(screen.getAllByText("Smoke the onions.").length).toBeGreaterThan(0);
   });
 
+  it("shows the version the SITES ARE COOKING in the read-only part, not the newest", async () => {
+    // Found in a browser on 2026-10-11: the page said "the sites are cooking version 1" and
+    // then listed version 2's ingredients underneath it. A site manager or a cook reading
+    // that page is the person who actually cooks the dish, and they were being shown
+    // quantities nobody had signed off.
+    vi.mocked(getVersion).mockImplementation(async (versionId: string) =>
+      versionId === "v1"
+        ? {
+            ingredients: [
+              { position: 1, quantity: "2", unit: null, item: "onions", section: null },
+            ],
+            steps: [{ position: 1, text: "Smoke the onions." }],
+          }
+        : {
+            ingredients: [
+              { position: 1, quantity: "3", unit: null, item: "onions", section: null },
+            ],
+            steps: [{ position: 1, text: "Smoke them longer." }],
+          },
+    );
+    renderPage();
+    expect(await screen.findByText("2 onions")).toBeInTheDocument();
+    // The newest version's quantity appears only inside the editor's inputs, which carry it
+    // as a value rather than as text, so nobody reads it as the dish.
+    expect(screen.queryByText("3 onions")).not.toBeInTheDocument();
+  });
+
   it("renders a dish with no ingredients at all rather than crashing", async () => {
     // revise_dish accepts an empty list, so this state is reachable.
     vi.mocked(getVersion).mockResolvedValue({ ingredients: [], steps: [] });

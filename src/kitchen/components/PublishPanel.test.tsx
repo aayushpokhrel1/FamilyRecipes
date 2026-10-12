@@ -39,7 +39,7 @@ describe("publishing", () => {
     render(
       <PublishPanel
         dish={onMenu} menuVersionId="v1" role="owner" onDone={vi.fn()}
-        snapshot={{ recipe_id: "r1", version_id: "v1", published_at: "2026-10-11T10:00:00Z" }}
+        snapshot={{ recipe_id: "r1", version_id: "v1", published_at: "2026-10-11T10:00:00Z", unpublished_at: null }}
       />,
     );
     expect(screen.getByText(/recipes.enamelvault.com\/recipes\/r1/)).toBeInTheDocument();
@@ -60,10 +60,39 @@ describe("publishing", () => {
     render(
       <PublishPanel
         dish={onMenu} menuVersionId="v1" role="owner" onDone={vi.fn()}
-        snapshot={{ recipe_id: "r1", version_id: "v1", published_at: "2026-10-11T10:00:00Z" }}
+        snapshot={{ recipe_id: "r1", version_id: "v1", published_at: "2026-10-11T10:00:00Z", unpublished_at: null }}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /take it down/i }));
     expect(unpublishDish).toHaveBeenCalledWith("d1");
+  });
+});
+
+describe("after a takedown", () => {
+  // Found in a browser on 2026-10-11: taking a dish down left the page saying "Published at
+  // https://..." with a "Take it down" button, because the snapshot row survives a takedown
+  // and nothing recorded which state it was in. An owner could not tell whether their dish
+  // was public, which is the only question this panel answers.
+  const takenDown = {
+    recipe_id: "r1",
+    version_id: "v1",
+    published_at: "2026-10-11T10:00:00Z",
+    unpublished_at: "2026-10-11T11:00:00Z",
+  };
+
+  it("stops claiming the dish is published", () => {
+    render(
+      <PublishPanel dish={onMenu} menuVersionId="v1" snapshot={takenDown} role="owner" onDone={vi.fn()} />,
+    );
+    expect(screen.queryByText(/Published at/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /take it down/i })).not.toBeInTheDocument();
+  });
+
+  it("offers to publish it again", async () => {
+    render(
+      <PublishPanel dish={onMenu} menuVersionId="v1" snapshot={takenDown} role="owner" onDone={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /publish/i }));
+    expect(publishDish).toHaveBeenCalledWith("v1");
   });
 });

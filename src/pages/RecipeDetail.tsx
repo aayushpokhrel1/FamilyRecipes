@@ -211,11 +211,23 @@ export default function RecipeDetail() {
         <p className="vault-note">
           {/* A handle can be null: public_recipe_bylines left-joins the profile precisely so
               a recipe published by a cook who never claimed one still renders. Plain text
-              then, rather than a link to /cooks/null. */}
-          {byline.handle
-            ? <Link to={"/cooks/" + byline.handle}>{byline.public_name ?? "A cook"}</Link>
-            : (byline.public_name ?? "A cook")}
-          {" "}&middot; {byline.family_name}
+              then, rather than a link to /cooks/null.
+
+              With NO handle and NO public name there is nobody to name, so the family name
+              stands alone. "A cook" there is noise on a family recipe and wrong on a dish
+              published by a professional kitchen, whose byline is the venue and whose
+              snapshot has no person behind it: that read "A cook - Walk Group" in a browser
+              on 2026-10-11. Where a handle DOES exist there is a real page to link to, and
+              "A cook" is still the right label for it. */}
+          {byline.handle ? (
+            <>
+              <Link to={"/cooks/" + byline.handle}>{byline.public_name ?? "A cook"}</Link>
+              {" "}&middot;{" "}
+            </>
+          ) : byline.public_name ? (
+            <>{byline.public_name}{" "}&middot;{" "}</>
+          ) : null}
+          {byline.family_name}
         </p>
       )}
 

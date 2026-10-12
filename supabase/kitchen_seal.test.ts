@@ -10,7 +10,19 @@ import { expect, it } from "vitest";
 // crossing into the bridge migration or admit in the spec that the seal is gone.
 const dir = resolve(process.cwd(), "supabase/migrations");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
-const BRIDGE = "0044_kitchen_publish_bridge.sql";
+/**
+ * Every migration that crosses between the two schemas, by name.
+ *
+ * It was one file, and 0045 made it two: replacing unpublish_dish means restating its update
+ * of public.recipes. The list is the INVENTORY of crossings, so adding to it is a deliberate
+ * act with a reason written in the migration itself, and any file not on it that reaches
+ * across still fails this test.
+ */
+const BRIDGE_FILES = [
+  "0044_kitchen_publish_bridge.sql",
+  "0045_a_taken_down_dish_says_so.sql",
+];
+const BRIDGE = BRIDGE_FILES[0];
 
 /**
  * SQL with its comments removed.
@@ -24,13 +36,13 @@ const BRIDGE = "0044_kitchen_publish_bridge.sql";
  */
 const code = (sql: string) => sql.replace(/--[^\n]*/g, "");
 
-it("has the bridge migration it claims to have", () => {
-  expect(files).toContain(BRIDGE);
+it("has every bridge migration it claims to have", () => {
+  for (const bridge of BRIDGE_FILES) expect(files).toContain(bridge);
 });
 
 it("mentions public.recipes, public.families or public.profiles in the bridge alone", () => {
   const offenders = files.filter((f) => {
-    if (f === BRIDGE) return false;
+    if (BRIDGE_FILES.includes(f)) return false;
     const text = code(readFileSync(join(dir, f), "utf8"));
     const isKitchen = /create\s+(table|function|type|schema)\s+kitchen/i.test(text);
     if (!isKitchen) return false;
@@ -41,7 +53,7 @@ it("mentions public.recipes, public.families or public.profiles in the bridge al
 
 it("keeps the family migrations ignorant of the kitchen", () => {
   const offenders = files.filter((f) => {
-    if (f === BRIDGE) return false;
+    if (BRIDGE_FILES.includes(f)) return false;
     const text = code(readFileSync(join(dir, f), "utf8"));
     const isKitchen = /create\s+(table|function|type|schema)\s+kitchen/i.test(text);
     return !isKitchen && /\bkitchen\./i.test(text);

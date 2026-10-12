@@ -56,4 +56,12 @@ export type Deviation = {
   created_at: string;
 };
 
-export type Snapshot = { recipe_id: string; version_id: string; published_at: string };
+// unpublished_at is what says whether the dish is public RIGHT NOW. The row survives a
+// takedown on purpose: it holds the recipe id, so re-publishing reuses the same public URL
+// and a link somebody already sent keeps working.
+export type Snapshot = {
+  recipe_id: string;
+  version_id: string;
+  published_at: string;
+  unpublished_at: string | null;
+};

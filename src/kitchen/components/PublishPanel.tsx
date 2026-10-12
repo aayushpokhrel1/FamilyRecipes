@@ -48,7 +48,11 @@ export default function PublishPanel({
   return (
     <>
       <h2>Publishing</h2>
-      {snapshot ? (
+      {/* A snapshot row SURVIVES a takedown, because it holds the recipe id and re-publishing
+          reuses the same public URL. So "is it public" is unpublished_at being null, not the
+          row existing. Treating the row as proof shipped on 2026-10-11 and was caught in a
+          browser: a taken-down dish still showed its public address and a take-it-down button. */}
+      {snapshot && !snapshot.unpublished_at ? (
         <>
           <p>
             Published at {APP_ORIGIN}/recipes/{snapshot.recipe_id}

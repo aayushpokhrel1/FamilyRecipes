@@ -83,7 +83,29 @@ test("renders returned recipes with their bylines", async () => {
   expect(await screen.findByText("Dal")).toBeInTheDocument();
   expect(screen.getByText("Pilaf")).toBeInTheDocument();
   expect(screen.getByText(/Asha/)).toBeInTheDocument();
+  // r2 HAS a handle, so there is a cook page to link to and "A cook" is the right label for
+  // it. Only a byline with no handle at all drops the person, which is the published-dish
+  // case: see the no-handle test below.
   expect(screen.getByText(/A cook/)).toBeInTheDocument();
+});
+
+test("a byline with no handle at all shows the family name alone, with no 'A cook'", async () => {
+  // What a dish published by a professional kitchen looks like: the venue owns the byline and
+  // there is no person behind it. Found in the browser on 2026-10-11 reading "A cook - Walk
+  // Group" under a restaurant group's dish.
+  // getBylines lives in ../lib/api/profile here, not in recipes.
+  const recipes = await import("../lib/api/recipes");
+  const profile = await import("../lib/api/profile");
+  (recipes.listPublicRecipes as any).mockResolvedValueOnce([recipe("r9", "Smoked onion tart")]);
+  (profile.getBylines as any).mockResolvedValueOnce(
+    new Map([["r9", { handle: null, public_name: null, family_name: "Walk Group" }]]),
+  );
+
+  renderPotluck();
+
+  expect(await screen.findByText("Smoked onion tart")).toBeInTheDocument();
+  expect(screen.getByText(/Walk Group/)).toBeInTheDocument();
+  expect(screen.queryByText(/A cook/)).not.toBeInTheDocument();
 });
 
 test("switching to Following when listFollowedCookIds resolves to [] renders the empty note and no recipes", async () => {
