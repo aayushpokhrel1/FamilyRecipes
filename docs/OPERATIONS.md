@@ -168,8 +168,40 @@ problem: only the webhook was. The deploy config itself is intact (`npm run buil
 because **disconnecting the repo in Workers Builds DELETES the build configuration** (see the
 environment gotcha below).
 
-Related, and the reason this is a landmine rather than a one-off: the Worker's own
-`/health/extract` does not cover this, because an outdated Worker is perfectly healthy.
+### The alarm that now catches it
+
+`/health/extract` could never have caught this, because an outdated Worker is perfectly
+healthy. So there is a second health route:
+
+```bash
+curl -s https://recipes.enamelvault.com/health/version
+```
+
+It returns the commit the deployed Worker was BUILT from. `scripts/stamp-version.mjs` writes
+it during `npm run build` from `WORKERS_CI_COMMIT_SHA`, and the `deployed` job in `ci.yml`
+polls this route for up to ten minutes after a push to master and **fails the run** when
+production is still serving a different commit. A webhook that does not fire is now a red CI
+run rather than silence.
+
+Three details that are load-bearing rather than tidy:
+
+- **The route sends `Cache-Control: no-store`, and CI cache-busts anyway.** A cached version
+  string is a lie about what is deployed, and this route exists to be trusted when everything
+  else looks fine.
+- **The stamp lives at `dist/prerender/version.txt`**, so it inherits the two guards that path
+  already has: `route()` refuses `/prerender/` publicly and `robots.txt` disallows it. The
+  Worker still reads it through `env.ASSETS`, because a Request the Worker builds itself never
+  passes through `route()`.
+- **The value is shape-checked against `[0-9a-f]{7,40}` or `dev`.** `not_found_handling` is
+  `single-page-application`, so a MISSING asset returns `index.html` with a 200, not a 404.
+  Without that check a build that failed to stamp would publish the whole SPA shell as its
+  version string. `worker/health.test.ts` holds this, and it was confirmed to go red first.
+
+It stamps `dev` on a developer's machine, which can never match a real commit, so a local
+build cannot be mistaken for a deploy.
+
+**The job runs on push to master only.** A pull request never deploys, so polling for it would
+always fail.
 
 ### The exception to "migration first", and what it cost
 

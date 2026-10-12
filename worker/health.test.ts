@@ -1,5 +1,5 @@
-import { test, expect, vi } from "vitest";
-import { checkExtract, HEALTH_PATH } from "./health";
+import { test, expect, vi, describe, it } from "vitest";
+import { checkExtract, checkVersion, HEALTH_PATH } from "./health";
 
 const URL_BASE = "https://project.supabase.co";
 const ok = (status: number) => new Response(null, { status });
@@ -56,4 +56,45 @@ test("the answer is never cached", async () => {
 
 test("the path is the one the monitor is pointed at", () => {
   expect(HEALTH_PATH).toBe("/health/extract");
+});
+
+describe("checkVersion", () => {
+  const asset = (body: string, ok = true) =>
+    () => Promise.resolve(new Response(body, { status: ok ? 200 : 404 }));
+
+  it("serves the stamped commit", async () => {
+    const r = await checkVersion(asset("9f8c1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f"));
+    expect(await r.text()).toBe("9f8c1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f");
+    expect(r.status).toBe(200);
+  });
+
+  it("accepts a short sha and the local dev stamp", async () => {
+    expect(await (await checkVersion(asset("a1b2c3d"))).text()).toBe("a1b2c3d");
+    expect(await (await checkVersion(asset("dev"))).text()).toBe("dev");
+  });
+
+  it("trims trailing whitespace a writer may leave", async () => {
+    expect(await (await checkVersion(asset("a1b2c3d\n"))).text()).toBe("a1b2c3d");
+  });
+
+  // THE one that matters. not_found_handling is "single-page-application", so a missing asset
+  // comes back as index.html with a 200, not a 404. Without the shape check this route would
+  // publish the whole SPA shell as its version and CI would compare a commit against an HTML
+  // document, which never matches but says nothing about why.
+  it("refuses the SPA shell that a missing asset returns with a 200", async () => {
+    const shell = '<!doctype html><html><head><title>Family Recipes</title></head><body></body></html>';
+    expect(await (await checkVersion(asset(shell))).text()).toBe("unknown");
+  });
+
+  it("is unknown when the asset is absent or the fetch throws", async () => {
+    expect(await (await checkVersion(asset("whatever", false))).text()).toBe("unknown");
+    expect(await (await checkVersion(() => Promise.reject(new Error("boom")))).text()).toBe("unknown");
+  });
+
+  // A cached version string is a lie about what is deployed, and this route exists to be
+  // trusted when everything else looks fine.
+  it("is never cached", async () => {
+    const r = await checkVersion(asset("a1b2c3d"));
+    expect(r.headers.get("Cache-Control")).toBe("no-store");
+  });
 });

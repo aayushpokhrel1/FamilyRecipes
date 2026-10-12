@@ -44,3 +44,43 @@ function health(status: number, body: string): Response {
     headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
   });
 }
+
+// The commit this Worker was BUILT from, stamped into dist/prerender/version.txt by
+// scripts/stamp-version.mjs and served here so a deploy can be VERIFIED rather than assumed.
+//
+// This exists because on 2026-10-12 a push landed on GitHub, passed CI, and never produced a
+// Cloudflare build at all: no failure, no notification, and the previous Worker went on
+// serving 200s for over three hours. An outdated Worker is perfectly healthy, so
+// /health/extract could never have caught it. CI compares this value against the commit it
+// is testing and goes red when they disagree.
+export const VERSION_PATH = "/health/version";
+
+// Anchored, and it is doing real work rather than tidying. `not_found_handling` is
+// "single-page-application", so a MISSING asset does not 404: env.ASSETS hands back
+// index.html with a 200. Without this check a build that forgot to stamp would publish the
+// entire SPA shell as its version string, and the comparison in CI would be against an HTML
+// document rather than a commit.
+const SHA = /^(?:[0-9a-f]{7,40}|dev)$/;
+
+export async function checkVersion(fetchVersion: () => Promise<Response>): Promise<Response> {
+  let sha = "unknown";
+  try {
+    const asset = await fetchVersion();
+    if (asset.ok) {
+      const text = (await asset.text()).trim();
+      if (SHA.test(text)) sha = text;
+    }
+  } catch {
+    // "unknown" is the right answer for every failure: CI compares against a real commit, so
+    // it can never match, which is the alarm rather than a silent pass.
+  }
+  return new Response(sha, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      // NEVER cache this. A cached version string is a lie about what is deployed, and this
+      // route exists precisely to be trusted when everything else looks fine.
+      "Cache-Control": "no-store",
+    },
+  });
+}

@@ -5,7 +5,7 @@
 // Everything not explicitly handled falls through to the assets binding untouched, which is
 // exactly what the assets-only config did before. Keep it that way: a recipe page must never
 // fail to load because a preview could not be built.
-import { checkExtract, HEALTH_PATH } from "./health";
+import { checkExtract, checkVersion, HEALTH_PATH, VERSION_PATH } from "./health";
 import { isKitchenHost, isSharedAsset, kitchenRobots, KITCHEN_ENTRY } from "./kitchen";
 import {
   avatarHandleFromPath,
@@ -679,6 +679,16 @@ async function route(request: Request, env: Env): Promise<Response> {
 
     // First, and deliberately cheap: an outage check has to answer when the rest is unwell.
     if (pathname === HEALTH_PATH) return checkExtract(env.SUPABASE_URL);
+
+    // Which commit this Worker was built from, so CI can prove a push actually deployed.
+    // The file is an asset under /prerender/, which route() refuses as a public path above;
+    // a Request the Worker builds itself never passes through route(), so it stays readable
+    // here while being unreachable by URL, exactly as the document fragments are.
+    if (pathname === VERSION_PATH) {
+      return checkVersion(() =>
+        env.ASSETS.fetch(new Request(new URL("/prerender/version.txt", request.url).toString())),
+      );
+    }
 
     if (pathname === "/sitemap.xml") return serveSitemap(env, new URL(request.url).origin);
 

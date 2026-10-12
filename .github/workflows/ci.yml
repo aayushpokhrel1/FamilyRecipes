@@ -82,3 +82,44 @@ jobs:
           SB_ANON_KEY="$ANON_KEY" \
           SB_SERVICE_KEY="$SERVICE_ROLE_KEY" \
           npm run test:int
+
+  # Proves the push actually DEPLOYED. Nothing else here does: this workflow has no deploy
+  # step, so a green tick above says the code is sound and nothing at all about whether it is
+  # live. Cloudflare Workers Builds deploys on its own, from a webhook.
+  #
+  # On 2026-10-12 that webhook did not fire for one push. No build was created, nothing
+  # failed, nothing notified, and the previous Worker went on answering 200 for over three
+  # hours. /health/extract could not catch it either, because an outdated Worker is perfectly
+  # healthy. This job is the alarm that was missing.
+  #
+  # Push to master only: a pull request never deploys, so polling for it would always fail.
+  deployed:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      # No checkout: this job only needs the SHA and curl, and skipping it keeps the alarm
+      # independent of the repository state it is reporting on.
+      - name: Wait for the deployed Worker to report this commit
+        env:
+          EXPECTED: ${{ github.sha }}
+        run: |
+          # Generous on purpose. A red run here must always mean "look at this", so the
+          # timeout has to clear a slow-but-healthy build rather than race it. The manual
+          # build on 2026-10-12 took 36 seconds; this allows ten minutes.
+          for i in $(seq 1 60); do
+            # Cache-busted, because a CDN copy of the previous deploy reads as a pass. The
+            # route also sends no-store, so this is belt and braces.
+            got=$(curl -fsS "https://recipes.enamelvault.com/health/version?cb=$i$RANDOM" || echo "unreachable")
+            if [ "$got" = "$EXPECTED" ]; then
+              echo "Deployed: $got"
+              exit 0
+            fi
+            echo "attempt $i: deployed=$got expected=$EXPECTED"
+            sleep 10
+          done
+          echo
+          echo "::error::Production is still serving '$got' after 10 minutes, not '$EXPECTED'."
+          echo "The push did not deploy. Cloudflare Workers Builds most likely never fired."
+          echo "See docs/OPERATIONS.md, 'Automatic is not a guarantee', for how to start a"
+          echo "build by hand through the API."
+          exit 1
