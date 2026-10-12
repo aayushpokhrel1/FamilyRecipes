@@ -68,12 +68,28 @@ confirmed to go red before it went green:
 | `src/lib/accessibility.test.ts` | A missing `alt`, an unlabelled form control, a `<div onClick>`, an icon-only button |
 | `src/lib/browserStorage.test.ts` | A cookie, a tracker, or a new storage key appearing, which is the exact moment a consent banner becomes legally mandatory |
 
-Two things have no mechanical guard and need a human:
+Both of those used to have no mechanical guard. They do now:
 
 - **`TERMS_VERSION` in `TermsGate.tsx` must be bumped when `Terms.tsx` wording changes**, or
   nobody is re-asked and the stored acceptance is a lie.
+  `src/components/TermsGate.version.test.ts` fingerprints the page and fails if the wording
+  moved without the version.
 - **`Privacy.tsx` must name every third party the app sends data to.** Adding an outbound call
-  anywhere makes that page part of the change. `docs/OPERATIONS.md` has the current list.
+  anywhere makes that page part of the change. `docs/OPERATIONS.md` has the current list, and
+  `supabase/processors.test.ts` fails the build if a provider the code can reach is unnamed.
+
+**The kitchen app has its own two documents and its own gate**, and the same rules apply to
+them separately: `KITCHEN_TERMS_VERSION` in `src/kitchen/components/KitchenTermsGate.tsx`,
+`KITCHEN_TERMS_UPDATED` in `src/lib/legal.ts`, and
+`src/kitchen/components/KitchenTermsGate.version.test.ts` holding both. The versions are
+deliberately separate: a kitchen clause must not re-prompt every family cook, and the kitchen
+app cannot reach `lib/api/profile.ts` anyway, so its acceptance lives in
+`kitchen.terms_acceptance` (`0046`).
+
+**Both apps have a `pages/Terms.tsx`.** Pass a FULL path to `sourceText` in
+`src/lib/termsFingerprint.ts`: a bare suffix matches both and throws on purpose, because the
+glob sorts the kitchen one first and the family guard would otherwise have begun hashing the
+wrong document, failing once and then passing forever while guarding nothing.
 
 ## Project rules
 
@@ -97,6 +113,12 @@ Two things have no mechanical guard and need a human:
   is readable and writable by anyone holding the anon key, which ships in the JS bundle on
   purpose. `extract_log` is listed there as deliberately unpoliced, because RLS with no policy
   is the strictest setting, not a gap.
+  **A new table in the `kitchen` schema also needs its own `grant`, in its own migration.** A
+  new schema is granted to nobody, and `0039`'s schema-wide grant only covers the tables that
+  existed when it ran, so without one every call fails with `42501` while the policies look
+  perfect and the negative tests pass for the wrong reason: the caller is refused by the
+  missing grant rather than by the policy. `0046` shipped without it for as long as it took
+  `rls.test.ts` to name the table, and that check had to be tightened to catch it at all.
 - **The Worker sends a Content-Security-Policy with `script-src 'self'`, so NO inline
   `<script>` runs.** A blocked inline script does not warn, it silently never executes, which
   is why the theme bootstrap lives in `public/theme-init.js`. `worker/meta.test.ts` pins the
@@ -108,10 +130,15 @@ Two things have no mechanical guard and need a human:
   already rejected in its own comment. **After redrawing it, bump `OG_CARD` in
   `worker/meta.ts` and the `og:image` in `index.html`**, or every platform keeps serving the
   cached old picture.
-- **A route that DOES something belongs behind `TermsGate`, even when it is public.** The four
+- **A route that DOES something belongs behind a terms gate, even when it is public.** The four
   public documents are outside it on purpose, because a notice you can only read after
   consenting is not a notice; `join/:code` is public but gated, because joining a family is an
   action. `src/routes.terms.test.ts` reads `routes.tsx` and fails if an action route escapes.
+  **There are TWO routers and each needs its own guard**: that test read only the family's,
+  and the kitchen app shipped its entire surface ungated with the suite green, because a guard
+  covering one of two apps reports success for the app it cannot see.
+  `src/kitchen/routes.terms.test.tsx` now reads the kitchen's, which is structured as three
+  bands (auth pages, the two documents, then everything inside one `GatedLayout`).
 - **Anything that must survive signing in goes in the URL, never in router state.** Three of
   the four ways into this app leave the page: Google redirects through another origin, and an
   email confirmation link is opened later, often in another tab. `src/lib/nextPath.ts` is the
@@ -124,7 +151,10 @@ Two things have no mechanical guard and need a human:
   `src/lib/api/kitchen/`, on its own host and in its own Postgres schema. The kitchen app may
   import `auth.ts` and `kitchen/*` from `src/lib/api/` and nothing else, and `auth.ts` must
   stay free of family imports; `supabase/kitchen_seal.test.ts` fails on either, and on any
-  migration outside its named bridge inventory that reaches across. **Kitchen code lives under
+  migration outside its named bridge inventory that reaches across. **It follows transitive
+  imports now**, so reusing a shared component that itself imports a family data module fails
+  too, which is exactly what reusing `TermsGate` from the kitchen app would have done while the
+  old direct-only check reported success. **Kitchen code lives under
   `src/` on purpose**: `npm test` runs `vitest run src supabase worker scripts`, so a
   top-level directory would hold tests that never run.
 - **Only use CSS class names `src/index.css` actually defines.** A missing class fails nothing

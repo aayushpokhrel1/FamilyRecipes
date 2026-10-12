@@ -52,7 +52,8 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   roster with suspend, take down, grant moderator and delete. Visible only to a moderator, and
   the page re-checks that rather than relying on the nav hiding the link.
 - **Public documents**, readable without an account: terms, privacy policy, cookies, and help
-  (`/terms`, `/privacy`, `/cookies`, `/help`). There is no cookie banner because the app sets
+  (`/terms`, `/privacy`, `/cookies`, `/help`). The kitchen app has its own `/terms` and
+  `/privacy`, a different product with different parties, and its own acceptance gate. There is no cookie banner because the app sets
   no cookies and loads no analytics, which a test enforces rather than a promise.
 
 ## Stack
@@ -115,9 +116,9 @@ its own Postgres schema, and it is not live: the host needs DNS, a Worker route,
 project's exposed-schema setting and its own redirect allow-list entries first, all of which
 `docs/OPERATIONS.md` sets out.
 
-Next: the kitchen host's own terms and privacy pages, which it does not have, and then
-opening Potluck beyond signed-in users, which moderation and the public documents now
-unblock.
+Next: opening Potluck beyond signed-in users, which moderation and the public documents now
+unblock, and then costs for the kitchen (yield, portion cost, supplier, allergens) in their
+own sidecar table.
 
 Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,
 and a native app. Per-recipe link previews are already built, in the Worker.

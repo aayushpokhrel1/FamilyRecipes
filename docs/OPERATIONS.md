@@ -421,7 +421,7 @@ the queries are reconstructible from the tables listed above.
 
 - **The kitchen schema is invisible until the hosted project exposes it.** `supabase/config.toml`
   lists the exposed schemas for the LOCAL stack only. The hosted project has its own list at
-  **Settings -> API -> Exposed schemas**, and **no migration changes it**. Apply `0039` and later
+  **Settings -> API -> Exposed schemas**, and **no migration changes it**. Apply `0039` to `0046`
   to cloud, then add `kitchen` there BY HAND, or every kitchen call returns "The schema must be
   one of the following" while the whole test suite stays green. Same shape as the redirect allow
   list needing a globstar entry: a setting outside the repo that silently makes correct code
@@ -434,6 +434,16 @@ the queries are reconstructible from the tables listed above.
   the cycle: take `kitchen` out of `config.toml`, `npx supabase start`, `npx supabase db reset`
   (which creates the schema), put `kitchen` back, then stop and start again. **A fresh clone
   meets this on its very first `supabase start`.**
+
+- **The kitchen app records its own terms acceptance, in its own table.** `0046` adds
+  `kitchen.terms_acceptance`, keyed by user rather than by org, because a person accepts once
+  rather than once per employer and a brand-new account has no `kitchen.staff` row while
+  creating a group is already an action. The app's `/terms` and `/privacy` sit outside the gate
+  and inside the shell, so they are readable before accepting; everything else, `/join/:code`
+  included, is inside it. `src/kitchen/routes.terms.test.tsx` fails if an action route escapes.
+  **Bump `KITCHEN_TERMS_VERSION` in `src/kitchen/components/KitchenTermsGate.tsx` when that
+  page's wording changes**, and `KITCHEN_TERMS_UPDATED` in `src/lib/legal.ts` with it, or
+  nobody is re-asked; a fingerprint test fails if you forget.
 
 - **The kitchen host needs three things done by hand, and none of them is in the repo.** A DNS
   record for `kitchen.enamelvault.com` pointing at the Worker, a Worker route for that
