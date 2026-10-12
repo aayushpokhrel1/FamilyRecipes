@@ -425,18 +425,41 @@ the queries are reconstructible from the tables listed above.
 
 - **The kitchen schema is invisible until the hosted project exposes it.** `supabase/config.toml`
   lists the exposed schemas for the LOCAL stack only. The hosted project has its own list at
-  **Settings -> API -> Exposed schemas**, and **no migration changes it**. **The migrations
-  were applied to cloud on 2026-10-12 and the schema is STILL NOT EXPOSED**, which was then
-  measured from outside with the production publishable key rather than assumed:
+  **Settings -> API -> Exposed schemas**, and **no migration changes it**. Migrations reached
+  cloud on 2026-10-12 and the schema was still unexposed afterwards, because applying SQL
+  inside the database cannot change configuration outside it. Aayush exposed it by hand the
+  same day. **Both states were measured from outside with the production publishable key
+  rather than assumed, and the difference is the thing to recognise:**
 
-      HTTP 406  {"code":"PGRST106","message":"Invalid schema: kitchen",
-                 "hint":"Only the following schemas are exposed: public, graphql_public"}
+      before  HTTP 406  PGRST106  Invalid schema: kitchen
+                        Only the following schemas are exposed: public, graphql_public
+      after   HTTP 401  42501     permission denied for table orgs
 
-  So add `kitchen` there BY HAND, or every kitchen call returns that while the whole test suite
-  stays green. Same shape as the redirect allow
+  **The 401 is the correct end state, not a remaining fault.** The first is PostgREST refusing
+  to ROUTE to the schema; the second is Postgres refusing a signed-out caller on GRANTS, which
+  is the design: `anon` holds no table grants in `kitchen`, only `usage` and `execute` on
+  `peek_invite` so an invited stranger can read an invitation.
+
+  **That 401 body suggests `GRANT SELECT ON kitchen.orgs TO anon`. NEVER DO THAT.** The
+  publishable key ships in the JS bundle on purpose, so granting `anon` on a kitchen table
+  makes every group's dishes world readable. PostgREST's hint does not know about this
+  project's threat model. Same shape as the redirect allow
   list needing a globstar entry: a setting outside the repo that silently makes correct code
-  inert. `tests/integration/kitchen_org.test.ts` asserts reachability as its FIRST test, so run
-  it against cloud once the setting changes.
+  inert.
+
+  **Do NOT run the integration suite against cloud to check this**, which an earlier version of
+  this very bullet advised. `tests/integration/helpers.ts` creates users with
+  `auth.admin.createUser`, there are 114 `makeUser` calls across the suite, and the kitchen
+  publish path inserts into `public.families` and `public.recipes`. A cloud run would therefore
+  seed production with over a hundred real accounts and their data, and would corrupt the admin
+  Overview's live-logins figure, which counts real accounts. **Check it with a read-only probe
+  instead**, which writes nothing and distinguishes the two failures above:
+
+      curl -s -o /dev/null -w '%{http_code}
+'         "https://<ref>.supabase.co/rest/v1/orgs?select=id&limit=1"         -H "apikey: <publishable key>" -H "Accept-Profile: kitchen"
+
+  406 means the schema is not exposed. 401 means it is exposed and the grants are doing their
+  job. The publishable key is public by design and can be read out of the deployed bundle.
 - **NEVER run `npx supabase config push` against this project.** It was considered on
   2026-10-12 as a way to add `kitchen` to the exposed schemas, because `supabase/config.toml`
   already declares `schemas = ["public", "graphql_public", "kitchen"]`. **It would have broken
