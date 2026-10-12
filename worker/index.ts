@@ -567,7 +567,18 @@ async function route(request: Request, env: Env): Promise<Response> {
     // this to the app host first and only 404 on the second request, so a crawler would see a
     // redirect to a dead end rather than a refusal, and the kitchen host would serve its own
     // shell for a path that is not a page.
-    if (url.pathname === "/site.html" || url.pathname === KITCHEN_ENTRY) return notFound();
+    // A prerendered fragment is not a page: it has no head, no canonical and no footer, and
+    // an indexed one would be a duplicate of the real document with none of its context.
+    // Refusing the PUBLIC path does not hide the file from env.ASSETS, because a Request the
+    // Worker builds itself never passes through route(); that is the same arrangement that
+    // makes site.html and kitchen.html both unreachable by URL and fetchable internally.
+    if (
+      url.pathname === "/site.html" ||
+      url.pathname === KITCHEN_ENTRY ||
+      url.pathname.startsWith("/prerender/")
+    ) {
+      return notFound();
+    }
 
     // The bare domain is the marketing surface and answers exactly three things itself.
     // Everything else 302s to the app, which is what the edge redirect rule this replaced did

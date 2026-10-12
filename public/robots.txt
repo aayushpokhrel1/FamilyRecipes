@@ -23,4 +23,10 @@ Disallow: /*/cook
 # it is not a page: it still carries the rack placeholder.
 Disallow: /site.html
 
+# The prerendered body fragments the Worker injects into the four public documents. They are
+# refused as public paths by the Worker, which is what actually holds; this is belt and
+# braces. A fragment has no head and no canonical, so an indexed one would be a context-free
+# duplicate of the real page.
+Disallow: /prerender/
+
 Sitemap: https://recipes.enamelvault.com/sitemap.xml
