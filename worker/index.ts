@@ -9,9 +9,11 @@ import { checkExtract, HEALTH_PATH } from "./health";
 import { isKitchenHost, isSharedAsset, kitchenRobots, KITCHEN_ENTRY } from "./kitchen";
 import {
   avatarHandleFromPath,
+  buildCookTags,
   buildRecipeJsonLd,
   buildSitemap,
   buildTags,
+  cookHandleFromPath,
   ogIdFromPath,
   recipeIdFromPath,
   securityHeaders,
@@ -381,6 +383,26 @@ function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean, jsonLd: str
 //
 // It degrades to the untouched asset on any non-200 or non-HTML response, like every other
 // branch in this file: a rewrite is a nicety, serving the app is not.
+// A cook's published row. Nullable throughout: public_cooks (migration 0020) exposes exactly
+// id, handle, public_name, bio and avatar_url, and a cook may claim a handle without
+// publishing either a name or a bio.
+type PublicCookRow = { public_name: string | null; bio: string | null };
+
+// Returns null for "no such public cook" AND for every failure, which the caller treats
+// identically. Confirming that a handle exists is itself information: a 404 here would tell a
+// stranger which handles are taken, and the page already renders its own not-found state.
+async function fetchPublicCook(env: Env, handle: string): Promise<PublicCookRow | null> {
+  try {
+    const url = `${env.SUPABASE_URL}/rest/v1/public_cooks?handle=eq.${handle}&select=public_name,bio&limit=1`;
+    const response = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!response.ok) return null;
+    const rows = (await response.json()) as PublicCookRow[];
+    return rows.length > 0 ? rows[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 async function enrichShell(request: Request, env: Env): Promise<Response> {
   const asset = await env.ASSETS.fetch(request);
   if (asset.status !== 200 || !asset.headers.get("content-type")?.includes("text/html")) {
@@ -388,7 +410,23 @@ async function enrichShell(request: Request, env: Env): Promise<Response> {
   }
 
   const url = new URL(request.url);
-  const tags = shellTags(url.pathname, url.origin);
+  let tags = shellTags(url.pathname, url.origin);
+
+  // A cook's name is in the database, so it cannot live in the PUBLIC_PAGE_COPY table with
+  // the four static documents. Any failure leaves the shell's own wording in place, which is
+  // exactly what this route served before this branch existed.
+  const cookHandle = cookHandleFromPath(url.pathname);
+  if (cookHandle) {
+    const cook = await fetchPublicCook(env, cookHandle);
+    if (cook) {
+      tags = buildCookTags({
+        publicName: cook.public_name,
+        handle: cookHandle,
+        bio: cook.bio,
+        origin: url.origin,
+      });
+    }
+  }
 
   return new HTMLRewriter()
     .on('link[rel="canonical"]', {
