@@ -137,8 +137,12 @@ what a cook SEES, rather than what the frontend may call, inverts that rule.**
 
 `0035_remedies_and_appeals.sql` was the example. It hides a name-cleared cook's public recipes
 from Potluck, and the banner explaining that was a later task, so pushing it alone would have
-made recipes vanish with nothing on screen saying why. Both halves shipped on 2026-10-02 and
-cloud is now at **0038**.
+made recipes vanish with nothing on screen saying why. Both halves shipped on 2026-10-02.
+
+**No current migration number is written here on purpose.** This section used to end "cloud is
+now at 0038", which was true for nine days and then was not, in the very passage that says a
+document can be stale and the remote cannot. Run the command below instead; `HANDOVER.md`
+carries current state.
 
 **The part worth keeping: the handover said 0035 was local-only, and it was wrong.** 0035 had
 been pushed. A bug was found in it and corrected IN PLACE on the strength of that sentence,
@@ -421,9 +425,15 @@ the queries are reconstructible from the tables listed above.
 
 - **The kitchen schema is invisible until the hosted project exposes it.** `supabase/config.toml`
   lists the exposed schemas for the LOCAL stack only. The hosted project has its own list at
-  **Settings -> API -> Exposed schemas**, and **no migration changes it**. Apply `0039` to `0046`
-  to cloud, then add `kitchen` there BY HAND, or every kitchen call returns "The schema must be
-  one of the following" while the whole test suite stays green. Same shape as the redirect allow
+  **Settings -> API -> Exposed schemas**, and **no migration changes it**. **The migrations
+  were applied to cloud on 2026-10-12 and the schema is STILL NOT EXPOSED**, which was then
+  measured from outside with the production publishable key rather than assumed:
+
+      HTTP 406  {"code":"PGRST106","message":"Invalid schema: kitchen",
+                 "hint":"Only the following schemas are exposed: public, graphql_public"}
+
+  So add `kitchen` there BY HAND, or every kitchen call returns that while the whole test suite
+  stays green. Same shape as the redirect allow
   list needing a globstar entry: a setting outside the repo that silently makes correct code
   inert. `tests/integration/kitchen_org.test.ts` asserts reachability as its FIRST test, so run
   it against cloud once the setting changes.
@@ -445,7 +455,9 @@ the queries are reconstructible from the tables listed above.
   page's wording changes**, and `KITCHEN_TERMS_UPDATED` in `src/lib/legal.ts` with it, or
   nobody is re-asked; a fingerprint test fails if you forget.
 
-- **The kitchen host needs three things done by hand, and none of them is in the repo.** A DNS
+- **The kitchen host needs three things done by hand, and none of them is in the repo.** The
+  fourth, applying the migrations, was done on 2026-10-12, so the remaining three are below.
+  A DNS
   record for `kitchen.enamelvault.com` pointing at the Worker, a Worker route for that
   hostname, and **its own globstar entries in the hosted Supabase redirect allow list**
   (`https://kitchen.enamelvault.com/auth/callback**`, plus the dev form

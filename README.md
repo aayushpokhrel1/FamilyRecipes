@@ -112,8 +112,10 @@ meal planning · v1 private multi-family vault.
 **Built but NOT deployed: the professional-kitchen app.** A dish goes development, trial at
 one site, group menu, with every revision kept, one version signed off, and an owner able to
 publish the approved version to Potluck under the venue's name. It runs on its own host and
-its own Postgres schema, and it is not live: the host needs DNS, a Worker route, the hosted
-project's exposed-schema setting and its own redirect allow-list entries first, all of which
+its own Postgres schema, and it is not live. **Its database is**: the schema reached cloud on
+2026-10-12, so what the host still needs is DNS, a Worker route, the hosted project's
+exposed-schema setting (applied migrations are not enough on their own, and this one is
+measured as still missing) and its own redirect allow-list entries, all of which
 `docs/OPERATIONS.md` sets out.
 
 Next: opening Potluck beyond signed-in users, which moderation and the public documents now

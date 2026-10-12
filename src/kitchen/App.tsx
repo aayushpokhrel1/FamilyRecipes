@@ -2,9 +2,14 @@ import { Link, Outlet } from "react-router-dom";
 import { signOut } from "../lib/api/auth";
 import { useAuth } from "../context/AuthContext";
 
-// The frame every signed-in kitchen page renders inside. Deliberately plain: it reuses the
-// family app's tokens through index.css and invents no new ones, because DESIGN.md is the
-// single home for the visual system and a second palette would drift from it.
+// The frame the kitchen pages render inside. NOT only the signed-in ones, which it was until
+// the legal pages arrived: `/terms` and `/privacy` sit inside this layout and outside the
+// terms gate, so a signed-out stranger renders here too, and the "Sign out" button below is
+// conditional for that reason rather than as a nicety.
+//
+// Deliberately plain: it reuses the family app's tokens through index.css and invents no new
+// ones, because DESIGN.md is the single home for the visual system and a second palette would
+// drift from it.
 export default function KitchenApp() {
   const { userId } = useAuth();
   // No `site` wrapper here any more: it lives in main.tsx so that it can also hold the

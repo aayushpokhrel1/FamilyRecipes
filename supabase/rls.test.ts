@@ -8,8 +8,11 @@ import { expect, it } from "vitest";
 // `enable row level security` is therefore not a small oversight: it is readable and writable
 // by anyone holding the anon key, which is published in the JS bundle on purpose.
 //
-// All 22 tables have it today, verified against a live database. Nothing stopped migration 0035
-// from adding a twenty-third without it, and that is the gap this closes. It reads the
+// All 35 tables have it today, 23 in `public` and 12 in `kitchen`, verified against a live
+// database. Nothing stopped a new migration from adding the next one without it, and that is
+// the gap this closes. The count is stated because it going stale is itself a signal: if it
+// disagrees with `grep -c 'create table' supabase/migrations/*.sql`, somebody added tables
+// without reading this file. It reads the
 // migrations rather than a live database on purpose: no Docker needed, so it runs in
 // `npm test` with everything else, and migrations are the only way a table is created here.
 //
