@@ -505,8 +505,26 @@ the queries are reconstructible from the tables listed above.
   page's wording changes**, and `KITCHEN_TERMS_UPDATED` in `src/lib/legal.ts` with it, or
   nobody is re-asked; a fingerprint test fails if you forget.
 
-- **The kitchen host needs three things done by hand, and none of them is in the repo.** The
-  fourth, applying the migrations, was done on 2026-10-12, so the remaining three are below.
+- **The kitchen host is LIVE as of 2026-10-12**: <https://kitchen.enamelvault.com> serves the
+  kitchen app, and all four of the manual steps below are done. Kept in full because they are
+  the runbook for the next host, and because three of the four are settings outside the repo
+  that no test can see.
+
+  **How the custom domain was actually created**, since the dashboard attempt produced nothing
+  and that is worth knowing: a `PUT /accounts/{account_id}/workers/domains` with
+  `{zone_id, hostname, service: "familyrecipes", environment: "production"}`. It provisions the
+  proxied `AAAA -> 100::` record and the certificate itself, so **no DNS record is created by
+  hand** (see the `100117` trap above). Measured timings: DNS answered after about 45 seconds,
+  TLS after about 60 more, and during that gap the host fails to connect rather than returning
+  an error, which reads exactly like a misconfiguration and is not one.
+
+  **Diagnosing "the host is not showing up": ask the API what exists, do not reason about
+  propagation.** `GET /accounts/{id}/workers/domains`, `GET /zones/{id}/dns_records` and
+  `GET /zones/{id}/workers/routes` answer definitively. When this was hit, all three were empty
+  for `kitchen.`, so nothing was propagating and no amount of waiting would have helped. An
+  authoritative `NXDOMAIN` from the zone's own nameservers says the same thing from outside:
+  the record does not exist, as distinct from a resolver not having it yet.
+
   A DNS
   record for `kitchen.enamelvault.com` pointing at the Worker, a Worker route for that
   hostname, and **its own globstar entries in the hosted Supabase redirect allow list**
