@@ -475,6 +475,13 @@ the queries are reconstructible from the tables listed above.
   an outage. `worker/health.ts` probes the function with OPTIONS, which it answers in its own
   first branch above the auth check, so a 204 proves the isolate parsed, booted and ran our
   code.
+
+  **Do NOT add `/health/version` as a third monitor.** It answers 200 whatever it finds,
+  including the literal string `unknown` when the stamp is missing or unreadable, because its
+  job is to be COMPARED against an expected commit rather than to be alive or dead. A monitor
+  pointed at it would be green through exactly the failure it exists to report. The comparison
+  belongs in the `deployed` job in `ci.yml`, which is the only thing that knows which commit
+  to expect.
 - **Ceiling:** `error_log` has no rate limit and `anon` can write. The client caps itself at 20
   per page load, which bounds the honest case, not a hostile one. If it floods, add a limit in a
   trigger or put inserts behind an edge function.

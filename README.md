@@ -67,7 +67,8 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   everything a crawler has to see in the HTML: a self-referencing canonical and its own title
   on every route, per-recipe OpenGraph tags, a cook's own name on `/cooks/:handle`, the four
   public documents' prose rendered at build time and injected into `#root`, proxied preview
-  images and avatars, JSON-LD recipe data, `/sitemap.xml`, and a health route.
+  images and avatars, JSON-LD recipe data, `/sitemap.xml`, and two health routes: one for
+  the extract function, one reporting the commit the Worker was built from.
 
 Designed for portability: **all data access is isolated in `src/lib/api/`**, and nothing outside
 it imports the Supabase client, so moving to a self-owned Node/Express + Postgres backend later
