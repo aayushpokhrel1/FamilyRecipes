@@ -109,7 +109,16 @@ jobs:
           for i in $(seq 1 60); do
             # Cache-busted, because a CDN copy of the previous deploy reads as a pass. The
             # route also sends no-store, so this is belt and braces.
-            got=$(curl -fsS "https://recipes.enamelvault.com/health/version?cb=$i$RANDOM" || echo "unreachable")
+            # Truncated at all because a Worker that PREDATES this route does not 404: the
+            # asset layer's single-page-application fallback serves index.html, so this comes
+            # back as a whole HTML document. That is exactly what the first run of this job
+            # saw. Untruncated it would print the entire page on all 60 attempts.
+            #
+            # Truncated SEPARATELY from the fetch, because in a pipeline `||` binds to the
+            # LAST command: piping curl straight into head would swallow a failed request and
+            # yield an empty string instead of "unreachable".
+            raw=$(curl -fsS "https://recipes.enamelvault.com/health/version?cb=$i$RANDOM" || echo "unreachable")
+            got=$(printf '%s' "$raw" | tr -d '[:space:]' | head -c 48)
             if [ "$got" = "$EXPECTED" ]; then
               echo "Deployed: $got"
               exit 0
