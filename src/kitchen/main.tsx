@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import "../index.css";
 import { AuthProvider } from "../context/AuthContext";
 import KitchenRoutes from "./routes";
+import KitchenFooter from "./components/KitchenFooter";
 
 // AuthProvider is SHARED, and that is deliberate: one login serves both products, and after
 // 2026-10-11 the auth module it uses imports no family module. There is no FamilyProvider
@@ -12,7 +13,14 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <KitchenRoutes />
+        {/* The footer sits OUTSIDE KitchenRoutes on purpose, and the `site` wrapper moved up
+            here from App.tsx to hold it. It carries the terms and privacy links, and those
+            have to be reachable from the signed-out auth pages, which render outside the
+            KitchenApp layout and so would never see a footer placed inside it. */}
+        <div className="site">
+          <KitchenRoutes />
+          <KitchenFooter />
+        </div>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

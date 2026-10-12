@@ -7,8 +7,10 @@ import { useAuth } from "../context/AuthContext";
 // single home for the visual system and a second palette would drift from it.
 export default function KitchenApp() {
   const { userId } = useAuth();
+  // No `site` wrapper here any more: it lives in main.tsx so that it can also hold the
+  // footer, which has to appear on the auth pages this layout never renders.
   return (
-    <div className="site">
+    <>
       {/* `app-header` is the family app's real class, and the classes this file first used
           (`appbar`, `wordmark`, `muted`) do not exist in index.css at all, so the header
           rendered as unstyled text. Found by opening the page, not by a test: nothing fails
@@ -27,6 +29,6 @@ export default function KitchenApp() {
       <main>
         <Outlet />
       </main>
-    </div>
+    </>
   );
 }

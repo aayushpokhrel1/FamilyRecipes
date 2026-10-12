@@ -1,5 +1,5 @@
-import { readdirSync, readdirSync as readDirs, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readdirSync, readdirSync as readDirs, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { expect, it } from "vitest";
 
 // The seal is the entire justification for building the professional kitchen as a second app
@@ -120,5 +120,73 @@ it("keeps the family app out of the kitchen data layer", () => {
     const text = readFileSync(file, "utf8");
     if (/from\s+"[^"]*api\/kitchen\//.test(text)) offenders.push(file);
   }
+  expect(offenders).toEqual([]);
+});
+
+/**
+ * The same seal, followed THROUGH shared modules.
+ *
+ * The test above reads the DIRECT import specifiers of files under src/kitchen, so a file there
+ * may import a shared component innocently while that component imports a family data module
+ * behind it. The specifier under src/kitchen looks clean and the seal is broken.
+ *
+ * This is not hypothetical and it is not obscure: it is the first thing a reasonable person
+ * tries. Reusing the family app's src/components/TermsGate.tsx from the kitchen app would have
+ * done exactly this, because TermsGate imports lib/api/profile, and the check above would have
+ * reported success. The kitchen got its own gate instead, and this test is why that choice
+ * cannot quietly be undone later by somebody deduplicating two similar components.
+ *
+ * An unguarded assumption inside a safety check is a dated assumption. This file already says
+ * that about rls.test.ts skipping non-public schemas, which would have shipped a whole product
+ * with no row level security the day it arrived. The direct-only read was the same mistake one
+ * level up.
+ */
+const resolveImport = (fromFile: string, spec: string): string | null => {
+  if (!spec.startsWith(".")) return null;
+  const base = resolve(dirname(fromFile), spec);
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+};
+
+it("follows transitive imports, so a shared module cannot smuggle a family module in", () => {
+  const offenders: string[] = [];
+  const seen = new Set<string>();
+  // The chain is carried with each file so a failure names the PATH that reached the offending
+  // module, not merely the module. "src/components/Skeleton.tsx imports ../lib/api/profile" is
+  // a puzzle; the chain that got there is a fix.
+  const queue: { file: string; chain: string[] }[] = sourceFiles("src/kitchen").map((file) => ({
+    file: resolve(file),
+    chain: [file],
+  }));
+
+  while (queue.length > 0) {
+    const { file, chain } = queue.shift()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const text = readFileSync(file, "utf8");
+    // A REAL import or export statement, anchored to the start of its line, not any quoted
+    // text that happens to follow the word "from". The looser pattern tripped on its first
+    // run: KitchenTermsGate.version.test.ts asserts that the kitchen gate does NOT import
+    // '../../components/TermsGate', and that assertion's own string was read as an edge, so
+    // the walk marched into the family gate and reported the very violation the assertion
+    // exists to prevent. A guard whose false positive points at the test written to uphold it
+    // is a guard people learn to delete.
+    for (const [, spec] of text.matchAll(/^\s*(?:import|export)[^"';]*?from\s+"([^"]+)"/gm)) {
+      if (spec.includes("lib/api/") && !ALLOWED_FROM_KITCHEN.test(spec)) {
+        offenders.push([...chain, spec].join(" -> "));
+        continue;
+      }
+      const next = resolveImport(file, spec);
+      if (next && /\.tsx?$/.test(next)) {
+        // Windows separators normalised, so a failure message reads the same on either
+        // platform and can be pasted straight into an editor.
+        const shown = relative(process.cwd(), next).split(sep).join("/");
+        queue.push({ file: next, chain: [...chain, shown] });
+      }
+    }
+  }
+
   expect(offenders).toEqual([]);
 });

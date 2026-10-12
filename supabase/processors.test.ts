@@ -169,3 +169,71 @@ it("keeps the typeface off Google's network, which Cookies.tsx promises in publi
     .map(({ path }) => path);
   expect(offenders).toEqual([]);
 });
+
+// THE KITCHEN'S HALF, added when that app got a privacy page of its own.
+//
+// src/kitchen/pages/Privacy.tsx says in public that nothing entered on that host reaches an AI
+// provider. That is true today, verified by the test below rather than by having looked once:
+// src/kitchen and src/lib/api/kitchen contain no fetch, no functions.invoke, no extract-recipe
+// and no errorLog, so their only outbound destination is Supabase.
+//
+// THE SHAPE IS DELIBERATELY NOT "NAME EVERY PROVIDER IN THE REPO". Requiring the kitchen page
+// to name Gemini would make it a lie, because the kitchen app cannot reach Gemini. The check
+// is the other direction: IF kitchen code can reach an endpoint, the kitchen page must name
+// it. The claim being defended is one of ABSENCE, and an absence is exactly the kind of claim
+// that rots silently, since adding a feature does not feel like editing a policy.
+const kitchenPrivacy = read("src/kitchen/pages/Privacy.tsx");
+
+it("names the processors the kitchen app really does use", () => {
+  // Supabase holds the data, Cloudflare serves the page, Google is sign-in only. Each is on
+  // the page because the app actually talks to it.
+  for (const company of ["Supabase", "Cloudflare", "Google"]) {
+    expect(
+      kitchenPrivacy,
+      `the kitchen privacy page no longer names ${company}, which the app still uses`,
+    ).toContain(company);
+  }
+});
+
+it("fails if the kitchen app gains an outbound call its privacy page denies", () => {
+  const kitchenCode = code.filter(
+    ({ path }) => path.startsWith("src/kitchen/") || path.includes("/api/kitchen/"),
+  );
+  expect(
+    kitchenCode.length,
+    "no kitchen sources were found, so this check is guarding nothing",
+  ).toBeGreaterThan(5);
+
+  // COMMENTS ARE STRIPPED FIRST, and that is not cosmetic. This went red on its first run,
+  // naming src/kitchen/pages/Privacy.tsx itself: the page's header comment explains that the
+  // kitchen app contains no fetch, no functions.invoke and no errorLog, so a raw search found
+  // the very sentence that records the absence. The font check lower down this file learned
+  // the same lesson about HTML comments, and a check that punishes the documentation it
+  // depends on is a check somebody eventually silences.
+  const stripComments = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const reaching = kitchenCode
+    .filter(({ text }) =>
+      /\bfetch\s*\(|functions\s*\.\s*invoke|errorLog|extract-recipe/.test(stripComments(text)),
+    )
+    .map(({ path }) => path);
+
+  expect(
+    reaching,
+    "The kitchen app now makes an outbound call, and src/kitchen/pages/Privacy.tsx states " +
+      "under 'No AI reads your dishes' that it makes none beyond Supabase, and that no error " +
+      "reports leave this host. Name the new destination on that page, bump " +
+      "KITCHEN_PRIVACY_UPDATED in src/lib/legal.ts, and then decide whether this expectation " +
+      "still describes the app.",
+  ).toEqual([]);
+});
+
+it("keeps the kitchen page's claim of no AI provider honest in its own words", () => {
+  // The page names the three providers it does NOT use, so that a reader who has heard of the
+  // family app's importer gets a direct answer rather than silence. If an AI feature is ever
+  // added here, this assertion is the one that should be deleted ON PURPOSE, in the same
+  // commit as the wording change, rather than quietly surviving as a false statement.
+  expect(kitchenPrivacy).toMatch(/no AI/i);
+  for (const absent of ["Gemini", "DeepSeek", "Groq"]) {
+    expect(kitchenPrivacy).toContain(absent);
+  }
+});
