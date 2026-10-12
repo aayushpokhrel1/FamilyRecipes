@@ -93,17 +93,29 @@ function unpoliced(migrations: Migration[]): string[] {
  * you, because a missing grant and a missing policy fail in completely different ways.
  */
 function ungranted(migrations: Migration[]): string[] {
-  const all = migrations.map((m) => m.text).join("\n");
-  return scanTables(migrations)
+  const ordered = [...migrations].sort((a, b) => a.file.localeCompare(b.file));
+  return scanTables(ordered)
     .filter(({ table }) => table.includes("."))
-    .filter(({ table }) => {
+    .filter(({ file, table }) => {
       const [schema, name] = table.split(".");
+      // A SCHEMA-WIDE GRANT ONLY COVERS THE TABLES THAT EXIST WHEN IT RUNS, so it may only
+      // vouch for a table created in the SAME migration or an earlier one. Matching it against
+      // every migration at once was a false pass, and 0046 proved it: `grant on all tables in
+      // schema kitchen` in 0039 made this function call kitchen.terms_acceptance granted while
+      // every call to it returned 42501, insufficient privilege. The docstring above claims
+      // this test is the only thing that will tell you, so a false pass here is worse than no
+      // check: the per-table grants in 0041 and 0043 exist for this reason and this function
+      // would have let all four of their tables through without them.
+      const reachable = ordered
+        .filter((m) => m.file.localeCompare(file) >= 0)
+        .map((m) => m.text)
+        .join("\n");
       const wide = new RegExp(
         String.raw`grant[^;]*on\s+all\s+tables\s+in\s+schema\s+${schema}\s+to`,
         "i",
       );
       const narrow = new RegExp(String.raw`grant[^;]*on\s+(?:table\s+)?${schema}\.${name}\s+to`, "i");
-      return !wide.test(all) && !narrow.test(all);
+      return !wide.test(reachable) && !narrow.test(reachable);
     })
     .map((t) => t.table);
 }
