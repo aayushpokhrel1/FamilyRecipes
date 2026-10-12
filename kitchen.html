@@ -14,6 +14,25 @@
          makes to professional kitchens. The Worker sends a matching robots.txt and header,
          because a meta tag alone does nothing for a crawler that never runs the page. -->
     <meta name="robots" content="noindex, nofollow" />
+
+    <!-- A link pasted to a chef is how this app gets shown before it is announced, and an
+         unfurl is not a crawl: WhatsApp and iMessage fetch these tags whatever robots.txt
+         says. The card is the SHARED og.png (already in kitchen.ts's asset allowlist) with
+         kitchen wording over it, rather than a second picture to keep in step. Draw a
+         kitchen-specific card only when this app stops saying it is in development. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Enamel Vault" />
+    <meta property="og:title" content="Enamel Vault for kitchens" />
+    <meta
+      property="og:description"
+      content="One answer to what the current version of a dish is, and who approved it. In development."
+    />
+    <meta property="og:url" content="https://kitchen.enamelvault.com/" />
+    <meta property="og:image" content="https://kitchen.enamelvault.com/og.png?v=2" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The Enamel Vault: recipe plates racked on a deep green pantry wall." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link
       rel="preload"
       href="/fonts/zilla-slab-700-latin.woff2"
