@@ -437,6 +437,33 @@ the queries are reconstructible from the tables listed above.
   list needing a globstar entry: a setting outside the repo that silently makes correct code
   inert. `tests/integration/kitchen_org.test.ts` asserts reachability as its FIRST test, so run
   it against cloud once the setting changes.
+- **NEVER run `npx supabase config push` against this project.** It was considered on
+  2026-10-12 as a way to add `kitchen` to the exposed schemas, because `supabase/config.toml`
+  already declares `schemas = ["public", "graphql_public", "kitchen"]`. **It would have broken
+  production auth.** `config.toml` is the LOCAL dev config, and `config push` writes every
+  property the file declares. `npx supabase config diff` showed what that meant:
+
+  | Property | Remote (correct) | What the push would have set |
+  | --- | --- | --- |
+  | `auth.additional_redirect_urls` | the `recipes.enamelvault.com/**`, `familyrecipes.aayus-pok.workers.dev/**` and `/auth/callback**` entries | `https://127.0.0.1:3000`, `http://localhost:5174/auth/callback**` |
+  | `auth.site_url` | `https://recipes.enamelvault.com` | `http://127.0.0.1:3000` |
+  | `auth.mfa.totp.*` | enabled | disabled |
+  | `auth.email.otp_length` | 8 | 6 |
+  | `auth.email.max_frequency` | `1m0s` | `1s` |
+  | `storage.analytics.enabled` | on | off |
+
+  That first row is the whole invite mechanism and the globstar entry added by hand on
+  2026-10-10, plus the `workers.dev` host that family already hold links to. The second is
+  every auth redirect on production. **`config diff` is safe and is the only one of the pair to
+  run here**; it is also the command that caught this. The exposed-schema setting is a
+  dashboard change (Settings -> API -> Exposed schemas) or a targeted Management API
+  `PATCH /v1/projects/{ref}/postgrest`, never a config push.
+
+  The deeper rule, and the reason this sits next to the exposed-schema note rather than in a
+  footnote: **a local config file and a production project are not two copies of one thing.**
+  Any command that syncs them wholesale will carry the local values that exist precisely
+  because they are not production.
+
 - **Locally the kitchen schema has an order trap** (met 2026-10-11). `npx supabase start`
   restores the database from a backup and only then starts PostgREST, so a `config.toml` that
   exposes `kitchen` before any migration has created it makes PostgREST exit 503 with
