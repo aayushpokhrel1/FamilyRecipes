@@ -744,18 +744,38 @@ actions nobody can do from this repo.
 
 - **`public/robots.txt`** allows crawling, blocks every signed-in and per-user route, and
   points at the sitemap. It is a static asset, so it needs no Worker code.
-- **`/sitemap.xml`** is built by the Worker on request from live data: the five public pages,
-  every public recipe that has not been removed, and every public cook. It is cached for an
-  hour.
-- **Canonical URLs.** `index.html` carries a canonical link and `rewriteTags` rewrites it per
-  recipe, so `/recipes/<id>` cannot compete with itself through a tracking parameter.
+- **`/sitemap.xml`** is built by the Worker on request from live data: the four public
+  documents in `STATIC_SITEMAP_PATHS`, every public recipe that has not been removed, and
+  every public cook. It is cached for an hour.
+- **Canonical URLs, self-referencing on EVERY route.** `enrichShell` rewrites the canonical and
+  `og:url` to the requested path for every shell response, and `rewriteTags` does the same per
+  recipe.
+
+  **This used to be per-recipe only, and that cost the entire site its indexing.** Every route
+  is served the one `index.html`, whose canonical is hardcoded to the site root, so `/terms`,
+  `/privacy`, `/cookies`, `/help` and `/cooks/:handle` each told Google their real address was
+  `/`. Search Console filed five of the seven sitemap URLs under "Alternate page with proper
+  canonical tag" and indexed none of them. The note that used to sit here described the
+  per-recipe rewrite as if it were the whole story, which is exactly how the gap survived.
+
+  The guard is `worker/meta.test.ts`: a route with NO entry in `PUBLIC_PAGE_COPY` must still
+  canonicalise to itself, because that is the branch every new route falls into.
 - **JSON-LD `Recipe` data** is injected into each recipe page, which is what makes Google
   eligible to show a rich result (photo, times, ratings slot) instead of a plain blue link.
 - **Real titles and descriptions in the HTML.** This is the part people get wrong with a SPA:
   a crawler does not run JavaScript reliably, so a page whose title is only set by React is a
   page Google sees as blank. The Worker writes these before the HTML is served, which is why
-  `enrichRecipePage` exists at all and why it must keep degrading to the untouched asset
-  rather than failing.
+  `enrichRecipePage` and `enrichShell` exist at all and why both must keep degrading to the
+  untouched asset rather than failing. `/cooks/:handle` gets its title from a `public_cooks`
+  read; the four documents get theirs from the `PUBLIC_PAGE_COPY` table.
+- **The four public documents' prose is rendered at BUILD time** by `scripts/prerender.mjs`
+  into `dist/prerender/*.html`, and `enrichShell` injects it into `#root`. It is crawler-only
+  output: `src/main.tsx` calls `createRoot().render()`, which discards `#root`'s children, so
+  there is no hydration contract and a stale fragment cannot break the page for a person.
+  **If anyone moves that to `hydrateRoot`, that safety argument is void.**
+
+  The fragments are refused as public paths by the Worker and disallowed in `robots.txt`: a
+  fragment has no head and no canonical, so an indexed one is a context-free duplicate.
 
 ### The manual steps, which nobody in this repo can do for you
 
@@ -801,6 +821,22 @@ being indexed is not the same as ranking. Recipe queries are among the most comp
 web. The realistic goal here is that people who search for this site, or for a recipe they were
 sent a link to, find it, not that it outranks an established recipe publisher.
 
+**Separate the Search Console rows that are DEFECTS from the ones that are Google's judgement,
+because only the first kind is an engineering task.**
+
+| Row | Which kind |
+| --- | --- |
+| Alternate page with proper canonical tag | A defect, and it was ours. Fixed 2026-10-12; see the canonical note above |
+| Page with redirect | Not a defect. `www.enamelvault.com` 302s to the apex, which is intended |
+| Crawled - currently not indexed | Google's judgement, NOT a defect. Nothing in the code causes it |
+
+That last row is the one that tempts you into building something. **Googlebot does render
+JavaScript**, and these pages already serve a correct title, description and JSON-LD, so client
+rendering is usually not the cause: a thin, new, low-authority site is. When this was last
+looked at, the sitemap held seven URLs and one public recipe. Prerendering the four documents
+was done because it was cheap, not because it was diagnosed. **Fix the defect rows, then wait
+and measure, before spending a week on the judgement row.**
+
 ### Checking it after a deploy
 
 ```bash
@@ -809,6 +845,25 @@ curl -s https://recipes.enamelvault.com/robots.txt
 
 ```bash
 curl -s https://recipes.enamelvault.com/sitemap.xml | head -20
+```
+
+A document must carry its own prose, its own title and its own canonical. The cache-buster is
+not optional: without it you can be reading a CDN copy of the previous deploy.
+
+```bash
+curl -s "https://recipes.enamelvault.com/help?cb=$RANDOM" | grep -c "prose plate"
+```
+
+A cook page must carry the cook's name, not "Family Recipes", and the fragments must be
+refused as public paths.
+
+```bash
+curl -s "https://recipes.enamelvault.com/cooks/yusha?cb=$RANDOM" | grep -o "<title>[^<]*"
+```
+
+```bash
+curl -s -o /dev/null -w "%{http_code}
+" "https://recipes.enamelvault.com/prerender/terms.html"
 ```
 
 Rich results can be checked at <https://search.google.com/test/rich-results> against any

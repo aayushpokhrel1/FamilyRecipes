@@ -64,8 +64,10 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   `notify-report` (emails the moderation queue through Resend), and `admin` (the moderator
   console's backend, which needs the service-role key and so cannot live in the browser).
 - Cloudflare Workers serves the built frontend and, because a crawler never runs the SPA,
-  everything a crawler has to see in the HTML: per-recipe OpenGraph tags and canonical URLs,
-  proxied preview images and avatars, JSON-LD recipe data, `/sitemap.xml`, and a health route.
+  everything a crawler has to see in the HTML: a self-referencing canonical and its own title
+  on every route, per-recipe OpenGraph tags, a cook's own name on `/cooks/:handle`, the four
+  public documents' prose rendered at build time and injected into `#root`, proxied preview
+  images and avatars, JSON-LD recipe data, `/sitemap.xml`, and a health route.
 
 Designed for portability: **all data access is isolated in `src/lib/api/`**, and nothing outside
 it imports the Supabase client, so moving to a self-owned Node/Express + Postgres backend later
@@ -109,14 +111,13 @@ and uptime monitoring · verified email and Google sign-in · the cupboard and "
 ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scaling · My Kitchen
 meal planning · v1 private multi-family vault.
 
-**Built but NOT deployed: the professional-kitchen app.** A dish goes development, trial at
+**Deployed but unannounced: the professional-kitchen app.** A dish goes development, trial at
 one site, group menu, with every revision kept, one version signed off, and an owner able to
-publish the approved version to Potluck under the venue's name. It runs on its own host and
-its own Postgres schema, and it is not live. **Its database is**: the schema reached cloud on
-2026-10-12, so what the host still needs is DNS, a Worker route, the hosted project's
-exposed-schema setting (applied migrations are not enough on their own, and this one is
-measured as still missing) and its own redirect allow-list entries, all of which
-`docs/OPERATIONS.md` sets out.
+publish the approved version to Potluck under the venue's name. It runs on its own host,
+`kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. It is
+deliberately `noindex` while its landing copy still says it is in development, enforced by a
+`robots.txt` and an `X-Robots-Tag` header rather than a meta tag alone, since the crawlers
+that matter never run the page.
 
 Next: opening Potluck beyond signed-in users, which moderation and the public documents now
 unblock, and then costs for the kitchen (yield, portion cost, supplier, allergens) in their
