@@ -15,6 +15,7 @@ import {
   buildTags,
   cookHandleFromPath,
   ogIdFromPath,
+  PUBLIC_PAGE_COPY,
   recipeIdFromPath,
   securityHeaders,
   shellTags,
@@ -403,6 +404,22 @@ async function fetchPublicCook(env: Env, handle: string): Promise<PublicCookRow 
   }
 }
 
+// The body fragment for a public document, or null for every failure. A fragment is a
+// nicety for crawlers; the page works without it, so nothing here may turn a missing or
+// broken fragment into a failed request.
+async function fetchFragment(request: Request, env: Env, pathname: string): Promise<string | null> {
+  try {
+    const name = `${pathname.replace(/^\//, "")}.html`;
+    const url = new URL(`/prerender/${name}`, request.url);
+    const response = await env.ASSETS.fetch(new Request(url.toString()));
+    if (!response.ok) return null;
+    const html = await response.text();
+    return html.trim() === "" ? null : html;
+  } catch {
+    return null;
+  }
+}
+
 async function enrichShell(request: Request, env: Env): Promise<Response> {
   const asset = await env.ASSETS.fetch(request);
   if (asset.status !== 200 || !asset.headers.get("content-type")?.includes("text/html")) {
@@ -427,6 +444,18 @@ async function enrichShell(request: Request, env: Env): Promise<Response> {
       });
     }
   }
+
+  // Only the four documents have a fragment, and PUBLIC_PAGE_COPY is already the list of
+  // them: a second list would be a second thing to forget. shellTags has normalised any
+  // trailing slash out of tags.url, so derive the lookup path from it rather than from the
+  // raw pathname.
+  const documentPath = new URL(tags.url).pathname;
+  // Object.hasOwn, not `in`: `"constructor" in PUBLIC_PAGE_COPY` is true, and while every key
+  // here starts with a slash so no prototype key could actually match, a lookup on a
+  // request-derived string should not depend on that for its safety.
+  const fragment = Object.hasOwn(PUBLIC_PAGE_COPY, documentPath)
+    ? await fetchFragment(request, env, documentPath)
+    : null;
 
   return new HTMLRewriter()
     .on('link[rel="canonical"]', {
@@ -457,6 +486,18 @@ async function enrichShell(request: Request, env: Env): Promise<Response> {
     .on('meta[property="og:description"]', {
       element(element) {
         if (tags.description) element.setAttribute("content", tags.description);
+      },
+    })
+    .on("div#root", {
+      element(element) {
+        // html: true because the fragment is markup that react-dom/server produced from our
+        // own components at build time. It is not user input and never passes through here
+        // from a request.
+        //
+        // This HTML is for crawlers only. src/main.tsx calls createRoot().render(), which
+        // DISCARDS the children of #root, so a person sees this for one paint and then sees
+        // the React tree. See src/prerender.tsx.
+        if (fragment) element.setInnerContent(fragment, { html: true });
       },
     })
     .transform(asset);
