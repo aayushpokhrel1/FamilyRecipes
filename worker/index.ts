@@ -15,6 +15,8 @@ import {
   ogIdFromPath,
   recipeIdFromPath,
   securityHeaders,
+  shellTags,
+  STATIC_SITEMAP_PATHS,
   type SitemapEntry,
   type Tags,
 } from "./meta";
@@ -151,8 +153,6 @@ async function fetchCatalogue(env: Env, limit: number): Promise<SiteCard[]> {
 // NOT "/": on this host the root is behind RequireAuth and bounces a signed-out visitor,
 // crawlers included, to /signin. The root worth indexing is https://enamelvault.com/, which
 // is in that host's own sitemap.
-const STATIC_SITEMAP_PATHS = ["/terms", "/privacy", "/cookies", "/help"];
-
 type RecipeSitemapRow = { id: string; updated_at: string | null };
 type CookSitemapRow = { handle: string | null };
 
@@ -374,6 +374,56 @@ function rewriteTags(asset: Response, tags: Tags, hasPhoto: boolean, jsonLd: str
     .transform(asset);
 }
 
+// Every other route gets the shell with a self-referencing canonical, and the four public
+// documents also get their own title and description. Without this the page tells a crawler
+// its address is "/" whatever it was asked for, which de-indexed all four documents and the
+// public cook page; see PUBLIC_PAGE_COPY in meta.ts.
+//
+// It degrades to the untouched asset on any non-200 or non-HTML response, like every other
+// branch in this file: a rewrite is a nicety, serving the app is not.
+async function enrichShell(request: Request, env: Env): Promise<Response> {
+  const asset = await env.ASSETS.fetch(request);
+  if (asset.status !== 200 || !asset.headers.get("content-type")?.includes("text/html")) {
+    return asset;
+  }
+
+  const url = new URL(request.url);
+  const tags = shellTags(url.pathname, url.origin);
+
+  return new HTMLRewriter()
+    .on('link[rel="canonical"]', {
+      element(element) {
+        element.setAttribute("href", tags.url);
+      },
+    })
+    .on('meta[property="og:url"]', {
+      element(element) {
+        element.setAttribute("content", tags.url);
+      },
+    })
+    .on("title", {
+      element(element) {
+        if (tags.title) element.setInnerContent(tags.title);
+      },
+    })
+    .on('meta[property="og:title"]', {
+      element(element) {
+        if (tags.title) element.setAttribute("content", tags.title);
+      },
+    })
+    .on('meta[name="description"]', {
+      element(element) {
+        if (tags.description) element.setAttribute("content", tags.description);
+      },
+    })
+    .on('meta[property="og:description"]', {
+      element(element) {
+        if (tags.description) element.setAttribute("content", tags.description);
+      },
+    })
+    .transform(asset);
+}
+
 async function enrichRecipePage(request: Request, env: Env, id: string): Promise<Response> {
   const asset = await env.ASSETS.fetch(request);
   // Only the SPA shell is worth rewriting; anything else (a 404, a hashed asset) is served
@@ -551,6 +601,6 @@ async function route(request: Request, env: Env): Promise<Response> {
     const id = recipeIdFromPath(pathname);
     if (id) return enrichRecipePage(request, env, id);
 
-    return env.ASSETS.fetch(request);
+    return enrichShell(request, env);
   }
 }

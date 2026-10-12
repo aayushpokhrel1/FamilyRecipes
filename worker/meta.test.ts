@@ -8,6 +8,9 @@ import {
   escapeAttr,
   ogIdFromPath,
   recipeIdFromPath,
+  shellTags,
+  PUBLIC_PAGE_COPY,
+  STATIC_SITEMAP_PATHS,
   type JsonLdInput,
 } from "./meta";
 
@@ -317,5 +320,59 @@ describe("securityHeaders", () => {
     expect(h["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
     expect(h["Strict-Transport-Security"]).toContain("max-age=");
     expect(h["Permissions-Policy"]).toContain("camera=()");
+  });
+});
+
+// Google filed five of the seven sitemap URLs as "Alternate page with proper canonical tag"
+// and indexed none of them, because index.html hardcodes the root as its canonical and every
+// route is served that same file. These are the checks that stop it happening again: both
+// were confirmed to fail before shellTags existed.
+describe("shellTags", () => {
+  it("canonicalises a page to itself, not to the site root", () => {
+    expect(shellTags("/help", "https://recipes.enamelvault.com").url).toBe(
+      "https://recipes.enamelvault.com/help",
+    );
+  });
+
+  it("canonicalises the root to the root", () => {
+    expect(shellTags("/", "https://recipes.enamelvault.com").url).toBe(
+      "https://recipes.enamelvault.com/",
+    );
+  });
+
+  it("treats a trailing slash as the same page", () => {
+    expect(shellTags("/privacy/", "https://x.test").url).toBe("https://x.test/privacy");
+  });
+
+  it("gives a public document its own title and description", () => {
+    const tags = shellTags("/terms", "https://x.test");
+    expect(tags.title).toBe("Terms and acceptable use - The Enamel Vault");
+    expect(tags.description).toContain("terms");
+  });
+
+  // A route with no copy must keep index.html's own wording rather than be handed a blank
+  // title: an undefined here is what makes the rewriter leave the element alone.
+  it("leaves the shell's wording alone for a route it has no copy for", () => {
+    const tags = shellTags("/settings", "https://x.test");
+    // The canonical is still its own, which is the half that matters to a crawler: this
+    // assertion is the one that goes red if the no-copy branch ever falls back to the root.
+    expect(tags.url).toBe("https://x.test/settings");
+    expect(tags.title).toBeUndefined();
+    expect(tags.description).toBeUndefined();
+  });
+
+  it("has copy for every static path the sitemap offers Google", () => {
+    for (const path of STATIC_SITEMAP_PATHS) {
+      expect(PUBLIC_PAGE_COPY[path], `${path} is in the sitemap with no copy`).toBeDefined();
+    }
+  });
+
+  // Google truncates around 160; more than that is wasted, and an empty one is worse than
+  // the homepage's.
+  it("keeps every description a usable length", () => {
+    for (const [path, copy] of Object.entries(PUBLIC_PAGE_COPY)) {
+      expect(copy.description.length, `${path} description`).toBeGreaterThan(50);
+      expect(copy.description.length, `${path} description`).toBeLessThanOrEqual(170);
+    }
   });
 });

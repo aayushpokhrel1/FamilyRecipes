@@ -73,6 +73,60 @@ function describe(story: string | null): string {
   return `${head}...`;
 }
 
+// EVERY route in the family app is served the SAME index.html, whose canonical and og:url
+// are hardcoded to the site root. So a crawler asking for /help was told, by the page itself,
+// that the real address is / - and Google did exactly what it was told, filing five of the
+// seven URLs in the sitemap as "Alternate page with proper canonical tag" and indexing none
+// of them. A self-referencing canonical is the default-correct answer for any shell route,
+// which is why shellTags() answers for every path rather than only the ones listed below.
+//
+// ADD A PUBLIC ROUTE TO THE SITEMAP? Add its copy here too, or it ships with the homepage's
+// title and description on it. worker/meta.test.ts fails if a sitemap path has no entry.
+export const PUBLIC_PAGE_COPY: Record<string, { title: string; description: string }> = {
+  "/terms": {
+    title: "Terms and acceptable use",
+    description:
+      "The terms for using The Enamel Vault: what you may keep here, what we may remove, and what we promise in return.",
+  },
+  "/privacy": {
+    title: "Privacy policy",
+    description:
+      "What The Enamel Vault stores, who it is shared with, every third party it reaches, and how to get a copy or have it deleted.",
+  },
+  "/cookies": {
+    title: "Cookies and local storage",
+    description:
+      "The Enamel Vault sets no cookies and runs no trackers. What it does keep in your browser, and why that needs no consent banner.",
+  },
+  "/help": {
+    title: "Help",
+    description:
+      "How to add a recipe, invite your family, import from a photo or a link, and what to do when something goes wrong.",
+  },
+};
+
+// The public pages the sitemap offers Google, beyond the recipes and cooks read from the
+// database. It lives HERE, next to the copy table, because the test that keeps the two in
+// step can only read both if they are in the same importable module: worker/index.ts has no
+// unit test, since HTMLRewriter and ASSETS have no implementation under Vitest.
+export const STATIC_SITEMAP_PATHS = ["/terms", "/privacy", "/cookies", "/help"];
+
+export type ShellTags = { url: string; title?: string; description?: string };
+
+export function shellTags(pathname: string, origin: string): ShellTags {
+  // Trailing slashes stripped, and the query dropped entirely: /help/ and /help?next=x are
+  // the same page, and a canonical that carries ?next= would invite Google to index a
+  // sign-in redirect as a page in its own right.
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : "/";
+  const copy = PUBLIC_PAGE_COPY[path];
+  if (!copy) return { url: `${origin}${path}` };
+  return {
+    url: `${origin}${path}`,
+    title: `${copy.title}${TITLE_SUFFIX}`,
+    description: copy.description,
+  };
+}
+
 export type SitemapEntry = { loc: string; lastmod?: string | null };
 
 export function buildSitemap(entries: SitemapEntry[]): string {
