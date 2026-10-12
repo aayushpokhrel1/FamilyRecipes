@@ -73,12 +73,38 @@ npm run test:int
 
 ## CI
 
-`.github/workflows/ci.yml`, on pushes to master and on pull requests. Two jobs:
+`.github/workflows/ci.yml`, on pushes to master and on pull requests. Three jobs:
 
 - **build-and-test**: `npm run lint`, `npm run build`, `npm test` on Node 22.
 - **integration**: boots Supabase via `supabase/setup-cli` + `supabase start`, then
   `npm run test:int`. `supabase start` applies every migration on a fresh Postgres, so a
   migration that will not apply cleanly fails here instead of on the cloud.
+- **deployed**: push to master only. Polls `/health/version` until production reports the
+  commit being tested, and fails after ten minutes. See "Automatic is not a guarantee" under
+  Deployment for why this exists.
+
+### A CI failure that is not yours: `supabase start` cannot bind its port
+
+```
+failed to bind host port for 0.0.0.0:54322 ... address already in use
+Error: failed to start containers
+```
+
+Seen once, on 2026-10-12, on a **comment-only** commit. It happens inside `supabase start`,
+so no test has run and the failure says nothing about the code. It passed on a plain re-run of
+the failed job with no change.
+
+**Read the job list before reading your diff.** If `build-and-test` and `deployed` are green
+and only `integration` is red, look at where it died: a container that never started is the
+runner's problem, not yours. Re-run the failed job:
+
+```bash
+gh run rerun <run-id> --failed
+```
+
+If this starts recurring rather than being a one-off, that is the point to fix it properly
+rather than to keep re-running, since a flake everyone re-runs by reflex is how a real failure
+gets waved through.
 
 `npm run lint` is the **only** check covering `supabase/functions/`. `npm run build` typechecks
 the app and deliberately excludes the edge function because it is Deno, and
