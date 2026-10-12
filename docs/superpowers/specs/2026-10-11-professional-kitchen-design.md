@@ -159,13 +159,21 @@ Three properties, recorded so they are not later mistaken for bugs:
   `enforce_publish_rules` fires on the bridge's insert too, so a takedown sticks and a removed
   dish cannot be republished. The snapshot's `author_id` is the person who pressed publish, so
   their suspension blocks it.
-- **Unpublish sets the snapshot to `family` visibility**, which on a family with no members means
-  nobody at all can read it. No new mechanism is needed.
+- **Unpublish sets the snapshot to `family` visibility**, which on a family with no members
+  means nobody at all can read it. The snapshot ROW survives, because it holds the recipe id
+  and re-publishing must reuse the same public URL, so a takedown is recorded as
+  `unpublished_at` on that row (added in `0045`). "Is it public" is therefore that column
+  being null, never the row existing: treating the row as proof shipped a page that still
+  claimed a taken-down dish was published.
 
-The seal is therefore honest but qualified, and the qualification is exactly two things: this
-function, and the `kitchen.published_snapshots` mapping with its foreign key to
-`public.recipes`. **Both live in one migration, so there is one file to read to see every
-crossing.**
+The seal is therefore honest but qualified, and the qualification is the publish functions
+plus the `kitchen.published_snapshots` mapping with its foreign key to `public.recipes`.
+
+**It began as one migration and is now two.** `0045` had to replace `unpublish_dish`, and
+replacing a function means restating its update of `public.recipes`. So the rule is not "one
+file" but **a named inventory**: `supabase/kitchen_seal.test.ts` lists every bridge migration
+and fails for any other file that reaches across. Adding to that list is a deliberate act
+with its reason written in the migration itself.
 
 ## The mechanical defences
 

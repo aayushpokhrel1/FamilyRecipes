@@ -114,6 +114,24 @@ scanned and opened fast, and the recipe reading itself is given room to breathe.
 - Physical depth: a dark rim plus an inner highlight, lifted by one soft shadow.
 - Provenance shown as a stamped maker's mark, not a footnote.
 
+### Three surfaces, one system
+
+This system serves THREE surfaces from one stylesheet: the family app, the static landing
+page on the bare domain, and the professional-kitchen app on its own host. There is no second
+palette and there must not be one.
+
+Two rules follow, and both have been broken already:
+
+- **Only use class names `src/index.css` actually defines.** A missing class throws nothing
+  and fails no test, it simply renders unstyled, which is how the kitchen shell shipped a
+  header using an invented `appbar`/`wordmark`/`muted` and was caught by opening the page.
+- **A page wrapper carries BOTH `prose` and `plate`.** `.plate` owns the rule that recolours
+  headings, so a `.prose` that is not a `.plate` puts bone headings on a bone plate.
+
+The landing page is the one place that holds a second copy of the tokens, because it is
+static HTML with no bundle. `src/index.contrast.test.ts` reads the REAL tokens out of
+`index.css`, so that copy cannot drift silently.
+
 ## Colors
 
 A committed, saturated palette: one deep green field, one bone content surface, one

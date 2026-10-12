@@ -108,7 +108,15 @@ and uptime monitoring · verified email and Google sign-in · the cupboard and "
 ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scaling · My Kitchen
 meal planning · v1 private multi-family vault.
 
-Next: opening Potluck beyond signed-in users, which moderation and the public documents now
+**Built but NOT deployed: the professional-kitchen app.** A dish goes development, trial at
+one site, group menu, with every revision kept, one version signed off, and an owner able to
+publish the approved version to Potluck under the venue's name. It runs on its own host and
+its own Postgres schema, and it is not live: the host needs DNS, a Worker route, the hosted
+project's exposed-schema setting and its own redirect allow-list entries first, all of which
+`docs/OPERATIONS.md` sets out.
+
+Next: the kitchen host's own terms and privacy pages, which it does not have, and then
+opening Potluck beyond signed-in users, which moderation and the public documents now
 unblock.
 
 Later: LLM / entity canonicalization for ingredients, a family-editable ingredient catalog,

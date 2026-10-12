@@ -119,6 +119,17 @@ Two things have no mechanical guard and need a human:
   tidy-up: without it the sign-in page is an open redirector. The hosted Supabase redirect
   allow list needs a GLOBSTAR entry for `/auth/callback**`, or it silently substitutes the
   Site URL and the whole mechanism is inert; `docs/OPERATIONS.md` has the measurement.
+- **This repo holds TWO apps and they share no data.** The family app is `index.html` plus
+  `src/`; the professional-kitchen app is `kitchen.html` plus `src/kitchen/` and
+  `src/lib/api/kitchen/`, on its own host and in its own Postgres schema. The kitchen app may
+  import `auth.ts` and `kitchen/*` from `src/lib/api/` and nothing else, and `auth.ts` must
+  stay free of family imports; `supabase/kitchen_seal.test.ts` fails on either, and on any
+  migration outside its named bridge inventory that reaches across. **Kitchen code lives under
+  `src/` on purpose**: `npm test` runs `vitest run src supabase worker scripts`, so a
+  top-level directory would hold tests that never run.
+- **Only use CSS class names `src/index.css` actually defines.** A missing class fails nothing
+  and renders unstyled, which the kitchen shell shipped once with an invented
+  `appbar`/`wordmark`/`muted`.
 - **Work on `master`** (solo project). Branch only to let CI gate something risky first.
 - **Query the Obsidian vault (`Projects/FamilyRecipes/`) before a big change**, and read
   `docs/OPERATIONS.md` before any deploy. Most vault entries name a bug that recurred *after*
