@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { sources } from "../lib/sourceFiles";
+import { fingerprint, prose, sourceText } from "../lib/termsFingerprint";
 
 // TermsGate stores which version of the terms somebody accepted, and re-asks when it changes.
 // Edit the wording of Terms.tsx WITHOUT bumping TERMS_VERSION and two things happen: nobody is
@@ -16,40 +16,11 @@ import { sources } from "../lib/sourceFiles";
 // failure hands you. That is deliberately slightly annoying: a terms change should cost a
 // moment's thought, because it re-prompts every existing user.
 
-const file = (suffix: string): string => {
-  const found = sources.find(({ path }) => path.endsWith(suffix));
-  // The glob lives in src/lib, so ITS OWN directory is "./" and everything else is "../".
-  // Match on a trailing path fragment rather than a full path for that reason.
-  if (!found) throw new Error(`${suffix} not found in the source glob`);
-  return found.text;
-};
-
-/**
- * Comment lines are stripped before hashing, so that explaining the code does not re-prompt
- * every user in the world. Everything else counts, including JSX structure: a heading moved
- * from one section to another changes what people are agreeing to.
- */
-function prose(text: string): string {
-  return text
-    .split("\n")
-    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
-    .join("\n")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** djb2. Not cryptography: this only has to change when the text changes. */
-function fingerprint(text: string): string {
-  let h = 5381;
-  for (let i = 0; i < text.length; i++) h = (((h << 5) + h) ^ text.charCodeAt(i)) >>> 0;
-  return h.toString(16).padStart(8, "0");
-}
-
 // Bump alongside TERMS_VERSION. The failure message prints the value to paste here.
 const EXPECTED = "e3f1a932";
 
 it("re-prompts every user when the terms wording changes", () => {
-  const actual = fingerprint(prose(file("pages/Terms.tsx")));
+  const actual = fingerprint(prose(sourceText("src/pages/Terms.tsx")));
   expect(
     actual,
     `Terms.tsx changed. Bump TERMS_VERSION in TermsGate.tsx and TERMS_UPDATED in lib/legal.ts, then set EXPECTED in this test to "${actual}".`,
@@ -57,8 +28,8 @@ it("re-prompts every user when the terms wording changes", () => {
 });
 
 it("keeps the three places that record a terms change in step", () => {
-  const version = /TERMS_VERSION = "([^"]+)"/.exec(file("components/TermsGate.tsx"))?.[1];
-  const updated = /TERMS_UPDATED = "([^"]+)"/.exec(file("/legal.ts"))?.[1];
+  const version = /TERMS_VERSION = "([^"]+)"/.exec(sourceText("src/components/TermsGate.tsx"))?.[1];
+  const updated = /TERMS_UPDATED = "([^"]+)"/.exec(sourceText("src/lib/legal.ts"))?.[1];
   expect(version, "TERMS_VERSION must be an ISO date, so it sorts and is comparable").toMatch(
     /^\d{4}-\d{2}-\d{2}$/,
   );
@@ -74,7 +45,9 @@ it("still carries the clauses the app's behaviour depends on", () => {
   // saved copies to exist at all, the allergen line is the one warning that can prevent harm,
   // and the governing-law and liability sections are what stop an unbounded claim. A future
   // tidy-up that shortens this page must not quietly drop one.
-  const terms = file("pages/Terms.tsx");
+  // prose() for the same reason as the kitchen's copy of this test: JSX wraps sentences, and a
+  // clause check that a re-wrap can turn red is a guard people learn to ignore.
+  const terms = prose(sourceText("src/pages/Terms.tsx"));
   const missing = [
     ["a licence to display user content", /permission to store, copy, resize/i],
     ["the saved-copy licence Potluck relies on", /permission to save a copy/i],
@@ -88,4 +61,25 @@ it("still carries the clauses the app's behaviour depends on", () => {
     .filter(([, pattern]) => !(pattern as RegExp).test(terms))
     .map(([name]) => name);
   expect(missing).toEqual([]);
+});
+
+it("refuses to guess when two files could be the terms page", () => {
+  // The repo now holds src/pages/Terms.tsx AND src/kitchen/pages/Terms.tsx. A suffix that
+  // matches both must throw rather than silently fingerprint whichever the glob happens to
+  // sort first, because the quiet failure here is a page that looks guarded and is not.
+  expect(() => sourceText("pages/Terms.tsx")).toThrow(/matches 2 files/);
+  expect(sourceText("src/pages/Terms.tsx")).toContain("Terms and acceptable use");
+  expect(sourceText("src/kitchen/pages/Terms.tsx")).toContain("Terms for kitchens");
+});
+
+it("refuses to guess when two files could be the terms page", () => {
+  // The repo holds src/pages/Terms.tsx AND src/kitchen/pages/Terms.tsx, and the glob sorts the
+  // kitchen one FIRST. So the old sources.find(path.endsWith("pages/Terms.tsx")) would have
+  // begun fingerprinting the kitchen's document the day that page was added: it fails once,
+  // and pasting the printed hash in makes it green again while guarding nothing at all.
+  //
+  // The quiet version of that is the dangerous one, which is why ambiguity throws.
+  expect(() => sourceText("pages/Terms.tsx")).toThrow(/matches 2 files/);
+  expect(sourceText("src/pages/Terms.tsx")).toContain("Terms and acceptable use");
+  expect(sourceText("src/kitchen/pages/Terms.tsx")).toContain("Terms for kitchens");
 });

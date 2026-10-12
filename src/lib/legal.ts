@@ -14,3 +14,13 @@ export const CONTACT_EMAIL = "moderation@enamelvault.com";
 export const PRIVACY_UPDATED = "11 October 2026";
 export const COOKIES_UPDATED = "1 October 2026";
 export const TERMS_UPDATED = "11 October 2026";
+
+// The PROFESSIONAL KITCHEN app's documents, dated separately from the family app's above.
+// Separate on purpose rather than by oversight: they are a different product with different
+// parties, so a kitchen clause must not re-prompt every family cook, and a family clause must
+// not re-prompt a restaurant group. OPERATOR and CONTACT_EMAIL are shared, because those are
+// the same facts: one operator, one mailbox a human actually reads.
+//
+// Bump these alongside KITCHEN_TERMS_VERSION in src/kitchen/components/KitchenTermsGate.tsx.
+export const KITCHEN_TERMS_UPDATED = "11 October 2026";
+export const KITCHEN_PRIVACY_UPDATED = "11 October 2026";
