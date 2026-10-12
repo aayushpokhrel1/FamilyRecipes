@@ -64,3 +64,7 @@ brief.md
 PRODUCT.md
 docs/superpowers/plans/
 review.diff
+
+# Wrangler local secrets. NEVER committed: this is where a real SUPABASE_ANON_KEY or any
+# other binding value lands when you run the Worker locally.
+.dev.vars
