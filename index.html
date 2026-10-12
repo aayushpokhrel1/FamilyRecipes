@@ -9,8 +9,15 @@
       name="description"
       content="Recipes, photos and the stories behind them, kept for the people who cook them."
     />
-    <!-- Static card for shared links. A crawler does not run the SPA, so a per-recipe
-         preview would need the Worker to inject these per URL; see HANDOVER Next actions 6b. -->
+    <!-- THE FALLBACK, not the answer. A crawler does not run the SPA, so the Worker rewrites
+         these per URL before serving: enrichRecipePage for /recipes/:id, enrichShell for every
+         other route. What is written here is only what a route with no copy of its own keeps.
+
+         So the canonical below is the HOMEPAGE's, and it is correct only for the homepage.
+         Every other route must have it rewritten, and when that was true of recipe pages
+         alone, every other route told Google its real address was "/". Search Console filed
+         five of the seven URLs in the sitemap as duplicates and indexed none of them. Add a
+         tag here and you are setting a DEFAULT; decide what rewrites it. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="The Enamel Vault" />
     <meta property="og:title" content="Family Recipes" />
