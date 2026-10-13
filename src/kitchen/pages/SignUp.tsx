@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { signUp } from "../../lib/api/auth";
-import { withNext } from "../../lib/nextPath";
+import { safeNext, withNext } from "../../lib/nextPath";
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
@@ -11,6 +11,13 @@ export default function SignUp() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [params] = useSearchParams();
+  // Validated HERE, where it is read, which is what the family app's sign-up page does and
+  // what src/lib/nextPath.callsites.test.ts now requires of every read. It used to go into
+  // signUp raw, on the grounds that signUp threads it through withNext itself: true, and
+  // still a value that was unvalidated across a function boundary, which is a worse shape to
+  // copy than it is a bug. safeNext does not ENCODE, only withNext does, so this cannot
+  // double-encode the confirmation link, which was the old comment's worry.
+  const next = safeNext(params.get("next"));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,9 +25,7 @@ export default function SignUp() {
     if (!name.trim()) return setError("Give the name your colleagues will see.");
     setBusy(true);
     try {
-      // params.get("next") goes in RAW. signUp threads it through withNext itself, and
-      // encoding it here as well would send a confirmation link to a path containing %252F.
-      await signUp(email, password, name.trim(), params.get("next"));
+      await signUp(email, password, name.trim(), next);
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not work.");
@@ -64,7 +69,7 @@ export default function SignUp() {
         </button>
       </form>
       <p>
-        Already have one? <Link to={withNext("/signin", params.get("next"))}>Sign in</Link>.
+        Already have one? <Link to={withNext("/signin", next)}>Sign in</Link>.
       </p>
     </div>
   );

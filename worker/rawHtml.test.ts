@@ -66,3 +66,26 @@ it("sends only the anon key upstream, so RLS is what decides what the Worker can
   expect(code).not.toMatch(/SERVICE_ROLE/i);
   expect(code).toMatch(/apikey:\s*env\.SUPABASE_ANON_KEY/);
 });
+
+it("builds every redirect from a constant origin, never from anything off the request", () => {
+  // THE WORKER'S Location HEADER IS THE OTHER HALF OF safeNext. The SPA's `?next=` is
+  // validated in src/lib/nextPath.ts and src/lib/nextPath.callsites.test.ts holds every call
+  // site; this file is the only other place in the project that can send somebody somewhere,
+  // and it does it with a real 302 rather than a client-side route change.
+  //
+  // There is exactly one redirect today: the bare marketing host sending a held link on to
+  // the app, as `${APP_ORIGIN}${url.pathname}${url.search}`. That is safe because the scheme
+  // and host are a constant and a parsed `pathname` cannot contain either: `//evil.example`
+  // and `/\evil.example` both arrive as a PATH under APP_ORIGIN rather than as a host.
+  //
+  // What this refuses is the shape that reads as helpful and is an open redirector: a
+  // destination taken from the query, a header, or anything else off the request. Checked by
+  // name because the alternative is a test that cannot run: route() needs env.ASSETS and
+  // HTMLRewriter, neither of which exists under Vitest.
+  const redirects = [...code.matchAll(/Response\.redirect\(\s*([^,]+),/g)].map((m) => m[1]);
+  expect(redirects).toHaveLength(1);
+  for (const target of redirects) {
+    expect(target.trimStart().startsWith("`${APP_ORIGIN}")).toBe(true);
+    expect(target).not.toMatch(/searchParams|request\.headers|referer|\bparams\b/i);
+  }
+});
