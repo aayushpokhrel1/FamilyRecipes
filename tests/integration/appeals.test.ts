@@ -410,3 +410,29 @@ describe("an appeal may only name the appellant's own recipe", () => {
     expect(empty.error).not.toBeNull();
   }, 30000);
 });
+
+// 0055. The resolution columns were insertable by the appellant, exactly as they were on
+// reports. resolved_at is in a partial index (appeals_one_open_per_subject, where resolved_at
+// is null), so a pre-resolved row walks past the one-open rule, and outcome = 'granted' reads
+// back to the cook's own Settings page as a granted appeal while no undo ever happened.
+describe("an appeal is filed open", () => {
+  it("refuses an appeal that arrives already resolved", async () => {
+    const { cook } = await cookWithPublicRecipe("ap-forged");
+    await clearName(cook.id);
+    const base = { cook_id: cook.id, subject_type: "name", body: "I never impersonated anyone." };
+
+    const granted = await cook.client.from("appeals")
+      .insert({ ...base, outcome: "granted", resolved_at: new Date().toISOString() });
+    expect(granted.error?.code).toBe("42501");
+    const noted = await cook.client.from("appeals")
+      .insert({ ...base, moderator_note: "approved by me" });
+    expect(noted.error?.code).toBe("42501");
+
+    // The ordinary appeal still works, and the remedy is still in force.
+    const { error } = await cook.client.from("appeals").insert(base);
+    expect(error).toBeNull();
+    const { data: p } = await admin.from("profiles")
+      .select("name_cleared_at").eq("id", cook.id).single();
+    expect(p!.name_cleared_at).not.toBeNull();
+  }, 30000);
+});
