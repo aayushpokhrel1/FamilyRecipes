@@ -40,8 +40,18 @@ export async function updateRecipe(id: string, patch: Partial<RecipeDraft> & { v
   if (patch.source_url !== undefined) row.source_url = patch.source_url;
 
   if (Object.keys(row).length) {
-    const { error } = await supabase.from("recipes").update(row).eq("id", id);
+    // .select("id"), and the length check, because A REFUSED UPDATE IS NOT AN ERROR. Row-level
+    // security does not raise when it declines a row: the statement matches nothing and
+    // reports success, so the bare .update() below used to return cleanly having written
+    // nothing, and the page said "Saved". recipes_update allows the author or their family's
+    // OWNER, while recipes_read allows every member, so an ordinary member who opens
+    // /recipes/:id/edit by typing the address (the Edit button is hidden from them, the route
+    // is not) edited a relative's recipe, saved, and lost the work silently.
+    const { data, error } = await supabase.from("recipes").update(row).eq("id", id).select("id");
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      throw new Error("This recipe was not saved: only its author or your family's owner can edit it.");
+    }
   }
 
   // Replace ingredients and/or steps atomically (delete + insert in one tx) via

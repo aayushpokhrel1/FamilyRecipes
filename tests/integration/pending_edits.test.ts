@@ -183,3 +183,72 @@ describe("publishing a pending edit", () => {
     expect(still).toHaveLength(1);
   });
 });
+
+// 0058. A REFUSED WRITE IS NOT AN ERROR: row-level security declines a row by matching
+// nothing, and an UPDATE that matches nothing reports success rather than raising.
+// publish_recipe_edit is SECURITY INVOKER, which is right and is why `target_recipe_id` being
+// unconstrained by `drafts_insert` buys an attacker nothing: `recipes_update` still decides.
+//
+// Two things are pinned here. That the refusal HAPPENS, and that it happens before the draft
+// is deleted: everything after the update either writes children or destroys the cook's work,
+// so a refusal that arrived late would read as a successful publish and take the draft with
+// it. `recipes_read` lets every family member read while `recipes_update` allows only the
+// author or the family's owner, and /recipes/:id/edit is an ordinary URL whose Edit button is
+// hidden from a member but whose ROUTE is not guarded, so this is reachable by typing an
+// address rather than by any attack.
+//
+// The body is the file's own `body` constant on purpose. A hand-made one missing `visibility`
+// sets that column to NULL and the update is then refused for an unrelated reason, which
+// would have made this test pass while proving nothing about permission.
+describe("publishing an edit onto a recipe you may not write", () => {
+  it("refuses, and leaves the draft and the recipe exactly where they were", async () => {
+    const { fam, rec } = await cookWithRecipe("pe-foreign");
+    // A MEMBER: may read the recipe, may not write it. That gap is where a silent refusal
+    // would live.
+    const member = await makeUser(`pe-foreign-m-${stamp()}@t.dev`);
+    await admin.from("family_members")
+      .insert({ family_id: fam.id, user_id: member.id, role: "member" });
+    const draft = await editDraft(member, fam, rec, body);
+
+    const { error } = await member.client.rpc("publish_recipe_edit", { p_draft: draft.id });
+    expect(error).not.toBeNull();
+    // 42501 and this wording, not "no such recipe": the member is looking at that recipe, and
+    // the SELECT ... FOR UPDATE that refuses them is a permission check, not a lookup. An
+    // error message is the page talking, and it must not tell them something untrue.
+    expect(error!.code).toBe("42501");
+    expect(error!.message).toMatch(/cannot edit that recipe/);
+
+    // The recipe is untouched...
+    const { data: after } = await admin.from("recipes")
+      .select("title, story").eq("id", rec.id).single();
+    expect(after!.title).toBe(rec.title);
+    expect(after!.story).toBeNull();
+    // ...and THE DRAFT SURVIVED, which is the half that matters to whoever typed it. A
+    // refusal that eats the work would be worse than the silent success it replaces.
+    const { data: stillThere } = await admin.from("recipe_drafts").select("id").eq("id", draft.id);
+    expect(stillThere).toHaveLength(1);
+    // And the children were not touched either: replace_recipe_children runs after the
+    // update, so reaching it at all would mean the refusal came too late.
+    const { data: ings } = await admin.from("recipe_ingredients").select("id").eq("recipe_id", rec.id);
+    expect(ings).toEqual([]);
+  }, 30000);
+
+  // What the DATABASE does on the ordinary edit path, asserted rather than assumed, because
+  // it is the behaviour src/lib/api/recipes.ts now has to notice: no error, no rows. Without
+  // the .select() added there, updateRecipe returned cleanly and RecipeEdit said "Saved".
+  it("answers a member's direct update with success and zero rows, which is the trap", async () => {
+    const { fam, rec } = await cookWithRecipe("pe-direct");
+    const member = await makeUser(`pe-direct-m-${stamp()}@t.dev`);
+    await admin.from("family_members")
+      .insert({ family_id: fam.id, user_id: member.id, role: "member" });
+
+    const { data, error } = await member.client.from("recipes")
+      .update({ title: "Mine now" }).eq("id", rec.id).select("id");
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+
+    const { data: after } = await admin.from("recipes")
+      .select("title").eq("id", rec.id).single();
+    expect(after!.title).toBe(rec.title);
+  }, 30000);
+});

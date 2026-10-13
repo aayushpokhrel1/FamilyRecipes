@@ -148,3 +148,29 @@ test("listPublicRecipes pages the unsearched feed through the RPC, newest first"
   expect(seen.order).toEqual(["created_at", { ascending: false }]);
   expect(seen.range).toEqual([24, 47]);
 });
+
+// A REFUSED UPDATE IS NOT AN ERROR. Row-level security declines a row by matching nothing, so
+// supabase-js resolves with error null and an empty array, and the bare .update() this used to
+// do returned cleanly having written nothing while RecipeEdit said "Saved". recipes_update
+// admits the author or their family's OWNER while recipes_read admits every member, and
+// /recipes/:id/edit is an ordinary URL whose Edit button is hidden from a member but whose
+// route is not, so this was reachable by typing an address.
+//
+// The integration suite proves the database really answers that way
+// ("answers a member's direct update with success and zero rows"); this proves the client
+// notices.
+function updateReturning(rows: any[] | null) {
+  from.mockImplementation(() => ({
+    update: () => ({ eq: () => ({ select: () => ({ data: rows, error: null }) }) }),
+  }));
+}
+
+test("updateRecipe throws when row-level security refused the row rather than reporting success", async () => {
+  updateReturning([]);
+  await expect(updateRecipe("r1", { title: "Mine now" } as any)).rejects.toThrow(/not saved/);
+});
+
+test("updateRecipe resolves when a row really was written", async () => {
+  updateReturning([{ id: "r1" }]);
+  await expect(updateRecipe("r1", { title: "Mine" } as any)).resolves.toBeUndefined();
+});
