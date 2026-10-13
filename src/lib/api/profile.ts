@@ -15,12 +15,12 @@ export async function getMyProfile(): Promise<Profile> {
 
 // Recorded so the gate can stop asking, and versioned so a change to the terms can ask
 // everyone again.
+// Through an RPC, not an update, and the timestamp is the DATABASE's `now()` rather than this
+// machine's clock. 0047 revoked update on these two columns: a cook must not be able to write
+// "I accepted v3" without having been shown v3, or the TERMS_VERSION machinery in
+// TermsGate.tsx is guarding a record its own subject can forge.
 export async function acceptTerms(version: string): Promise<void> {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Not signed in");
-  const { error } = await supabase.from("profiles")
-    .update({ terms_accepted_at: new Date().toISOString(), terms_version: version })
-    .eq("id", data.user.id);
+  const { error } = await supabase.rpc("record_terms_acceptance", { p_version: version });
   if (error) throw new Error(error.message);
 }
 

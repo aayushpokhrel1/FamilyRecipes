@@ -273,3 +273,28 @@ export function securityHeaders(supabase: string): Record<string, string> {
     "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
   };
 }
+
+/**
+ * The type an image proxy is allowed to declare, given whatever storage said.
+ *
+ * THE WORKER SERVES THESE FROM THE APP ORIGIN, which is the entire reason this exists. The
+ * 2026-10-12 audit found both proxies passing storage's `content-type` through untouched,
+ * and neither bucket restricted what could be uploaded, so the Storage REST API accepted an
+ * object with `Content-Type: text/html` and /og/recipe/<id>.jpg served it as a same-origin
+ * HTML document. `script-src 'self'` then permitted that document to load a SECOND uploaded
+ * object, stored as text/javascript, as a script. Self-hosted user content is how a CSP that
+ * forbids inline script ends up running an attacker's script anyway, and `nosniff` does not
+ * help when the declared type is honest.
+ *
+ * An allowlist, not a denylist of the dangerous ones: the set of types worth serving from
+ * this origin is five entries long and the set of ways to get script to run is not.
+ *
+ * image/svg+xml is deliberately absent. An SVG is a document that can carry script, so it is
+ * never safe to serve from the app origin, however it got into the bucket.
+ */
+const SERVABLE_IMAGE = /^image\/(?:jpeg|png|webp|gif|avif)$/;
+
+export function imageContentType(upstream: string | null): string {
+  const type = (upstream ?? "").split(";")[0].trim().toLowerCase();
+  return SERVABLE_IMAGE.test(type) ? type : "image/jpeg";
+}

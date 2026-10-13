@@ -44,7 +44,12 @@ it("mentions public.recipes, public.families or public.profiles in the bridge al
   const offenders = files.filter((f) => {
     if (BRIDGE_FILES.includes(f)) return false;
     const text = code(readFileSync(join(dir, f), "utf8"));
-    const isKitchen = /create\s+(table|function|type|schema)\s+kitchen/i.test(text);
+    // A kitchen migration need not CREATE anything: 0048 only restates a policy on
+    // kitchen.orgs. Judging by creation alone, that file read as a family migration
+    // reaching across the seal, and the real invariant is narrower than that — a
+    // non-bridge file may name one schema, never both.
+    const isKitchen = /(?:create\s+(?:table|function|type|schema)|on|alter\s+table)\s+kitchen[.\s]/i
+      .test(text);
     if (!isKitchen) return false;
     return /public\.(recipes|families|profiles)/i.test(text);
   });
@@ -55,7 +60,12 @@ it("keeps the family migrations ignorant of the kitchen", () => {
   const offenders = files.filter((f) => {
     if (BRIDGE_FILES.includes(f)) return false;
     const text = code(readFileSync(join(dir, f), "utf8"));
-    const isKitchen = /create\s+(table|function|type|schema)\s+kitchen/i.test(text);
+    // A kitchen migration need not CREATE anything: 0048 only restates a policy on
+    // kitchen.orgs. Judging by creation alone, that file read as a family migration
+    // reaching across the seal, and the real invariant is narrower than that — a
+    // non-bridge file may name one schema, never both.
+    const isKitchen = /(?:create\s+(?:table|function|type|schema)|on|alter\s+table)\s+kitchen[.\s]/i
+      .test(text);
     return !isKitchen && /\bkitchen\./i.test(text);
   });
   expect(offenders).toEqual([]);

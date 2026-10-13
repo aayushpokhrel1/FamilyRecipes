@@ -7,15 +7,16 @@ async function myId(): Promise<string> {
   return data.user.id;
 }
 
+// Creating a family and becoming its owner is ONE operation, so it is one RPC. It used to be
+// two inserts from here, which was wrong twice over. It was not atomic: the second insert
+// failing left a family nobody was a member of, and so nobody could see or join. And it
+// required `family_members` to accept a direct insert, which until 0047 meant a policy that
+// checked only `user_id = auth.uid()` and let anyone add themselves to ANY family as owner.
+// Both legitimate paths into that table are definer functions now, and it takes none.
 export async function createFamily(name: string): Promise<Family> {
-  const uid = await myId();
-  const { data: fam, error } = await supabase.from("families")
-    .insert({ name, created_by: uid }).select().single();
+  const { data, error } = await supabase.rpc("create_family", { p_name: name });
   if (error) throw new Error(error.message);
-  const { error: mErr } = await supabase.from("family_members")
-    .insert({ family_id: fam.id, user_id: uid, role: "owner" });
-  if (mErr) throw new Error(mErr.message);
-  return fam as Family;
+  return data as Family;
 }
 
 export async function joinByCode(code: string): Promise<Family> {

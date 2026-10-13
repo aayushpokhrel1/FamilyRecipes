@@ -61,6 +61,76 @@ function parseUrl(raw: string): URL | null {
   }
 }
 
+/**
+ * An IPv4-mapped IPv6 address, written back as the dotted quad it actually is, or null.
+ *
+ * THE URL PARSER DOES NOT HAND BACK WHAT WAS TYPED, and that is the whole reason this
+ * function exists. `new URL("http://[::ffff:169.254.169.254]/").hostname` is
+ * "[::ffff:a9fe:a9fe]": the dotted quad is rewritten into hex. Before the 2026-10-12 audit
+ * the IPv4 branch below tested for dots and never matched this, while the IPv6 branch tested
+ * three literal prefixes (`::1`, `fc`/`fd`, `fe80`) that a mapped address starts with none
+ * of. So `http://[::ffff:169.254.169.254]/latest/meta-data/` went straight through a check
+ * whose own comment said the metadata address was the one that mattered most.
+ *
+ * Both spellings are accepted because both reach the same host, and so is the uncompressed
+ * `0:0:0:0:0:ffff:` form. Anything before the `ffff` group that is not zeros is a real
+ * address that merely contains those four characters, so it is left alone.
+ */
+function mappedToV4(host: string): string | null {
+  const m = /^(.*:)?ffff:([^:]+(?::[^:]+)?)$/i.exec(host);
+  if (!m) return null;
+  const prefix = m[1] ?? "";
+  if (prefix && !/^(?:0{1,4}:|:)+$/.test(prefix)) return null;
+  const tail = m[2];
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(tail)) return tail;
+  const hex = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(tail);
+  if (!hex) return null;
+  const hi = parseInt(hex[1], 16);
+  const lo = parseInt(hex[2], 16);
+  return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+}
+
+/**
+ * Whether a host LITERAL names an address that is not routable on the public internet.
+ *
+ * Exported because it is the same judgement whether the address was typed by the cook or
+ * came back from a DNS lookup, and a second copy of this list would be a second thing to
+ * forget. `fetchCapped` reuses it on resolved addresses.
+ *
+ * A LITERAL is all this can judge. `evil.example` with an A record of 169.254.169.254 passes
+ * every test here, because there is nothing in the string to fail. See `checkResolved`.
+ */
+export function privateLiteral(hostRaw: string): boolean {
+  const host = hostRaw.toLowerCase().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "");
+
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(mappedToV4(host) ?? host);
+  if (v4) {
+    const [a, b, c] = [Number(v4[1]), Number(v4[2]), Number(v4[3])];
+    if (a === 0) return true; // 0.0.0.0/8 "this network", and 0.0.0.0 itself, which is local
+    if (a === 10) return true; // private
+    if (a === 127) return true; // loopback
+    if (a === 169 && b === 254) return true; // link local, and it holds 169.254.169.254
+    if (a === 172 && b >= 16 && b <= 31) return true; // private
+    if (a === 192 && b === 168) return true; // private
+    if (a === 192 && b === 0 && c === 0) return true; // 192.0.0.0/24 IETF protocol assignments
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 carrier-grade NAT
+    if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 benchmarking
+    if (a >= 224) return true; // 224.0.0.0/4 multicast, 240.0.0.0/4 reserved, and broadcast
+    return false;
+  }
+
+  if (host.includes(":")) {
+    // `::` is the unspecified address. Connecting to it reaches the local machine, so it
+    // belongs here next to `::1` and was missing: it starts with none of the three prefixes.
+    if (host === "::" || host === "::1") return true;
+    if (/^(?:0{1,4}:){7}0{0,3}1$/.test(host)) return true; // uncompressed loopback
+    if (host.startsWith("fc") || host.startsWith("fd")) return true; // fc00::/7 unique local
+    if (host.startsWith("fe80")) return true; // fe80::/10 link local
+  }
+
+  return false;
+}
+
 // A HOST check, so it cannot by itself stop a public URL that REDIRECTS to a private one.
 // fetchCapped below closes that by running this same check on every hop it follows.
 export function checkUrl(raw: string): { ok: true; url: URL } | { ok: false; reason: string } {
@@ -103,30 +173,7 @@ export function checkUrl(raw: string): { ok: true; url: URL } | { ok: false; rea
     return { ok: false, reason: "That link is not a public web address." };
   }
 
-  // IPv4 literals in the ranges that are not routable on the public internet. 169.254.0.0/16
-  // is the one that matters most: it contains 169.254.169.254, the cloud metadata address
-  // that hands out credentials to anything that can reach it.
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    if (a === 127) return { ok: false, reason: "That link is not a public web address." }; // 127.0.0.0/8 loopback
-    if (a === 10) return { ok: false, reason: "That link is not a public web address." }; // 10.0.0.0/8 private
-    if (a === 172 && b >= 16 && b <= 31) return { ok: false, reason: "That link is not a public web address." }; // 172.16.0.0/12 private
-    if (a === 192 && b === 168) return { ok: false, reason: "That link is not a public web address." }; // 192.168.0.0/16 private
-    if (a === 169 && b === 254) return { ok: false, reason: "That link is not a public web address." }; // 169.254.0.0/16 link local, includes the metadata address
-    if (a === 0) return { ok: false, reason: "That link is not a public web address." }; // 0.0.0.0/8 "this network"
-  }
-
-  // IPv6 literals. `::1` is loopback, `fc00::/7` (so anything starting fc or fd) is unique
-  // local, and `fe80::/10` (so anything starting fe80) is link local. A prefix test is enough
-  // here: these are the ranges that reach the machine or its own network.
-  if (host.includes(":")) {
-    if (host === "::1") return { ok: false, reason: "That link is not a public web address." };
-    if (host.startsWith("fc") || host.startsWith("fd")) {
-      return { ok: false, reason: "That link is not a public web address." };
-    }
-    if (host.startsWith("fe80")) return { ok: false, reason: "That link is not a public web address." };
-  }
+  if (privateLiteral(host)) return { ok: false, reason: "That link is not a public web address." };
 
   return { ok: true, url };
 }
@@ -141,6 +188,73 @@ export const MAX_FETCH_BYTES = 2_000_000;
 // plus a canonical redirect needs, and every extra hop is another chance to be pointed at a
 // private address, so the budget is deliberately small.
 const MAX_REDIRECTS = 3;
+
+/** Resolves a hostname to address literals. Injected, so the tests never touch DNS. */
+export type Resolver = (host: string) => Promise<string[]>;
+
+/**
+ * The runtime's resolver, or null where there is not one.
+ *
+ * NULL IS NOT A FAILURE AND MUST NOT BECOME ONE. `Deno.resolveDns` needs a net permission
+ * and is not present in every edge runtime, so this degrades to the literal checks rather
+ * than refusing every link. The literal checks are what shipped before, so a runtime without
+ * a resolver is no worse off than it was, and one with a resolver is better.
+ */
+const runtimeResolver: Resolver | null = (() => {
+  const deno = (globalThis as { Deno?: { resolveDns?: unknown } }).Deno;
+  if (!deno || typeof deno.resolveDns !== "function") return null;
+  const resolveDns = deno.resolveDns as (h: string, t: string) => Promise<string[]>;
+  return async (host: string) => {
+    const out: string[] = [];
+    for (const type of ["A", "AAAA"]) {
+      // A host with no AAAA record is normal, not an error worth propagating.
+      try {
+        out.push(...(await resolveDns(host, type)));
+      } catch {
+        // no record of this type
+      }
+    }
+    return out;
+  };
+})();
+
+/**
+ * Reject a host that RESOLVES into private space, as opposed to one that is spelled that way.
+ *
+ * This is the half of the SSRF guard that `checkUrl` structurally cannot do. `checkUrl` reads
+ * a string, and `http://evil.example/` is a string with nothing wrong in it; the A record
+ * pointing at 169.254.169.254 is somewhere else entirely. Before the 2026-10-12 audit that
+ * was the whole bypass, and it needed no cleverness at all: register a domain, point it at
+ * the metadata address.
+ *
+ * IT IS A MITIGATION, NOT A CURE, and the gap has a name. `fetch` resolves the host AGAIN
+ * when it connects, so a DNS server that answers with a public address here and a private one
+ * a moment later (DNS rebinding) still gets through. Closing that means connecting to the
+ * address this function already resolved, which needs a client that accepts a pinned IP
+ * (`Deno.createHttpClient`), and that is not available in every runtime either. The honest
+ * state is: spelled-out addresses are blocked outright, a static private A record is blocked
+ * here, and rebinding is not.
+ */
+async function assertResolvesPublic(url: URL, resolve: Resolver | null): Promise<void> {
+  const host = url.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "");
+  if (privateLiteral(host)) throw new Error("That link is not a public web address.");
+  if (!resolve) return;
+  // An address literal has nothing to look up, and a resolver would reject it as a name.
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(":")) return;
+
+  let addresses: string[] = [];
+  try {
+    addresses = await resolve(host);
+  } catch {
+    // A name that will not resolve is a fetch that will fail on its own, with a better
+    // message than this function could invent. Refusing here would turn every DNS hiccup
+    // into "that link is not a public web address", which is a lie.
+    return;
+  }
+  for (const address of addresses) {
+    if (privateLiteral(address)) throw new Error("That link is not a public web address.");
+  }
+}
 
 // Fetch a URL with the two guards a plain `fetch` does not have: every hop is re-checked, and
 // the body is read with a ceiling.
@@ -157,11 +271,18 @@ const MAX_REDIRECTS = 3;
 //
 // `deps.fetch` is injected exactly as retry.ts injects it, so the tests never touch the
 // network.
-export async function fetchCapped(url: URL, deps: { fetch?: typeof fetch } = {}): Promise<string> {
+export async function fetchCapped(
+  url: URL,
+  deps: { fetch?: typeof fetch; resolve?: Resolver | null } = {},
+): Promise<string> {
   const doFetch = deps.fetch ?? ((u: string | URL, i?: RequestInit) => fetch(u, i));
+  const resolve = deps.resolve !== undefined ? deps.resolve : runtimeResolver;
 
   let current = url;
   for (let hop = 0; ; hop += 1) {
+    // Hop 0 included: the caller ran checkUrl, but that judges the STRING, and a name is
+    // only an address after it is resolved.
+    await assertResolvesPublic(current, resolve);
     const res = await doFetch(current, { redirect: "manual" });
 
     // A redirect is a new URL, so it is a new decision. Resolve a relative Location against

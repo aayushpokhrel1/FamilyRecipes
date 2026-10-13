@@ -31,8 +31,8 @@ describe("pantry_items RLS", () => {
     const other = await mk(`other-${Date.now()}@local.dev`);
     outsider = other.c;
 
-    const { data: fam } = await owner.c.from("families")
-      .insert({ name: "Pantry test", created_by: owner.id }).select("id").single();
+    // 0047: creating a family is one definer RPC, not an insert plus a membership insert.
+    const { data: fam } = await owner.c.rpc("create_family", { p_name: "Pantry test" });
     familyA = fam!.id;
     await admin.from("pantry_items")
       .insert({ family_id: familyA, key: "rice", label: "Rice", kind: "keep", state: "have" });

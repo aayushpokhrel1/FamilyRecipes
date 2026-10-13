@@ -14,6 +14,7 @@ import {
   buildSitemap,
   buildTags,
   cookHandleFromPath,
+  imageContentType,
   ogIdFromPath,
   PUBLIC_PAGE_COPY,
   recipeIdFromPath,
@@ -268,7 +269,9 @@ async function serveOgImage(env: Env, id: string): Promise<Response> {
 
     return new Response(imageResponse.body, {
       headers: {
-        "Content-Type": imageResponse.headers.get("content-type") ?? "image/jpeg",
+        // NOT storage's own type: see imageContentType. These objects are served from the
+        // APP ORIGIN, so an uploader who declared text/html got a same-origin document.
+        "Content-Type": imageContentType(imageResponse.headers.get("content-type")),
         "Cache-Control": "public, max-age=3600",
       },
     });
@@ -305,7 +308,9 @@ async function serveAvatar(env: Env, handle: string): Promise<Response> {
     if (!imageResponse.ok) return notFound();
     return new Response(imageResponse.body, {
       headers: {
-        "Content-Type": imageResponse.headers.get("content-type") ?? "image/jpeg",
+        // NOT storage's own type: see imageContentType. These objects are served from the
+        // APP ORIGIN, so an uploader who declared text/html got a same-origin document.
+        "Content-Type": imageContentType(imageResponse.headers.get("content-type")),
         "Cache-Control": "public, max-age=3600",
       },
     });

@@ -78,14 +78,19 @@ test("a user can join a family by invite code and then read its recipes", async 
   expect(asBob.data).toHaveLength(1);
 });
 
-test("a user can create a family through RLS (insert + select returns the row)", async () => {
-  // Regression: createFamily does insert(...).select(), whose RETURNING makes
-  // Postgres apply the SELECT policy to the new row. Before 0007 the creator was
-  // not yet a member, so the membership-only read policy rejected their own
-  // family and the insert failed. This mirrors the real client call.
+test("a user can create a family, and is its owner when they do", async () => {
+  // Regression, originally for 0007: creating a family has to hand the row back to its
+  // creator, who is not yet a member and so cannot pass the membership-only read policy.
+  // 0047 moved this from insert(...).select() to a definer RPC, for two reasons: the two
+  // inserts were not atomic, and allowing a direct insert into family_members is what let
+  // ANYONE add themselves to ANY family as owner. The RPC does both writes as one.
   const dan = await makeUser(`dan${Date.now()}@t.dev`);
-  const { data, error } = await dan.client.from("families")
-    .insert({ name: "Dan Fam", created_by: dan.id }).select().single();
+  const { data, error } = await dan.client.rpc("create_family", { p_name: "Dan Fam" });
   expect(error).toBeNull();
   expect(data?.name).toBe("Dan Fam");
+
+  // The membership row is the half that used to be the client's job, so assert it landed.
+  const { data: mine } = await dan.client.from("family_members")
+    .select("role").eq("family_id", data!.id).eq("user_id", dan.id).single();
+  expect(mine?.role).toBe("owner");
 });

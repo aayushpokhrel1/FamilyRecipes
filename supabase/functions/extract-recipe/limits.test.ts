@@ -247,3 +247,168 @@ describe("fetchCapped", () => {
     expect(body.length).toBe(MAX_FETCH_BYTES);
   });
 });
+
+// Added after the 2026-10-12 audit. checkUrl's IPv6 handling was three prefix tests
+// (`::1`, `fc`/`fd`, `fe80`) against the hostname as the URL parser hands it over, and the
+// parser does not hand over what was typed. Every case below reached the metadata address
+// or the loopback interface through a check whose own comment said it stopped exactly that.
+describe("checkUrl, IPv4 written as an IPv6 literal", () => {
+  // THE BYPASS THAT MATTERED. `new URL("http://[::ffff:169.254.169.254]/").hostname` is
+  // "[::ffff:a9fe:a9fe]": the parser rewrites the dotted quad into hex, so the IPv4 branch
+  // never matched it and none of the three IPv6 prefixes did either.
+  it("rejects the metadata address wrapped in a mapped IPv6 literal", () => {
+    expect(checkUrl("http://[::ffff:169.254.169.254]/latest/meta-data/").ok).toBe(false);
+    expect(checkUrl("http://[::ffff:a9fe:a9fe]/latest/meta-data/").ok).toBe(false);
+  });
+
+  it("rejects loopback wrapped in a mapped IPv6 literal", () => {
+    expect(checkUrl("http://[::ffff:127.0.0.1]/").ok).toBe(false);
+    expect(checkUrl("http://[::ffff:7f00:1]/").ok).toBe(false);
+  });
+
+  it("rejects a private range wrapped in a mapped IPv6 literal", () => {
+    expect(checkUrl("http://[::ffff:10.0.0.1]/").ok).toBe(false);
+    expect(checkUrl("http://[::ffff:192.168.1.1]/").ok).toBe(false);
+  });
+
+  it("rejects the unspecified address, which connects to the local machine", () => {
+    expect(checkUrl("http://[::]/").ok).toBe(false);
+    expect(checkUrl("http://0.0.0.0/").ok).toBe(false);
+  });
+
+  it("still allows a real public IPv6 host", () => {
+    expect(checkUrl("http://[2606:4700:4700::1111]/").ok).toBe(true);
+  });
+});
+
+describe("checkUrl, the IPv4 ranges that were missing", () => {
+  it("rejects carrier-grade NAT, 100.64.0.0/10", () => {
+    expect(checkUrl("http://100.64.0.1/").ok).toBe(false);
+    expect(checkUrl("http://100.127.255.254/").ok).toBe(false);
+  });
+
+  it("rejects IETF protocol assignments, 192.0.0.0/24", () => {
+    expect(checkUrl("http://192.0.0.1/").ok).toBe(false);
+  });
+
+  it("rejects benchmarking space, 198.18.0.0/15", () => {
+    expect(checkUrl("http://198.18.0.1/").ok).toBe(false);
+    expect(checkUrl("http://198.19.255.254/").ok).toBe(false);
+  });
+
+  it("rejects multicast and reserved space", () => {
+    expect(checkUrl("http://224.0.0.1/").ok).toBe(false);
+    expect(checkUrl("http://255.255.255.255/").ok).toBe(false);
+  });
+
+  it("does not reject the public addresses that neighbour those ranges", () => {
+    // 100.63 and 100.128 sit either side of carrier-grade NAT, 198.17 and 198.20 either side
+    // of benchmarking space, and 192.0.1 is one block past protocol assignments. An
+    // off-by-one in a denylist is a broken feature, not a safe default.
+    expect(checkUrl("http://100.63.255.254/").ok).toBe(true);
+    expect(checkUrl("http://100.128.0.1/").ok).toBe(true);
+    expect(checkUrl("http://198.17.255.254/").ok).toBe(true);
+    expect(checkUrl("http://198.20.0.1/").ok).toBe(true);
+    expect(checkUrl("http://192.0.1.1/").ok).toBe(true);
+    expect(checkUrl("https://example.com/recipes/1").ok).toBe(true);
+  });
+});
+
+// The other half of the SSRF hole, and the easier one to walk through: a hostname with
+// nothing wrong in the string and an A record pointing at the metadata address. checkUrl
+// reads strings, so it cannot see this at all; the resolver is injected here the same way
+// deps.fetch is, so these never touch DNS.
+describe("fetchCapped, hosts that resolve into private space", () => {
+  const resolvesTo = (...addrs: string[]) => async () => addrs;
+
+  it("refuses a public-looking name whose A record is the metadata address", async () => {
+    const { fn, seen } = stubFetch({ "http://evil.example/": () => html("<p>hi</p>") });
+    await expect(
+      fetchCapped(new URL("http://evil.example/"), {
+        fetch: fn,
+        resolve: resolvesTo("169.254.169.254"),
+      }),
+    ).rejects.toThrow("not a public web address");
+    // The point is that it never connected, not merely that it threw afterwards.
+    expect(seen).toEqual([]);
+  });
+
+  it("refuses a name that resolves to loopback", async () => {
+    const { fn } = stubFetch({ "http://evil.example/": () => html("<p>hi</p>") });
+    await expect(
+      fetchCapped(new URL("http://evil.example/"), { fetch: fn, resolve: resolvesTo("127.0.0.1") }),
+    ).rejects.toThrow("not a public web address");
+  });
+
+  it("refuses a name that resolves to private space over IPv6", async () => {
+    const { fn } = stubFetch({ "http://evil.example/": () => html("<p>hi</p>") });
+    await expect(
+      fetchCapped(new URL("http://evil.example/"), { fetch: fn, resolve: resolvesTo("fd00::1") }),
+    ).rejects.toThrow("not a public web address");
+  });
+
+  it("refuses when ONE of several records is private, not only when all are", async () => {
+    // A split answer is the obvious way to smuggle one past a check that looks at the first
+    // record and stops.
+    const { fn } = stubFetch({ "http://evil.example/": () => html("<p>hi</p>") });
+    await expect(
+      fetchCapped(new URL("http://evil.example/"), {
+        fetch: fn,
+        resolve: resolvesTo("93.184.216.34", "169.254.169.254"),
+      }),
+    ).rejects.toThrow("not a public web address");
+  });
+
+  it("re-resolves on a REDIRECT, not only on the first hop", async () => {
+    // The classic bypass: a genuinely public page answers 302 to a host that resolves
+    // somewhere private.
+    const { fn } = stubFetch({
+      "http://good.example/": () =>
+        new Response(null, { status: 302, headers: { location: "http://evil.example/" } }),
+      "http://evil.example/": () => html("<p>secrets</p>"),
+    });
+    const resolve = async (h: string) => (h === "evil.example" ? ["169.254.169.254"] : ["93.184.216.34"]);
+    await expect(
+      fetchCapped(new URL("http://good.example/"), { fetch: fn, resolve }),
+    ).rejects.toThrow("not a public web address");
+  });
+
+  it("allows a name that resolves to a public address", async () => {
+    const { fn } = stubFetch({ "http://good.example/": () => html("<p>a recipe</p>") });
+    await expect(
+      fetchCapped(new URL("http://good.example/"), { fetch: fn, resolve: resolvesTo("93.184.216.34") }),
+    ).resolves.toContain("a recipe");
+  });
+
+  it("still works on a runtime with no resolver, rather than refusing everything", async () => {
+    // `Deno.resolveDns` needs a net permission and is not in every edge runtime. Degrading to
+    // the literal checks leaves that runtime exactly where it was before this guard existed;
+    // failing closed would take the feature away from it entirely.
+    const { fn } = stubFetch({ "http://good.example/": () => html("<p>a recipe</p>") });
+    await expect(
+      fetchCapped(new URL("http://good.example/"), { fetch: fn, resolve: null }),
+    ).resolves.toContain("a recipe");
+  });
+
+  it("blocks a spelled-out private address even with no resolver", async () => {
+    const { fn } = stubFetch({ "http://169.254.169.254/": () => html("<p>secrets</p>") });
+    await expect(
+      fetchCapped(new URL("http://169.254.169.254/"), { fetch: fn, resolve: null }),
+    ).rejects.toThrow("not a public web address");
+  });
+
+  it("does not try to resolve an address literal", async () => {
+    // Passing a literal to a resolver is an error on most runtimes, and the literal checks
+    // have already judged it.
+    let called = false;
+    const { fn } = stubFetch({ "http://93.184.216.34/": () => html("<p>a recipe</p>") });
+    await fetchCapped(new URL("http://93.184.216.34/"), {
+      fetch: fn,
+      resolve: async () => {
+        called = true;
+        return [];
+      },
+    });
+    expect(called).toBe(false);
+  });
+});

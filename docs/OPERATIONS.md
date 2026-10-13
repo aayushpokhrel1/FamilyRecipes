@@ -386,6 +386,37 @@ model call it cannot account for. Deploy the function to a database without 0031
 extraction breaks at once, in every mode. "Migration before frontend" was always the rule
 here; this one makes it mandatory rather than merely wise.
 
+#### The SSRF guard is partly runtime-dependent, and that is a landmine worth knowing
+
+`url` mode fetches an address the cook chose, so `limits.ts` is the only thing between this
+function and the internal network. Since the 2026-10-12 audit it works in two layers, and
+**only one of them is guaranteed to be active**:
+
+- **Literal addresses are always blocked.** `privateLiteral()` covers loopback, the private
+  ranges, link-local (so `169.254.169.254`), carrier-grade NAT, benchmarking space, multicast
+  and the IPv4-mapped IPv6 spellings of all of them. This needs nothing from the runtime and
+  is unit tested. The mapped form is why it exists: the URL parser rewrites
+  `http://[::ffff:169.254.169.254]/` into `::ffff:a9fe:a9fe`, which the old dotted-quad test
+  could not see and the old `::1`/`fc`/`fd`/`fe80` prefix tests did not match.
+- **A hostname whose DNS record points somewhere private is blocked only if the runtime
+  exposes `Deno.resolveDns`.** Where it does not, `runtimeResolver` is null and that layer is
+  skipped, silently and on purpose: failing closed there would break every extraction on a
+  runtime that simply has no resolver. **So verify it after a deploy** rather than assuming
+  it, because `evil.example` with an A record of `169.254.169.254` is the easiest version of
+  this attack and nothing in the string gives it away:
+
+```bash
+# Expect the "not a public web address" refusal, NOT a 503 and NOT a draft.
+curl -s -X POST "$SB_URL/functions/v1/extract-recipe" \
+  -H "Authorization: Bearer $A_REAL_USER_JWT" -H 'Content-Type: application/json' \
+  -d '{"mode":"url","payload":"http://[::ffff:169.254.169.254]/latest/meta-data/"}'
+```
+
+**Neither layer stops DNS rebinding**, where the name resolves public here and private when
+`fetch` resolves it again a moment later. Closing that needs a client that connects to an
+address already resolved (`Deno.createHttpClient`), which is not available everywhere either.
+This is a known, accepted ceiling, not an oversight.
+
 The limits themselves are **10 extractions a minute and 60 a day per cook**, plus payload
 size caps and a host check with a 2MB read cap on `url` mode. All of them are knobs,
 documented where they live: the rate limits in `supabase/migrations/0031_extract_rate_limit.sql`,

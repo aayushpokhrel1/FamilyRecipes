@@ -1,6 +1,11 @@
 import { test, expect, describe, it } from "vitest";
+// ?raw, not node:fs: tsconfig.worker.json has no node types on purpose, because
+// worker code must not be able to reach for fs, and a test in worker/ is covered by
+// that same project. src/lib/sourceFiles.ts says the same thing for src/.
+import workerSource from "./index.ts?raw";
 import {
   avatarHandleFromPath,
+  imageContentType,
   buildCookTags,
   buildRecipeJsonLd,
   buildSitemap,
@@ -468,5 +473,50 @@ describe("buildCookTags", () => {
       origin: "https://x.test",
     });
     expect(tags.description!.length).toBeLessThanOrEqual(164);
+  });
+});
+
+describe("imageContentType", () => {
+  it("keeps the real image types", () => {
+    for (const t of ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]) {
+      expect(imageContentType(t)).toBe(t);
+    }
+  });
+
+  it("refuses the types that make a proxied object executable on this origin", () => {
+    // Each of these, served from the app origin, defeats script-src 'self': the HTML ones
+    // become a document, and the script ones become a loadable same-origin script inside it.
+    for (const t of ["text/html", "text/javascript", "application/javascript",
+                     "application/xhtml+xml", "text/xml"]) {
+      expect(imageContentType(t)).toBe("image/jpeg");
+    }
+  });
+
+  it("refuses SVG, which is a document that can carry script", () => {
+    expect(imageContentType("image/svg+xml")).toBe("image/jpeg");
+  });
+
+  it("falls back when storage says nothing at all", () => {
+    expect(imageContentType(null)).toBe("image/jpeg");
+    expect(imageContentType("")).toBe("image/jpeg");
+  });
+
+  it("reads the type out of a full header, and is not fooled by case or padding", () => {
+    expect(imageContentType("image/PNG; charset=utf-8")).toBe("image/png");
+    expect(imageContentType("  image/webp  ")).toBe("image/webp");
+    // A parameter must not smuggle a second type past the match.
+    expect(imageContentType("text/html; x=image/png")).toBe("image/jpeg");
+  });
+});
+
+describe("the image proxies never hand back storage's own content type", () => {
+  // A source pin, not a behaviour test, because serveOgImage and serveAvatar are not
+  // exported and the bug was one expression inside each. This is the check that would have
+  // caught it: both sites read the upstream header and passed it straight to the client.
+  it("routes every proxied content-type through imageContentType", () => {
+    const raw = workerSource.match(/"Content-Type":\s*\w+\.headers\.get\("content-type"\)/g) ?? [];
+    expect(raw).toEqual([]);
+    // Both proxies still set one, so the pin cannot pass by the handlers disappearing.
+    expect(workerSource.match(/"Content-Type": imageContentType\(/g)?.length).toBe(2);
   });
 });

@@ -119,6 +119,25 @@ wrong document, failing once and then passing forever while guarding nothing.
   perfect and the negative tests pass for the wrong reason: the caller is refused by the
   missing grant rather than by the policy. `0046` shipped without it for as long as it took
   `rls.test.ts` to name the table, and that check had to be tightened to catch it at all.
+  **A static check proves a policy EXISTS, never that it is CORRECT**, and a 2026-10-12 audit
+  found six holes where the policy existed and read perfectly. Two more locks in
+  `rls.test.ts` close the shape all of them shared:
+  - **Write `with check` on every `for update` and `for all` policy, even when it repeats
+    `using` word for word.** Postgres silently reuses `using` as the check when it is omitted,
+    so the policy constrains which rows you may TOUCH and nothing about what you may turn them
+    INTO. `profiles_self_update` was correct in `0002` and became a one-request path to
+    moderator the day `0028` added `is_moderator` to the same table. Nobody reopens a policy
+    when they add a column, so the omission has to be unshippable instead.
+  - **A `SECURITY DEFINER` function taking a `uuid` must tie it to `auth.uid()`**, directly or
+    through a caller-identity helper. It bypasses RLS by definition, so an id parameter it
+    never checks is an oracle whose subject the caller picks. `blocked_between` carried a
+    comment saying it was safe because it never reveals who blocked whom, which held only
+    while the app chose the arguments.
+  **The real proof lives in `tests/integration/`, not here.** Those run as an ordinary user or
+  as anon against a real database, and they are the only thing that can tell a correct policy
+  from a present one. `audit_2026_10_12.test.ts` attempts all six exploits. Set the policy up
+  with `admin` if you must, but never ASSERT through it: the service role bypasses RLS, so an
+  assertion made through it passes however broken the policy is.
 - **The Worker sends a Content-Security-Policy with `script-src 'self'`, so NO inline
   `<script>` runs.** A blocked inline script does not warn, it silently never executes, which
   is why the theme bootstrap lives in `public/theme-init.js`. `worker/meta.test.ts` pins the
