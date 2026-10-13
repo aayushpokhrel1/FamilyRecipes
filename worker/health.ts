@@ -38,11 +38,25 @@ export async function checkExtract(
 }
 
 // no-store because a cached "ok" is a monitor that cannot see an outage.
+//
+// noindex because NOTHING ELSE KEEPS A CRAWLER OUT OF HERE. Both health routes answer 200 to
+// anyone, robots.txt says nothing about /health/, and a crawler is the one visitor that finds
+// a URL nobody linked. Two reasons it matters more than tidiness: a crawl of /health/extract
+// makes Googlebot an unwitting prober, since every hit sends a real request upstream and the
+// answer is deliberately uncacheable; and an indexed /health/version publishes the deployed
+// commit of a PUBLIC repository somewhere we cannot take it back, which tells a reader exactly
+// which fixes are not live yet. The header, not only the robots line: robots.txt asks a
+// crawler not to fetch, X-Robots-Tag tells it not to index what it fetched anyway.
 function health(status: number, body: string): Response {
-  return new Response(body, {
-    status,
-    headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
-  });
+  return new Response(body, { status, headers: healthHeaders("text/plain") });
+}
+
+function healthHeaders(contentType: string): HeadersInit {
+  return {
+    "Content-Type": contentType,
+    "Cache-Control": "no-store",
+    "X-Robots-Tag": "noindex, nofollow",
+  };
 }
 
 // The commit this Worker was BUILT from, stamped into dist/prerender/version.txt by
@@ -74,13 +88,8 @@ export async function checkVersion(fetchVersion: () => Promise<Response>): Promi
     // "unknown" is the right answer for every failure: CI compares against a real commit, so
     // it can never match, which is the alarm rather than a silent pass.
   }
-  return new Response(sha, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      // NEVER cache this. A cached version string is a lie about what is deployed, and this
-      // route exists precisely to be trusted when everything else looks fine.
-      "Cache-Control": "no-store",
-    },
-  });
+  // NEVER cached, and never indexed: a cached version string is a lie about what is deployed,
+  // and this route exists precisely to be trusted when everything else looks fine. See
+  // healthHeaders above for why the crawler half is not merely tidiness.
+  return new Response(sha, { status: 200, headers: healthHeaders("text/plain; charset=utf-8") });
 }

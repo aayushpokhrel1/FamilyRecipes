@@ -98,3 +98,33 @@ describe("checkVersion", () => {
     expect(r.headers.get("Cache-Control")).toBe("no-store");
   });
 });
+
+// NOTHING ELSE KEEPS A CRAWLER OUT OF /health/. Both routes answer 200 to anybody, and a
+// crawler is the one visitor that finds a URL nobody linked. The two consequences are not
+// symmetrical and neither is cosmetic: a crawl of /health/extract makes Googlebot an unwitting
+// prober, because every hit sends a real request upstream and the answer may not be cached;
+// and an indexed /health/version publishes the deployed commit of a PUBLIC repository
+// somewhere we cannot take it back, which names the fixes that are not live yet.
+describe("neither health route is for a crawler", () => {
+  const asset = (body: string) => () => Promise.resolve(new Response(body, { status: 200 }));
+
+  it("tells a crawler not to index the extract check, healthy or not", async () => {
+    const pass = await checkExtract(URL_BASE, vi.fn().mockResolvedValue(ok(204)) as unknown as typeof fetch);
+    expect(pass.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    // The FAILING answer matters as much: a 503 body naming the upstream status is the one a
+    // search result would quote back at a visitor.
+    const fail = await checkExtract(URL_BASE, vi.fn().mockResolvedValue(ok(503)) as unknown as typeof fetch);
+    expect(fail.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
+  it("tells a crawler not to index the deployed commit", async () => {
+    const r = await checkVersion(asset("a1b2c3d"));
+    expect(r.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
+  it("keeps the no-store that the monitor depends on, in the same place", async () => {
+    // The header helper is shared by all three answers now, so this is the regression that
+    // would come from refactoring it: one place to get wrong rather than three.
+    expect((await checkVersion(asset("a1b2c3d"))).headers.get("Cache-Control")).toBe("no-store");
+  });
+});

@@ -29,4 +29,11 @@ Disallow: /site.html
 # duplicate of the real page.
 Disallow: /prerender/
 
+# The two health routes. Neither is a page: one answers a monitor and the other names the
+# commit this Worker was built from. A crawl of /health/extract would send a real request
+# upstream on every hit, and an indexed /health/version would publish the deployed commit of a
+# public repository where we cannot take it back. The Worker also sends X-Robots-Tag on both,
+# which is what actually holds; this is the half that stops the fetch.
+Disallow: /health/
+
 Sitemap: https://recipes.enamelvault.com/sitemap.xml
