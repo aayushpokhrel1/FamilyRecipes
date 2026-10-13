@@ -19,6 +19,12 @@ export default function KitchenFooter() {
   return (
     <footer className="site-footer">
       <nav aria-label="Site information">
+        {/* The way OFF this host, and the reason it is here rather than only on the dashboard:
+            the auth pages render outside the app shell, so they have no header, and `/` bounces
+            a signed-out visitor straight back to sign-in. Without this the two documents were
+            the only places a stranger could go. A plain anchor, because enamelvault.com is a
+            different origin that the router cannot reach even though the same Worker serves it. */}
+        <a href="https://enamelvault.com">What this is</a>
         <Link to="/terms">Terms</Link>
         <Link to="/privacy">Privacy</Link>
         <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>

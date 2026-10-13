@@ -31,3 +31,16 @@ it("publishes the contact address legal.ts holds, not one of its own", () => {
     `mailto:${CONTACT_EMAIL}`,
   );
 });
+
+it("offers a way off this host, because the auth pages are a dead end otherwise", () => {
+  // A signed-out stranger on kitchen.enamelvault.com can reach the two documents and nothing
+  // else: `/` bounces them to sign-in, and the sign-in page renders outside the app shell so
+  // it has no header either. Raised by Aayush on 2026-10-12 while walking the host: "there is
+  // no way to go to the landing page from the sign in page too".
+  //
+  // A plain anchor, not a router Link: enamelvault.com is a different origin served by the
+  // same Worker, so routing cannot reach it.
+  renderFooter();
+  const out = screen.getByRole("link", { name: /what this is/i });
+  expect(out).toHaveAttribute("href", "https://enamelvault.com");
+});
