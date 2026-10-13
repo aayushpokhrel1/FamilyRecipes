@@ -1,0 +1,81 @@
+-- 0056: anon could UPDATE and DELETE other people's profiles, through a view, over HTTP.
+--
+-- CRITICAL, and reachable by anyone on the internet with the publishable key that ships in
+-- the JS bundle on purpose. Measured against a real database and then over PostgREST before
+-- this was written:
+--
+--   PATCH /rest/v1/public_cooks?handle=eq.victimtest  {"public_name":"VIA REST"}  -> 200
+--   DELETE /rest/v1/public_cooks?handle=eq.victimtest                             -> 204
+--
+-- Three separate facts had to line up, and each one looked right on its own.
+--
+-- 1. **A VIEW HAS NO ROW-LEVEL SECURITY.** RLS belongs to a table. `public_cooks` (0020)
+--    selects from `profiles`, which is protected by `profiles_self_read`, and the view exists
+--    precisely to get PAST that policy so a stranger can read a published cook's name. That
+--    is correct for SELECT and it is the whole point of the view.
+-- 2. **A view that is not `security_invoker` acts as its OWNER.** These were created before
+--    that option existed in this project, so Postgres checks the underlying table's
+--    permissions, and applies its policies, as `postgres`. A table's owner is exempt from its
+--    own RLS unless the table is set to FORCE ROW LEVEL SECURITY. So every statement through
+--    the view, not only the SELECT, ran with RLS switched off.
+-- 3. **`public_cooks` is auto-updatable.** One table, no aggregate, no DISTINCT, no join: so
+--    Postgres accepts INSERT, UPDATE and DELETE through it and rewrites them onto `profiles`.
+--
+-- 0020 wrote `grant select on public_cooks to anon, authenticated` and nothing else, which
+-- reads as the whole story and is not. **Supabase's `alter default privileges` for role
+-- postgres in schema public grants ALL on new TABLES to anon, authenticated and
+-- service_role**, and a view is a table for that purpose, so the live ACL was
+-- `anon=arwdDxtm`: insert, update, delete and truncate as well as select. The explicit grant
+-- was redundant; the implicit one was the hole. **A privilege nobody granted is still a
+-- privilege**, and `grep grant` over the migrations can never find it.
+--
+-- What that bought an attacker with no account at all, on any cook with a handle: steal or
+-- destroy their handle (which every `/cooks/<handle>` link in the world resolves through, and
+-- which clearing IS unpublishing), rewrite `public_name` to impersonate anyone, deface `bio`,
+-- and swap `avatar_url` for any URL. There is no privilege escalation: the view exposes five
+-- columns and `is_moderator` is not among them, which is luck rather than design.
+--
+-- DELETE is narrower than it looks and still real. Six foreign keys into `profiles` are NO
+-- ACTION (`recipes.author_id`, `comments.author_id`, `cook_log.cooked_by`,
+-- `families.created_by`, `meal_plans.owner_id`, `reports.reporter_id`), so a cook who has
+-- written anything is refused. A cook who set a handle and nothing else is deleted outright,
+-- and that cascades their memberships, follows, blocks, appeals and drafts.
+--
+-- THE FIX IS THE REVOKE, NOT `security_invoker`. Turning that on would make the view answer
+-- under the caller's own policies, and `profiles_self_read` hides every other cook's row, so
+-- `public_cooks` would return nothing to the strangers it exists for. The view must stay a
+-- definer-semantics read. What must go is every way to WRITE through it.
+revoke insert, update, delete, truncate on public_cooks from anon, authenticated, public;
+revoke insert, update, delete, truncate on public_recipe_bylines from anon, authenticated, public;
+
+-- `public_recipe_bylines` joins three tables, so Postgres refuses to write through it today
+-- and the grant was inert. It is revoked anyway: the grant was the loaded half, and the day
+-- somebody simplifies that view, or adds an INSTEAD OF trigger, the privilege is already
+-- sitting there. A dormant privilege is not a safe one.
+--
+-- service_role keeps its writes. It is the server key, it bypasses RLS by design, and it is
+-- never in a browser.
+--
+-- Nothing else in `public` or `kitchen` is a view, which was checked rather than assumed:
+--   select relname from pg_class where relkind in ('v','m','f','p')
+--   and relnamespace in ('public'::regnamespace, 'kitchen'::regnamespace);
+--
+-- TWO GUARDS, because the static one and the live one fail for different reasons:
+--   - `supabase/rls.test.ts` fails a migration that creates a view without revoking the write
+--     privileges on it. That catches the NEXT view at authoring time, which is where this hole
+--     was born, and it is the only guard that can run with no database.
+--   - `tests/integration/public_cooks_write.test.ts` RUNS THE EXPLOIT as anon against a real
+--     database, through PostgREST, exactly as it was found. A static check could never have
+--     found this one, because the dangerous privilege is not in any migration.
+--
+-- What neither guard does, stated plainly rather than left to be assumed: sweep every
+-- relation for privileges no migration granted. That needs catalog access, and these tests
+-- reach the database through PostgREST, which does not expose `information_schema`. The query
+-- is in the comment above and is worth running by hand after any change to a view:
+--   select c.relname, g.grantee, g.privilege_type
+--   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+--   join information_schema.role_table_grants g
+--     on g.table_schema = n.nspname and g.table_name = c.relname
+--   where c.relkind in ('v','m','f','p') and n.nspname in ('public','kitchen')
+--     and g.grantee in ('anon','authenticated')
+--     and g.privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE');

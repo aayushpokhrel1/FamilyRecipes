@@ -523,3 +523,85 @@ it("compares no nullable role helper with a NULL-propagating operator", () => {
 it("revokes execute on kitchen functions from public rather than relying on the default", () => {
   expect(kitchenExecuteNotRevoked(sql)).toBe(false);
 });
+
+/**
+ * Every view this project creates must have its WRITE privileges revoked.
+ *
+ * A VIEW HAS NO ROW-LEVEL SECURITY: RLS belongs to a table. `public_cooks` (0020) reads
+ * `profiles`, and it exists precisely to get past `profiles_self_read` so a stranger can read
+ * a published cook's name. Because it is not `security_invoker`, every statement through it
+ * runs as the view's OWNER, and a table's owner is exempt from its own policies. Because it
+ * selects from a single table, Postgres makes it auto-updatable. So the view was a hole in
+ * RLS that pointed both ways, and an UPDATE or DELETE through it rewrote `profiles` with the
+ * policies switched off.
+ *
+ * 0020 wrote `grant select ... to anon, authenticated` and nothing else, which reads as the
+ * whole story and is not. **Supabase's `alter default privileges` for role postgres in schema
+ * public grants ALL on new tables to anon, authenticated and service_role, and a view counts
+ * as a table for that purpose.** The live ACL was `anon=arwdDxtm`. Measured over PostgREST
+ * with the publishable key: PATCH on another cook's row returned 200, DELETE returned 204.
+ *
+ * So the dangerous privilege is in NO migration, and this check cannot look for it. What it
+ * can do is demand the revoke that cancels it, which is the one line the author of the next
+ * view would otherwise leave out for exactly the reason 0020 did: nothing granted it, so
+ * nothing looks like it needs taking away. The live half of the guard is
+ * `tests/integration/public_cooks_write.test.ts`, which runs the exploit as anon.
+ *
+ * `public` is accepted as a revoke target alongside the two roles, since revoking from PUBLIC
+ * covers every role at once.
+ */
+function viewsWithWritesNotRevoked(migrations: Migration[]): string[] {
+  const text = migrations.map((m) => m.text).join("\n");
+  const found: string[] = [];
+  for (const { file, text: own } of migrations) {
+    const create = /create\s+(?:or\s+replace\s+)?view\s+([a-z0-9_.]+)/gi;
+    for (const [, name] of own.matchAll(create)) {
+      if (THEIRS.some((prefix) => name.startsWith(prefix))) continue;
+      const view = name.replace(/^public\./, "");
+      // One revoke naming the view and all three write verbs. Order is not fixed, and a
+      // schema-qualified spelling is accepted, so the test does not care how it was written.
+      const revoke = new RegExp(
+        `revoke[^;]*\\binsert\\b[^;]*\\bupdate\\b[^;]*\\bdelete\\b[^;]*\\bon\\s+(?:public\\.)?${esc(view)}\\b[^;]*from[^;]*(anon|authenticated|public)`,
+        "i",
+      );
+      if (!revoke.test(text)) found.push(`${view} (${file})`);
+    }
+  }
+  return found;
+}
+
+it("fails a view created without revoking writes on it", () => {
+  expect(
+    viewsWithWritesNotRevoked(
+      fixture("create view public_cooks as select id from profiles;\ngrant select on public_cooks to anon;"),
+    ),
+  ).toHaveLength(1);
+});
+
+it("accepts a view whose write privileges are revoked", () => {
+  expect(
+    viewsWithWritesNotRevoked(
+      fixture(
+        "create view public_cooks as select id from profiles;\n" +
+          "revoke insert, update, delete, truncate on public_cooks from anon, authenticated, public;",
+      ),
+    ),
+  ).toEqual([]);
+});
+
+it("is not satisfied by a revoke that forgets delete", () => {
+  // The three verbs are demanded together on purpose: a partial revoke is the shape that
+  // would read as done and leave the row deletable.
+  expect(
+    viewsWithWritesNotRevoked(
+      fixture(
+        "create view public_cooks as select id from profiles;\n" +
+          "revoke insert, update on public_cooks from anon, authenticated;",
+      ),
+    ),
+  ).toHaveLength(1);
+});
+
+it("revokes writes on every view it creates", () => {
+  expect(viewsWithWritesNotRevoked(sql)).toEqual([]);
+});
