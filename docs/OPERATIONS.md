@@ -551,6 +551,10 @@ the queries are reconstructible from the tables listed above.
   first branch above the auth check, so a 204 proves the isolate parsed, booted and ran our
   code.
 
+  Both routes stay unauthenticated: the monitor's free plan can send no headers, and CI needs
+  the version without a secret. What they do not need is to be indexed, which is why both
+  carry `X-Robots-Tag` and `robots.txt` disallows `/health/`.
+
   **Do NOT add `/health/version` as a third monitor.** It answers 200 whatever it finds,
   including the literal string `unknown` when the stamp is missing or unreadable, because its
   job is to be COMPARED against an expected commit rather than to be alive or dead. A monitor
@@ -885,8 +889,14 @@ actions nobody can do from this repo.
 
 ### What the code already does
 
-- **`public/robots.txt`** allows crawling, blocks every signed-in and per-user route, and
-  points at the sitemap. It is a static asset, so it needs no Worker code.
+- **`public/robots.txt`** allows crawling, blocks every signed-in and per-user route, blocks
+  `/health/`, and points at the sitemap. It is a static asset, so it needs no Worker code.
+  **The two health routes also send `X-Robots-Tag: noindex, nofollow` themselves** (added
+  2026-10-13), because robots.txt asks a crawler not to FETCH while the header stops it
+  INDEXING what it fetched anyway. That matters for these two and not for the rest of the
+  Disallow list: a crawl of `/health/extract` sends a real request upstream on every hit and
+  the answer may not be cached, and an indexed `/health/version` would publish the deployed
+  commit of a public repository where it cannot be taken back.
 - **`/sitemap.xml`** is built by the Worker on request from live data: the four public
   documents in `STATIC_SITEMAP_PATHS`, every public recipe that has not been removed, and
   every public cook. It is cached for an hour.
