@@ -184,6 +184,17 @@ wrong document, failing once and then passing forever while guarding nothing.
   plain client call next to it was not, and why removing a `FOR UPDATE` to tidy a function can
   quietly open it.
 
+- **A new foreign key to `auth.users` needs an `on delete` action, or it is a veto on account
+  deletion.** Postgres defaults to NO ACTION, so an attribution column (`created_by`,
+  `approved_by`, `published_by`) silently refuses to let the login go. Eight of them in
+  `kitchen` meant anyone who had worked in a kitchen could not delete their account, and
+  because `delete-account` blanks the profile FIRST and removes the login LAST, the refusal
+  landed with the identity already erased and the login still live. `set null` keeps the record
+  and drops the person; `cascade` is the other acceptable answer. `supabase/rls.test.ts` fails
+  on a new column without one, and `tests/integration/kitchen_account_deletion.test.ts` deletes
+  a user who has worked in a kitchen. Note what did NOT catch it: `deletion_parity.test.ts`
+  compares the two deletion paths with each other, and they agreed.
+
 - **A view has no row-level security, and a privilege nobody granted is still a privilege.**
   `public_cooks` and `public_recipe_bylines` read `profiles` past its policies ON PURPOSE, which
   is correct for SELECT. They are not `security_invoker`, so they run as their owner with RLS

@@ -643,21 +643,34 @@ the queries are reconstructible from the tables listed above.
   Any command that syncs them wholesale will carry the local values that exist precisely
   because they are not production.
 
-- **A kitchen account that created a group CANNOT be deleted.** `kitchen.orgs.created_by`
-  references `auth.users` with no `on delete cascade`, and neither do `dishes.created_by`,
-  `dish_versions.created_by`, `approvals.approved_by`, `deviations.created_by`,
-  `published_snapshots.published_by` or `staff_invites.created_by`. Only `kitchen.staff` and
-  `kitchen.terms_acceptance` cascade. So deleting that auth user is refused by a foreign key.
+- **A kitchen account used to be undeletable, and this was an ops note here for a day before
+  anyone read it as a bug.** Eight columns in `kitchen` referenced `auth.users` with no
+  on-delete action, so Postgres refused to remove the login of anyone who had started an org,
+  written a dish version, signed one off, recorded a deviation, published a dish, or minted or
+  accepted an invite. That is not only a throwaway-account annoyance: the family app's
+  `delete-account` runs `auth.admin.deleteUser` LAST, after blanking the profile, so a real
+  person who was also kitchen staff got a 500 and was left with their identity erased and
+  their login live. **Fixed in `0059`**, which makes all eight `on delete set null`: the group
+  keeps its dishes and its history with nobody named, and `kitchen.staff` and
+  `kitchen.terms_acceptance` still cascade.
 
-  **Walking the kitchen with a throwaway account? Stop after accepting the terms.** An account
-  that only signed up, met the gate and accepted deletes cleanly from Authentication -> Users.
-  One that created a group needs its kitchen rows cleared first.
+  Two guards hold it. `tests/integration/kitchen_account_deletion.test.ts` deletes a user who
+  has worked in a kitchen, and `supabase/rls.test.ts` fails any NEW column that references
+  `auth.users` without an on-delete action. **So a throwaway kitchen account now deletes from
+  Authentication -> Users like any other**, and the paragraph that used to tell you to stop
+  after accepting the terms is gone because it is no longer true.
 
-  **This is also a product question, not only an ops note.** The kitchen app has no account
-  deletion of any kind, and a real staff member who ever signed a dish off cannot have their
-  auth user removed. Keeping the sign-off attributable is probably right, and
-  `src/kitchen/pages/Privacy.tsx` still promises to answer a deletion request, so the two have
-  to be reconciled before a paying customer. `PRODUCT.md` carries it as open.
+  **What is still open is the product half**: the kitchen app offers no self-service deletion
+  of its own, so a chef's only route is the family app's Settings page, and
+  `src/kitchen/pages/Privacy.tsx` promises to answer a deletion request. `PRODUCT.md` carries
+  that, not this file.
+
+  **The last owner of an org cannot leave over the API** (`0059` tightened `staff_delete`),
+  because every act left in the schema is owner-gated and an org with no owner can never take
+  its published dish down again. Deleting the LOGIN still strands the org through the cascade
+  on `staff.user_id`, deliberately: erasure beats an invariant. An org in that state needs a
+  service-role insert into `kitchen.staff` to be administrable again, and there is no UI for
+  it.
 
 - **Locally the kitchen schema has an order trap** (met 2026-10-11). `npx supabase start`
   restores the database from a backup and only then starts PostgREST, so a `config.toml` that
