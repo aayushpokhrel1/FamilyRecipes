@@ -272,7 +272,13 @@ async function serveOgImage(env: Env, id: string): Promise<Response> {
         // NOT storage's own type: see imageContentType. These objects are served from the
         // APP ORIGIN, so an uploader who declared text/html got a same-origin document.
         "Content-Type": imageContentType(imageResponse.headers.get("content-type")),
-        "Cache-Control": "public, max-age=3600",
+        // FIVE MINUTES, not an hour, and the number is the whole point of proxying at all.
+        // This route exists so a takedown or a cleared handle revokes the picture, instead of
+        // a signed storage URL staying valid in somebody's cache: the comment above says so.
+        // max-age=3600 quietly contradicted that, because a shared cache that will not ask
+        // again for an hour is the same hour a signed URL would have given. The proxy can
+        // only revoke as fast as it is asked.
+        "Cache-Control": "public, max-age=300",
       },
     });
   } catch {
@@ -284,7 +290,9 @@ async function serveOgImage(env: Env, id: string): Promise<Response> {
 // credential, so a row coming back from public_cooks IS the proof this cook publishes, and
 // a signable avatar object IS the proof the 0022 policy allows it. The image is proxied
 // rather than redirected, so clearing a handle revokes this URL on the next request instead
-// of leaving a signed URL working in someone's cache.
+// of leaving a signed URL working in someone's cache. "On the next request" is only as true as
+// the Cache-Control below allows, which is why that number is small: this proxy can revoke no
+// faster than it is asked.
 async function serveAvatar(env: Env, handle: string): Promise<Response> {
   try {
     const cookUrl = `${env.SUPABASE_URL}/rest/v1/public_cooks?handle=eq.${handle}&select=avatar_url&limit=1`;
@@ -311,7 +319,13 @@ async function serveAvatar(env: Env, handle: string): Promise<Response> {
         // NOT storage's own type: see imageContentType. These objects are served from the
         // APP ORIGIN, so an uploader who declared text/html got a same-origin document.
         "Content-Type": imageContentType(imageResponse.headers.get("content-type")),
-        "Cache-Control": "public, max-age=3600",
+        // FIVE MINUTES, not an hour, and the number is the whole point of proxying at all.
+        // This route exists so a takedown or a cleared handle revokes the picture, instead of
+        // a signed storage URL staying valid in somebody's cache: the comment above says so.
+        // max-age=3600 quietly contradicted that, because a shared cache that will not ask
+        // again for an hour is the same hour a signed URL would have given. The proxy can
+        // only revoke as fast as it is asked.
+        "Cache-Control": "public, max-age=300",
       },
     });
   } catch {
