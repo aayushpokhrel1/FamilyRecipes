@@ -55,6 +55,20 @@ directory, and two of its own tests prove it can go red. Before 2026-09-30 a com
 `index.ts` claimed that guard existed while nothing in the suite read the directory at all, so
 if you add another edge function, give it the same test rather than trusting the deploy.
 
+**The local edge runtime does not come up on this machine, so an edge function cannot be
+EXERCISED locally at all.** `supabase start` reports `supabase_edge_runtime_FamilyRecipes`
+under "Stopped services" on every run, even though `config.toml` has `[edge_runtime] enabled
+= true`, and `functions.invoke` from a test answers 503 through Kong. So an integration test
+must not try to call one: it will fail for an environment reason that looks exactly like a
+code bug. This was hit on 2026-10-12 writing a regression test for the `delete-account` fix.
+
+The consequence is a real coverage ceiling worth knowing before you trust a green suite:
+**the four edge functions are covered only by a parse-and-bind test and by static checks of
+their source.** Where a fix lives inside one, guard it statically instead. `delete-account`'s
+fix is held by `supabase/deletion_parity.test.ts`, which compares its blanked column set
+against `admin`'s and against what `public_cooks` exposes, and the integration suite asserts
+the database invariant rather than pretending to call the function.
+
 Integration tests need three env vars the script does not inject, mapped from
 `npx supabase status -o env`:
 
