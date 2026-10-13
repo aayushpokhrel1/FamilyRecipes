@@ -35,7 +35,10 @@ export type DishVersion = {
   id: string;
   n: number;
   note: string | null;
-  created_by: string;
+  // Null once that person has deleted their account: 0059 made every attribution column in
+  // this schema `on delete set null`, because a foreign key to auth.users with no on-delete
+  // action REFUSES the deletion outright.
+  created_by: string | null;
   created_at: string;
 };
 

@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { addSite, listSites } from "../../lib/api/kitchen/orgs";
 import type { Site } from "../../lib/api/kitchen/types";
+import { useMyRole } from "../lib/useMyRole";
 
 export default function Sites() {
   const { id = "" } = useParams();
+  const { role } = useMyRole(id);
   const [sites, setSites] = useState<Site[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -46,14 +48,23 @@ export default function Sites() {
           ))}
         </ul>
       )}
-      <form onSubmit={add}>
-        <label htmlFor="site-name">Add a site</label>
-        <input id="site-name" value={name} onChange={(e) => setName(e.target.value)} />
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" disabled={busy}>
-          Add the site
-        </button>
-      </form>
+      {/* `add_site` is the owner's alone and answers KIT01 to anybody else, so the form is
+          the owner's too. The project rule is that a page must not render a control its
+          viewer's policy will refuse: this one refuses LOUDLY, which is why it read as
+          harmless and sat here through three plans, but a button that always fails is still a
+          lie about what the viewer may do. The staff page next door got this right. */}
+      {role === "owner" && (
+        <form onSubmit={add}>
+          <label htmlFor="site-name">Add a site</label>
+          <input id="site-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <button type="submit" disabled={busy}>
+            Add the site
+          </button>
+        </form>
+      )}
+      {/* Outside the form now: a load error has to reach a cook too, and it used to be
+          rendered inside the part only an owner sees. */}
+      {error && <p role="alert">{error}</p>}
       <p>
         <Link to={`/orgs/${id}/staff`}>Invite your staff</Link>
       </p>

@@ -605,3 +605,74 @@ it("is not satisfied by a revoke that forgets delete", () => {
 it("revokes writes on every view it creates", () => {
   expect(viewsWithWritesNotRevoked(sql)).toEqual([]);
 });
+
+/**
+ * A foreign key to auth.users with no ON DELETE action is a VETO ON ACCOUNT DELETION.
+ *
+ * NO ACTION is the default, so the column reads as harmless attribution and behaves as a
+ * lock: Postgres refuses to remove the login while one such row exists. Both deletion paths
+ * call auth.admin.deleteUser LAST, after blanking the profile, so the failure lands in the
+ * worst place available, with the identity already gone and the login still live. Eight
+ * columns in `kitchen` were written that way (0039 to 0044) and 0059 rewrote all eight to
+ * `on delete set null`; the behavioural proof is
+ * tests/integration/kitchen_account_deletion.test.ts, which actually deletes a user who has
+ * worked in a kitchen.
+ *
+ * This is the part that covers the NINTH column, in the migration nobody has written yet.
+ * It reads the creating statement, so the eight that 0059 fixed in a later file are listed
+ * as known: the alternative is parsing constraint rewrites, which is more code than the rule
+ * is worth. If you add a column here, fix the FK where you declare it instead.
+ */
+const DELETION_VETOES_FIXED_IN_0059 = new Set([
+  "kitchen.orgs.created_by",
+  "kitchen.staff_invites.created_by",
+  "kitchen.staff_invites.used_by",
+  "kitchen.dishes.created_by",
+  "kitchen.dish_versions.created_by",
+  "kitchen.approvals.approved_by",
+  "kitchen.deviations.created_by",
+  "kitchen.published_snapshots.published_by",
+]);
+
+export function authUserFksWithoutOnDelete(migrations: Migration[]): string[] {
+  const found: string[] = [];
+  for (const { text } of migrations) {
+    // One pass per CREATE TABLE, so the table name is known for each column line.
+    const tables = text.matchAll(/create table\s+(?:if not exists\s+)?([\w.]+)\s*\(([\s\S]*?)\n\);/gi);
+    for (const [, table, body] of tables) {
+      for (const line of body.split("\n")) {
+        const bare = line.replace(/--.*$/, "");
+        if (!/references\s+auth\.users/i.test(bare)) continue;
+        if (/on delete/i.test(bare)) continue;
+        const column = bare.trim().split(/\s+/)[0];
+        const name = `${table}.${column}`;
+        if (!DELETION_VETOES_FIXED_IN_0059.has(name)) found.push(name);
+      }
+    }
+  }
+  return found;
+}
+
+it("fails a new column that references auth.users with no on delete action", () => {
+  expect(
+    authUserFksWithoutOnDelete(
+      fixture("create table kitchen.tastings (\n  id uuid primary key,\n  taster uuid not null references auth.users(id)\n);"),
+    ),
+  ).toEqual(["kitchen.tastings.taster"]);
+});
+
+it("accepts set null and cascade, which are the two answers erasure allows", () => {
+  expect(
+    authUserFksWithoutOnDelete(
+      fixture(
+        "create table kitchen.tastings (\n" +
+          "  taster uuid references auth.users(id) on delete set null,\n" +
+          "  booked_by uuid references auth.users(id) on delete cascade\n);",
+      ),
+    ),
+  ).toEqual([]);
+});
+
+it("lets no foreign key to auth.users veto a deletion", () => {
+  expect(authUserFksWithoutOnDelete(sql)).toEqual([]);
+});
