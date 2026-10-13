@@ -279,3 +279,134 @@ describe("resolve_appeal is moderator only", () => {
     expect(error!.code).toBe("42501");
   }, 30000);
 });
+
+// 0053. The hole this closes: `appeal_insert` (0035) checked only `cook_id = auth.uid()`, and
+// `resolve_appeal` grants a recipe appeal by clearing `removed_at` on whatever `subject_id`
+// names. So a cook could file an appeal against SOMEONE ELSE'S taken-down recipe and a
+// moderator granting it would undo that takedown. The moderator queue renders the appellant,
+// "A removed recipe" and the title, and nothing that says the two are unrelated, so there was
+// no human check behind the missing policy either.
+//
+// Asserted against a real database as the ORDINARY cook, never through `admin`: the service
+// role bypasses RLS, so an assertion made through it would pass however broken the policy is.
+describe("an appeal may only name the appellant's own recipe", () => {
+  // What take_down_recipe (0028) leaves behind, set up with admin because the point of each
+  // test below is what an ordinary cook can do to the row AFTERWARDS.
+  const takeDown = (id: string) =>
+    admin.from("recipes")
+      .update({ visibility: "family", removed_at: new Date().toISOString(),
+                removed_reason: "not a recipe" })
+      .eq("id", id);
+
+  it("refuses an appeal naming a recipe the cook does not own", async () => {
+    const victim = await cookWithPublicRecipe("ap-foreign-v");
+    await takeDown(victim.rec.id);
+    const attacker = await cookWithPublicRecipe("ap-foreign-a");
+
+    const { error } = await attacker.cook.client.from("appeals").insert({
+      cook_id: attacker.cook.id, subject_type: "recipe", subject_id: victim.rec.id,
+      body: "put it back",
+    });
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
+
+    // The takedown is still in force, which is the thing that actually mattered.
+    const { data: r } = await admin.from("recipes")
+      .select("removed_at").eq("id", victim.rec.id).single();
+    expect(r!.removed_at).not.toBeNull();
+  }, 30000);
+
+  // A family member of the author, not the author. This is the case an inline
+  // `exists (select 1 from recipes ...)` in the policy would have let through: a takedown
+  // sets visibility = 'family', so the row stays READABLE to the rest of the household, and
+  // a subquery under recipes_read answers "can I see it" rather than "is it mine".
+  it("refuses a relative in the same family as the author", async () => {
+    const author = await cookWithPublicRecipe("ap-rel-a");
+    await takeDown(author.rec.id);
+    const relative = await makeUser(`ap-rel-r-${rand()}@t.dev`);
+    await admin.from("family_members")
+      .insert({ family_id: author.fam.id, user_id: relative.id, role: "member" });
+
+    // They really can read the recipe, so this test cannot pass by the row being invisible.
+    const { data: seen } = await relative.client.from("recipes")
+      .select("id").eq("id", author.rec.id);
+    expect(seen).toHaveLength(1);
+
+    const { error } = await relative.client.from("appeals").insert({
+      cook_id: relative.id, subject_type: "recipe", subject_id: author.rec.id,
+      body: "put it back",
+    });
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
+  }, 30000);
+
+  it("lets the author appeal their own removed recipe, and granting it puts the recipe back", async () => {
+    const { cook, rec } = await cookWithPublicRecipe("ap-own");
+    await takeDown(rec.id);
+
+    const { data: appeal, error } = await cook.client.from("appeals")
+      .insert({ cook_id: cook.id, subject_type: "recipe", subject_id: rec.id,
+                body: "it is a real recipe" })
+      .select().single();
+    expect(error).toBeNull();
+
+    const mod = await moderator("ap-own");
+    const granted = await mod.client.rpc("resolve_appeal", {
+      p_appeal: appeal!.id, p_outcome: "granted", p_note: null,
+    });
+    expect(granted.error).toBeNull();
+
+    const { data: r } = await admin.from("recipes")
+      .select("removed_at, removed_reason").eq("id", rec.id).single();
+    expect(r!.removed_at).toBeNull();
+    expect(r!.removed_reason).toBeNull();
+  }, 30000);
+
+  // The second lock, reached past the policy. A row written before 0053 existed, or by any
+  // future path that inserts it another way, must still not undo a stranger's takedown.
+  it("refuses to grant a foreign-recipe appeal that is already in the table", async () => {
+    const victim = await cookWithPublicRecipe("ap-stored-v");
+    await takeDown(victim.rec.id);
+    const attacker = await cookWithPublicRecipe("ap-stored-a");
+    // admin, because the policy now refuses this insert: this is the pre-0053 row.
+    const { data: appeal } = await admin.from("appeals")
+      .insert({ cook_id: attacker.cook.id, subject_type: "recipe", subject_id: victim.rec.id,
+                body: "put it back" })
+      .select().single();
+
+    const mod = await moderator("ap-stored");
+    const { error } = await mod.client.rpc("resolve_appeal", {
+      p_appeal: appeal!.id, p_outcome: "granted", p_note: null,
+    });
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
+
+    const { data: r } = await admin.from("recipes")
+      .select("removed_at").eq("id", victim.rec.id).single();
+    expect(r!.removed_at).not.toBeNull();
+    // And the appeal is still open: a refused grant must not read as resolved.
+    const { data: a } = await admin.from("appeals")
+      .select("resolved_at").eq("id", appeal!.id).single();
+    expect(a!.resolved_at).toBeNull();
+  }, 30000);
+
+  it("refuses a subject that does not match the subject type, either way round", async () => {
+    const { cook, rec } = await cookWithPublicRecipe("ap-pair");
+    await clearName(cook.id);
+
+    // A name appeal carrying a recipe: it escaped appeals_one_open_per_subject too, because
+    // NULLS NOT DISTINCT is what makes that index one-open-per-cook for a null subject.
+    const named = await cook.client.from("appeals").insert({
+      cook_id: cook.id, subject_type: "name", subject_id: rec.id, body: "mine",
+    });
+    expect(named.error).not.toBeNull();
+    expect(named.error!.message).toMatch(/appeals_subject_matches_type/);
+
+    // And a recipe appeal carrying nothing, which resolve_appeal would have "granted" by
+    // updating no rows at all.
+    const empty = await cook.client.from("appeals").insert({
+      cook_id: cook.id, subject_type: "recipe", subject_id: null, body: "mine",
+    });
+    expect(empty.error).not.toBeNull();
+  }, 30000);
+});
