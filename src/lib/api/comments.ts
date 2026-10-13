@@ -19,7 +19,12 @@ export async function addComment(recipeId: string, body: string): Promise<Commen
   return data as Comment;
 }
 
+// .select("id") for the reason updateRecipe does it: A REFUSED DELETE IS NOT AN ERROR.
+// comments_delete admits the author alone while comments_read admits every member of the
+// family, so deleting someone else's comment matched no rows and resolved, and the thread
+// simply redrew with the comment still in it.
 export async function deleteComment(id: string): Promise<void> {
-  const { error } = await supabase.from("comments").delete().eq("id", id);
+  const { data, error } = await supabase.from("comments").delete().eq("id", id).select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Only the person who wrote a comment can delete it.");
 }

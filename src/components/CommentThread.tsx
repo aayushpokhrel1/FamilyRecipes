@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import { addComment, deleteComment, listComments } from "../lib/api/comments";
 import type { CommentWithAuthor } from "../lib/api/comments";
 
 export default function CommentThread({ recipeId }: { recipeId: string }) {
+  // comments_read admits every member of the family; comments_delete admits the AUTHOR alone.
+  // The button was rendered on every comment, so deleting a relative's comment matched no rows,
+  // resolved without an error, and the thread redrew with it still there. Same shape as the
+  // shared meal plan and the recipe edit: read wider than write, and a refused write is not an
+  // error. deleteComment now throws on zero rows as well, which this component already shows.
+  const { userId } = useAuth();
   const [comments, setComments] = useState<CommentWithAuthor[]>([]);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +56,11 @@ export default function CommentThread({ recipeId }: { recipeId: string }) {
             <p className="who">{c.profiles?.display_name ?? "Someone"}</p>
             <p>{c.body}</p>
             <p className="when">{c.created_at}</p>
-            <button type="button" onClick={() => handleDelete(c.id)}>
-              Delete
-            </button>
+            {c.author_id === userId && (
+              <button type="button" onClick={() => handleDelete(c.id)}>
+                Delete
+              </button>
+            )}
           </li>
         ))}
       </ul>

@@ -108,8 +108,14 @@ export async function listPublicRecipesByAuthor(authorId: string): Promise<Recip
 }
 
 export async function deleteRecipe(id: string) {
-  const { error } = await supabase.from("recipes").delete().eq("id", id);
+  // .select("id") for the reason updateRecipe does it: a delete row-level security refuses
+  // matches no rows and resolves. recipes_delete admits the author or the family's owner while
+  // every member can READ, so a member who reached this would have been told it was deleted.
+  const { data, error } = await supabase.from("recipes").delete().eq("id", id).select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error("This recipe was not deleted: only its author or your family's owner can delete it.");
+  }
 }
 
 // Every section label this family has used before, so the Section dropdown

@@ -67,7 +67,11 @@ The consequence is a real coverage ceiling worth knowing before you trust a gree
 their source.** Where a fix lives inside one, guard it statically instead. `delete-account`'s
 fix is held by `supabase/deletion_parity.test.ts`, which compares its blanked column set
 against `admin`'s and against what `public_cooks` exposes, and the integration suite asserts
-the database invariant rather than pretending to call the function.
+the database invariant rather than pretending to call the function. That file now also holds
+the ROWS each path deletes and the buckets it clears, not only the blanked columns: on
+2026-10-13 both paths were found leaving a deleted cook'''s drafts, follows and avatar FILE
+behind, and a parity test that measures one dimension is satisfied by both paths being wrong
+together in another.
 
 Integration tests need three env vars the script does not inject, mapped from
 `npx supabase status -o env`:
@@ -1109,6 +1113,18 @@ assuming a code bug: a violation reads as "Refused to load/execute", names the d
 is the fastest possible diagnosis once you think to look.
 
 ### Known standing risks
+
+- **A FAMILY INVITE CODE CANNOT BE REVOKED FROM THE APP, and it never expires.** Every member
+  sees the code on `/families` with a Copy button, `families_member_read` is what shows it to
+  them, and `family_name_for_code` names the family to anyone holding it before they sign in.
+  The only revocation is `rotateInviteCode` in `src/lib/api/families.ts`, which is correct and
+  **has no caller anywhere in the UI**: migration `0038` calls it "the revocation", which is
+  true of the function and not of the product. So a code that is forwarded, screenshotted or
+  left in an old message works for ever. The kitchen app's equivalent was given a seven-day
+  lifetime in `0054` for exactly this reason; the family side has neither that nor a button.
+  **What it needs is a decision, not a patch**: who may rotate (the policy says the owner),
+  whether members keep seeing the code at all, and what the page says to someone whose link
+  has just been retired.
 
 - **Account 2FA is on for Google, Cloudflare, GitHub and Supabase** (done 2026-10-02;
   Cloudflare's was verified through the API, not taken on trust). That closes the single

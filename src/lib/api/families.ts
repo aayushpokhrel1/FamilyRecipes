@@ -49,10 +49,22 @@ export async function ensureOwnKitchen(): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// NOTHING IN THE UI CALLS THIS. It is the only revocation a family invite code has: the code
+// never expires, families_member_read shows it to every member, and the Families page gives
+// them a Copy button, so a code that leaks is permanent until somebody rotates it and nobody
+// can. Recorded in docs/OPERATIONS.md as a gap rather than quietly wired up here, because who
+// may rotate (the policy says the OWNER) and what it does to links already sent is a product
+// decision. 0038 calls this "the revocation" in a comment, which is true of the function and
+// not of the product.
 export async function rotateInviteCode(familyId: string): Promise<string> {
   const code = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-  const { error } = await supabase.from("families").update({ invite_code: code }).eq("id", familyId);
+  // .select("id") for the reason updateRecipe does it: families_owner_update admits the OWNER
+  // while families_member_read admits every member, so a member calling this would have been
+  // handed a new code that was never stored, and would have gone on to share it.
+  const { data, error } = await supabase.from("families")
+    .update({ invite_code: code }).eq("id", familyId).select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Only your family's owner can change the invite code.");
   return code;
 }
 

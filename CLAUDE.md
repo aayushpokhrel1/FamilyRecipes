@@ -155,6 +155,45 @@ wrong document, failing once and then passing forever while guarding nothing.
   from a present one. `audit_2026_10_12.test.ts` attempts all six exploits. Set the policy up
   with `admin` if you must, but never ASSERT through it: the service role bypasses RLS, so an
   assertion made through it passes however broken the policy is.
+- **A WRITE REFUSED BY RLS IS NOT AN ERROR, so every control must be checked against its
+  policy before it is rendered.** A policy does not reject a row, it fails to match one: an
+  `update` or `delete` the database declines affects zero rows and resolves with `error: null`.
+  Three bugs came from this in one day (`f4d720b`, `c869926`, and the comment thread), and the
+  shape is always the same, a table whose READ rule is wider than its WRITE rule, which is what
+  every sharing feature creates:
+
+  | Table | Who may read | Who may write |
+  | --- | --- | --- |
+  | `recipes` | public, or any family member | the author, or the family's owner |
+  | `meal_plans`, and both item tables | any family member of a SHARED plan | the plan's owner |
+  | `comments` | any family member | the author |
+  | `recipe_photos` | anyone who can read the recipe | the author |
+  | `families` | any member (including `invite_code`) | the owner |
+  | `appeals`, `reports` | the subject, or a moderator | nobody, except through an RPC |
+
+  Two rules fall out, and both have a test now rather than a comment, because this exact
+  mistake shipped three times with the lesson already written down beside the first one:
+  **a page must not render a control its viewer's policy will refuse** (`canEdit` on
+  `RecipeDetail` and `MealPlanDetail`, `author_id === userId` in `CommentThread`), and **every
+  write in `src/lib/api/` must `.select()` what it wrote and throw when nothing comes back**.
+  `tests/integration/silent_refusals.test.ts` pins what the database actually does, so neither
+  guard can be removed on the belief that an error would be raised.
+
+  **`SELECT ... FOR UPDATE` is the exception worth knowing**: a locking read applies the UPDATE
+  policy, so it refuses early and loudly. That is why `publish_recipe_edit` was safe while the
+  plain client call next to it was not, and why removing a `FOR UPDATE` to tidy a function can
+  quietly open it.
+
+- **A view has no row-level security, and a privilege nobody granted is still a privilege.**
+  `public_cooks` and `public_recipe_bylines` read `profiles` past its policies ON PURPOSE, which
+  is correct for SELECT. They are not `security_invoker`, so they run as their owner with RLS
+  off, and a view over one table is auto-updatable. Supabase's `alter default privileges` had
+  granted anon ALL on both, so anyone with the publishable key could rewrite or delete any
+  published cook's row over HTTP until `0056` revoked it. **Any new view needs its write
+  privileges revoked in the same migration** (`supabase/rls.test.ts` fails without it), and
+  `grep grant` over the migrations can never tell you what a view actually holds: read
+  `information_schema.role_table_grants`.
+
 - **The Worker sends a Content-Security-Policy with `script-src 'self'`, so NO inline
   `<script>` runs.** A blocked inline script does not warn, it silently never executes, which
   is why the theme bootstrap lives in `public/theme-init.js`. `worker/meta.test.ts` pins the
