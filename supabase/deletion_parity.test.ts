@@ -73,3 +73,76 @@ it("blanks every profile column that public_cooks exposes", () => {
   const missing = exposed.filter((c) => !selfCols.has(c));
   expect(missing, `columns public_cooks exposes that self-deletion leaves populated`).toEqual([]);
 });
+
+/**
+ * The TABLES each path deletes rows from, and the buckets it clears.
+ *
+ * The original drift was in the blanked COLUMNS, so that is what the checks above measure.
+ * Nothing measured the rows, and the two paths delete from four tables now (`meal_plans`,
+ * `family_members`, `recipe_drafts`, `follows`) plus the `avatars` bucket. Four chances to
+ * add the fifth to one path and not the other, in exactly the way `handle`, `public_name` and
+ * `bio` were added to one and not the other for four years of migrations.
+ *
+ * A fixed list is deliberately not asserted here either, for the reason the file already
+ * gives: a fixed list is one more thing to forget. What must hold is that the two agree.
+ */
+function deletedTables(source: string): string[] {
+  const calls = /\.from\("([a-z_]+)"\)\s*\n?\s*\.delete\(\)/g;
+  return [...new Set([...source.matchAll(calls)].map((m) => m[1]))].sort();
+}
+
+function clearedBuckets(source: string): string[] {
+  const calls = /storage\s*\n?\s*\.from\("([a-z-]+)"\)\s*\n?\s*\.remove\(/g;
+  return [...new Set([...source.matchAll(calls)].map((m) => m[1]))].sort();
+}
+
+it("finds the row deletions and the bucket clearing in both paths", () => {
+  // Same reason as the sibling check above: a guard that cannot see its subject guards
+  // nothing, and both regexes here are reading formatted TypeScript rather than SQL.
+  expect(deletedTables(self).length, `${selfPath} has no recognisable row deletions`)
+    .toBeGreaterThan(0);
+  expect(deletedTables(admin).length, `${adminPath} has no recognisable row deletions`)
+    .toBeGreaterThan(0);
+  expect(clearedBuckets(self), `${selfPath} must clear the avatar object, not only the column`)
+    .toContain("avatars");
+  expect(clearedBuckets(admin), `${adminPath} must clear the avatar object, not only the column`)
+    .toContain("avatars");
+});
+
+it("deletes rows from the same tables, and clears the same buckets, from both paths", () => {
+  expect(deletedTables(self)).toEqual(deletedTables(admin));
+  expect(clearedBuckets(self)).toEqual(clearedBuckets(admin));
+});
+
+it("erases the personal rows that used to outlive the account", () => {
+  // Not a parity check: this one names the three, because each was found surviving on
+  // 2026-10-13 and a parity test is satisfied by both paths being wrong together.
+  //
+  //   - recipe_drafts: unfinished recipes. drafts_read is author_id = auth.uid(), so once
+  //     the login is gone nobody can ever read one again. Retained for ever, serving
+  //     nothing.
+  //   - follows: a relationship, not a vault. The deleted cook stayed inside other
+  //     people's follower lists and counts.
+  //   - the avatars bucket: nulling avatar_url hides the picture, it does not erase it. The
+  //     privacy page says the photo is erased, which was false until the object was removed.
+  for (const [path, source] of [[selfPath, self], [adminPath, admin]] as const) {
+    const tables = deletedTables(source);
+    expect(tables, `${path} must delete the cook's drafts`).toContain("recipe_drafts");
+    expect(tables, `${path} must delete the cook's follows`).toContain("follows");
+  }
+});
+
+it("keeps what a family is relying on, which is the whole reason the profile row survives", () => {
+  // The negative half, and it is the one that stops this file being read as "delete more".
+  // A recipe, a comment, a photo on a recipe and a cook-log entry live inside a family's
+  // vault, and 0014 dropped the foreign key to auth.users precisely so they could outlive
+  // the login. A future tidy-up that adds one of these to the deletion paths would be
+  // deleting other people's heritage, so it has to fail here first.
+  for (const [path, source] of [[selfPath, self], [adminPath, admin]] as const) {
+    const tables = deletedTables(source);
+    for (const kept of ["recipes", "comments", "recipe_photos", "cook_log"]) {
+      expect(tables, `${path} must NOT delete ${kept}: a family is relying on it`)
+        .not.toContain(kept);
+    }
+  }
+});

@@ -80,6 +80,56 @@ Deno.serve(async (req) => {
   const { error: memberError } = await admin.from("family_members").delete().eq("user_id", user.id);
   if (memberError) return json({ error: memberError.message }, 500);
 
+
+  // Personal, not family heritage, and the same reasoning that deletes meal plans above.
+  // THEY WERE ALL LEFT BEHIND UNTIL 2026-10-13, for different reasons each worth stating:
+  //
+  //   - A DRAFT is a recipe the cook never finished or never published. `drafts_read` is
+  //     `author_id = auth.uid()`, so once the login is gone NOBODY can ever read it again:
+  //     it was retained for ever, serving nothing, which is the one combination a deletion
+  //     request plainly rules out. More personal than a meal plan, and that is deleted.
+  //   - FOLLOWS are a relationship, not a vault. Leaving them kept a deleted cook inside
+  //     other people's follower lists and counts, re-appearing in any total that does not
+  //     resolve each row through public_cooks. Both directions go: the ones they made and
+  //     the ones pointing at them.
+  //   - THE AVATAR FILE is not the avatar_url. Nulling the column above hides the picture;
+  //     the object stayed in the bucket. The privacy page says the photo is erased, so
+  //     until this existed that page was false. The bucket is private and the read policy
+  //     is `is_published_cook(folder)`, which is false once the handle is null, so it was
+  //     unreachable rather than exposed. Unreachable is not erased.
+  //
+  // What deliberately SURVIVES, so the next reader does not have to re-derive it: recipes,
+  // comments, photos on recipes and cook-log entries, because those live inside a family's
+  // vault and other members are relying on them; reports, appeals and moderation records,
+  // because a pattern has to remain actionable; and blocks, which protect the recipes that
+  // stay. `src/pages/Privacy.tsx` names all of it, and MUST be updated with this list.
+  const { error: draftError } = await admin
+    .from("recipe_drafts")
+    .delete()
+    .eq("author_id", user.id);
+  if (draftError) return json({ error: draftError.message }, 500);
+
+  const { error: followError } = await admin
+    .from("follows")
+    .delete()
+    .or(`follower_id.eq.${user.id},cook_id.eq.${user.id}`);
+  if (followError) return json({ error: followError.message }, 500);
+
+  // Best effort, and deliberately not fatal: the storage object is unreachable the moment the
+  // handle is null, so failing the whole deletion over a bucket error would leave a live
+  // login attached to an account the person asked to be rid of. Errors are swallowed for
+  // that reason and not because they do not matter.
+  try {
+    const { data: avatarFiles } = await admin.storage.from("avatars").list(user.id);
+    if (avatarFiles?.length) {
+      await admin.storage
+        .from("avatars")
+        .remove(avatarFiles.map((f: { name: string }) => `${user.id}/${f.name}`));
+    }
+  } catch {
+    // see above
+  }
+
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
   if (deleteError) return json({ error: deleteError.message }, 500);
 

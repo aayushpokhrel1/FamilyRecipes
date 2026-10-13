@@ -234,20 +234,29 @@ export default function Privacy() {
       <p>
         Your account and recipes are kept until you delete them. Delete your account from
         Settings and your login, your profile and your public identity (your handle, public
-        name, bio and photo) are erased. Recipes you wrote are not deleted along with the
-        account: they stay in the family vaults they belong to, credited to &ldquo;a former
-        member&rdquo; rather than to you. Delete the recipes you want gone before you delete
-        the account, or ask us and we will do it. Two further things deliberately survive:
+        name, bio and photo, including the image file itself) are erased, along with your meal
+        plans, your unfinished recipe drafts, and who you were following. Recipes you wrote are
+        not deleted along with the account: they stay in the family vaults they belong to,
+        credited to &ldquo;a former member&rdquo; rather than to you. Delete the recipes you
+        want gone before you delete the account, or ask us and we will do it.
       </p>
+      <p>These things deliberately survive, and this is the whole list:</p>
       <ul>
+        <li>
+          Recipes you added to a family vault, and the photos, comments and &ldquo;cooked
+          this&rdquo; entries that go with them. They are what the vault is for and the other
+          members are relying on them, so they stay, credited to &ldquo;a former member&rdquo;.
+          Anything written in a comment stays visible to that family.
+        </li>
         <li>
           Copies of a recipe that other cooks saved into their own vaults before you deleted it,
           credited to you. This is explained in the <Link to="/terms">terms</Link>: nobody can
           have their vault emptied by someone else making a decision.
         </li>
         <li>
-          Moderation records of a removal, kept so a repeated pattern can be acted on. These
-          hold the decision, not your recipes.
+          Moderation records: a report you filed, an appeal you wrote, and the record of a
+          removal, kept so a repeated pattern can be acted on. These hold the decision, not
+          your recipes.
         </li>
       </ul>
       <p>Error reports are operational data and are deleted after 90 days.</p>

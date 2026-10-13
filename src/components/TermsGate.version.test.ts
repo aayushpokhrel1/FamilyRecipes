@@ -64,15 +64,6 @@ it("still carries the clauses the app's behaviour depends on", () => {
 });
 
 it("refuses to guess when two files could be the terms page", () => {
-  // The repo now holds src/pages/Terms.tsx AND src/kitchen/pages/Terms.tsx. A suffix that
-  // matches both must throw rather than silently fingerprint whichever the glob happens to
-  // sort first, because the quiet failure here is a page that looks guarded and is not.
-  expect(() => sourceText("pages/Terms.tsx")).toThrow(/matches 2 files/);
-  expect(sourceText("src/pages/Terms.tsx")).toContain("Terms and acceptable use");
-  expect(sourceText("src/kitchen/pages/Terms.tsx")).toContain("Terms for kitchens");
-});
-
-it("refuses to guess when two files could be the terms page", () => {
   // The repo holds src/pages/Terms.tsx AND src/kitchen/pages/Terms.tsx, and the glob sorts the
   // kitchen one FIRST. So the old sources.find(path.endsWith("pages/Terms.tsx")) would have
   // begun fingerprinting the kitchen's document the day that page was added: it fails once,
