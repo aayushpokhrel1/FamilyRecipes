@@ -639,6 +639,22 @@ the queries are reconstructible from the tables listed above.
   Any command that syncs them wholesale will carry the local values that exist precisely
   because they are not production.
 
+- **A kitchen account that created a group CANNOT be deleted.** `kitchen.orgs.created_by`
+  references `auth.users` with no `on delete cascade`, and neither do `dishes.created_by`,
+  `dish_versions.created_by`, `approvals.approved_by`, `deviations.created_by`,
+  `published_snapshots.published_by` or `staff_invites.created_by`. Only `kitchen.staff` and
+  `kitchen.terms_acceptance` cascade. So deleting that auth user is refused by a foreign key.
+
+  **Walking the kitchen with a throwaway account? Stop after accepting the terms.** An account
+  that only signed up, met the gate and accepted deletes cleanly from Authentication -> Users.
+  One that created a group needs its kitchen rows cleared first.
+
+  **This is also a product question, not only an ops note.** The kitchen app has no account
+  deletion of any kind, and a real staff member who ever signed a dish off cannot have their
+  auth user removed. Keeping the sign-off attributable is probably right, and
+  `src/kitchen/pages/Privacy.tsx` still promises to answer a deletion request, so the two have
+  to be reconciled before a paying customer. `PRODUCT.md` carries it as open.
+
 - **Locally the kitchen schema has an order trap** (met 2026-10-11). `npx supabase start`
   restores the database from a backup and only then starts PostgREST, so a `config.toml` that
   exposes `kitchen` before any migration has created it makes PostgREST exit 503 with
