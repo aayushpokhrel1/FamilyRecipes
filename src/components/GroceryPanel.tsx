@@ -8,7 +8,15 @@ import type { GroceryLine } from "../lib/api/types";
 import { CATEGORY_ORDER } from "../lib/catalog";
 import { contribLabel, totalLabel, lineName, qtyIsRedundant } from "../lib/groceryLabels";
 
-export default function GroceryPanel({ planId }: { planId: string }) {
+// canEdit is the PLAN's ownership, passed down rather than worked out here: ticking an item
+// writes meal_plans.checked_items and adding one writes meal_plan_manual_items, and both of
+// those policies admit the plan's OWNER only, while plans_read admits every family member of a
+// shared plan. A viewer who is not the owner was offered both and the database refused both
+// without raising, so the tick simply sprang back on the next render.
+//
+// The aisle select is NOT gated: it writes ingredient_categories, which is family-scoped, so it
+// genuinely works for anyone in the family and is useful to them.
+export default function GroceryPanel({ planId, canEdit = true }: { planId: string; canEdit?: boolean }) {
   const { activeFamily } = useFamily();
   const [lines, setLines] = useState<GroceryLine[]>([]);
   const [label, setLabel] = useState("");
@@ -70,7 +78,18 @@ export default function GroceryPanel({ planId }: { planId: string }) {
     return (
       <li key={line.key}>
         <label>
-          <input type="checkbox" checked={line.checked} onChange={() => handleToggle(line)} />
+          {/* disabled rather than absent: the ticks another cook has made are part of the list,
+              and a row with no box where every other row has one reads as broken. ONE input
+              with an attribute rather than two inputs in a branch, because
+              src/lib/accessibility.test.ts counts controls against labelling mechanisms per
+              file and a second checkbox inside the same label is a control with no mechanism
+              of its own. It caught exactly that here. */}
+          <input
+            type="checkbox"
+            checked={line.checked}
+            disabled={!canEdit}
+            onChange={() => handleToggle(line)}
+          />
           <span style={{ textDecoration: line.checked ? "line-through" : "none" }}>{lineName(line)}</span>
         </label>
         {line.optional === true && <span className="optional">optional</span>}
@@ -154,15 +173,17 @@ export default function GroceryPanel({ planId }: { planId: string }) {
           <Link to="/kitchen/cupboard">Manage the cupboard</Link>
         </p>
       )}
-      <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Add your own item"
-          aria-label="Add your own grocery item"
-        />
-        <button type="button" onClick={handleAddManual}>Add item</button>
-      </div>
+      {canEdit && (
+        <div className="vault-tools" style={{ marginTop: 16, marginBottom: 0 }}>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Add your own item"
+            aria-label="Add your own grocery item"
+          />
+          <button type="button" onClick={handleAddManual}>Add item</button>
+        </div>
+      )}
     </section>
   );
 }

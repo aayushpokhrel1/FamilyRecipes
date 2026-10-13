@@ -5,6 +5,7 @@ import {
 } from "@dnd-kit/core";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useFamily } from "../context/FamilyContext";
+import { useAuth } from "../context/AuthContext";
 import { addDays, dayLabel } from "../lib/dates";
 import {
   listPlans, listItems, addRecipe, addLeftover, removeItem, moveItem, setViewMode,
@@ -61,6 +62,7 @@ export default function MealPlanDetail() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activeFamily } = useFamily();
+  const { userId } = useAuth();
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [items, setItems] = useState<MealPlanItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -96,6 +98,22 @@ export default function MealPlanDetail() {
     const slot = searchParams.get("slot");
     if (day && SLOTS.includes(slot as MealSlot)) setCell({ day, slot: slot as MealSlot });
   }, []);
+
+  // A SHARED PLAN IS SHARED TO READ. plans_read admits the owner OR any family member of a
+  // shared plan, while plans_update, plans_delete and both item policies admit the OWNER ONLY.
+  // So every control on this page was offered to a relative who could not use it, and
+  // listPlans has no owner filter, so their plan list shows the plan and one click gets them
+  // here.
+  //
+  // THIS IS THE SECOND TIME THIS EXACT MISTAKE HAS SHIPPED. RecipeDetail's canEdit carries a
+  // comment about having offered a stranger a Delete the database would refuse. Row-level
+  // security was never the hole either time: the UI was lying about what it would let you do.
+  // And a refused write does not raise, it matches no rows and resolves, so pressing Remove
+  // here did nothing at all and the item came back on the next refresh with no explanation.
+  //
+  // Duplicate is deliberately NOT gated: it inserts a NEW plan owned by the viewer, which is
+  // exactly what a relative looking at next week's plan might want.
+  const canEdit = !!userId && !!plan && plan.owner_id === userId;
 
   const titleById = new Map(recipes.map((r) => [r.id, r.title]));
   const recipeById = new Map(recipes.map((r) => [r.id, r]));
@@ -166,6 +184,16 @@ export default function MealPlanDetail() {
   }
 
   function servingsStepper(it: MealPlanItem) {
+    // The number still matters to a reader; the buttons would not work for them.
+    if (!canEdit) {
+      const base = recipeById.get(it.recipe_id)?.servings ?? null;
+      return (
+        <div className="portions">
+          <span>Serves</span>
+          <span aria-label="portions value">{it.servings ?? base ?? 1}</span>
+        </div>
+      );
+    }
     const recipe = recipeById.get(it.recipe_id);
     const base = recipe?.servings ?? null;
     const canScale = base !== null && base > 0;
@@ -201,14 +229,20 @@ export default function MealPlanDetail() {
       <li key={it.id} className="plate plate-row meal-item">
         <span className="row-title">{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
         {servingsStepper(it)}
-        <span className="day-slot">
-          <input type="date" aria-label="day" value={it.day ?? ""} onChange={(e) => handleDay(it, e.target.value)} />
-          <select aria-label="meal slot" value={it.meal_slot ?? ""} onChange={(e) => handleSlot(it, e.target.value)}>
-            <option value="">Unscheduled</option>
-            {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </span>
-        <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
+        {canEdit ? (
+          <>
+            <span className="day-slot">
+              <input type="date" aria-label="day" value={it.day ?? ""} onChange={(e) => handleDay(it, e.target.value)} />
+              <select aria-label="meal slot" value={it.meal_slot ?? ""} onChange={(e) => handleSlot(it, e.target.value)}>
+                <option value="">Unscheduled</option>
+                {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </span>
+            <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
+          </>
+        ) : (
+          <span className="day-slot">{it.day ?? "Unscheduled"}{it.meal_slot ? ` ${it.meal_slot}` : ""}</span>
+        )}
       </li>
     );
   }
@@ -223,6 +257,7 @@ export default function MealPlanDetail() {
     items.filter((it) => it.day === day && it.meal_slot === slot);
 
   async function handleDragEnd(event: DragEndEvent) {
+    if (!canEdit) return;
     const move = resolveDrop(
       String(event.active.id),
       event.over ? String(event.over.id) : null,
@@ -238,14 +273,16 @@ export default function MealPlanDetail() {
     if (cellItemList.length === 0) {
       return (
         <DroppableCell key={`${day}-${slot}`} day={day} slot={slot} className="week-cell empty">
-          <button
-            type="button"
-            className="cell-add"
-            aria-label={`Add to ${slot} on ${dayLabel(day)}`}
-            onClick={() => setCell({ day, slot })}
-          >
-            +
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              className="cell-add"
+              aria-label={`Add to ${slot} on ${dayLabel(day)}`}
+              onClick={() => setCell({ day, slot })}
+            >
+              +
+            </button>
+          )}
         </DroppableCell>
       );
     }
@@ -253,17 +290,21 @@ export default function MealPlanDetail() {
       <DroppableCell key={`${day}-${slot}`} day={day} slot={slot} className="week-cell">
         {cellItemList.map((it) => (
           <div key={it.id}>
-            <MealGrip id={it.id} label={titleById.get(it.recipe_id) ?? "meal"} />
+            {canEdit && <MealGrip id={it.id} label={titleById.get(it.recipe_id) ?? "meal"} />}
             <span>{titleById.get(it.recipe_id) ?? it.recipe_id}</span>
             {it.leftover_of !== null ? (
               <span className="leftover">leftovers</span>
             ) : (
               <>
                 {servingsStepper(it)}
-                <button type="button" onClick={() => handleLeftover(it)}>Leftovers</button>
+                {canEdit && (
+                  <button type="button" onClick={() => handleLeftover(it)}>Leftovers</button>
+                )}
               </>
             )}
-            <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
+            {canEdit && (
+              <button type="button" onClick={async () => { await removeItem(it.id); refresh(); }}>Remove</button>
+            )}
           </div>
         ))}
       </DroppableCell>
@@ -275,11 +316,19 @@ export default function MealPlanDetail() {
   return (
     <div>
       <h1>{plan.name}</h1>
+      {!canEdit && (
+        <p className="vault-note" role="status">
+          Shared with you. Only the cook who made this plan can change it.
+        </p>
+      )}
       <div className="recipe-actions">
-        <button type="button" onClick={handleToggleView}>
-          {plan.view_mode === "list" ? "Calendar view" : "List view"}
-        </button>
+        {canEdit && (
+          <button type="button" onClick={handleToggleView}>
+            {plan.view_mode === "list" ? "Calendar view" : "List view"}
+          </button>
+        )}
         <div className="plan-dates">
+          {canEdit && (
           <label>
             Starts
             <input
@@ -288,12 +337,15 @@ export default function MealPlanDetail() {
               onChange={(e) => handleStartDate(e.target.value)}
             />
           </label>
+          )}
+          {canEdit && (
           <label>
             Days
             <select value={plan.length_days ?? 7} onChange={(e) => handleLength(e.target.value)}>
               {LENGTHS.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
+          )}
           <button type="button" disabled={!plan.start_date} onClick={async () => {
             if (!plan.start_date) return;
             const newId = await duplicatePlan(plan.id, addDays(plan.start_date, plan.length_days));
@@ -343,6 +395,7 @@ export default function MealPlanDetail() {
         </div>
       )}
 
+      {canEdit && (
       <div className="vault-tools">
         <select value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">
@@ -357,8 +410,12 @@ export default function MealPlanDetail() {
           </button>
         )}
       </div>
+      )}
 
-      <GroceryPanel key={reloadKey} planId={plan.id} />
+      {/* canEdit, because ticking an item writes meal_plans.checked_items and a manual item
+          writes meal_plan_manual_items, both of which admit the plan's OWNER only. The aisle
+          select inside it is family-scoped and stays usable for everyone. */}
+      <GroceryPanel key={reloadKey} planId={plan.id} canEdit={canEdit} />
     </div>
   );
 }

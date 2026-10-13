@@ -6,6 +6,13 @@ import MealPlanDetail from "./MealPlanDetail";
 vi.mock("../context/FamilyContext", () => ({
   useFamily: () => ({ activeFamily: { id: "f1", name: "F", invite_code: "x", created_by: "me" } }),
 }));
+// WHO IS LOOKING decides what this page offers, because plans_read admits any family member of
+// a SHARED plan while every write policy admits the owner alone. The fixtures below say "me",
+// which matches the plan's owner_id: the ordinary case of a cook opening their own plan. There
+// was no auth mock at all before, so every test here was silently running as a signed-out
+// viewer and would have gone on passing with the whole page gated off.
+const viewer = { userId: "me" };
+vi.mock("../context/AuthContext", () => ({ useAuth: () => viewer }));
 vi.mock("../lib/api/mealPlans", () => ({
   listPlans: vi.fn().mockResolvedValue([{ id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "list", is_shared: false, checked_items: [], created_at: "", updated_at: "" }]),
   listItems: vi.fn().mockResolvedValue([]),
@@ -146,4 +153,55 @@ test("the calendar grid mounts with a move grip on each scheduled meal", async (
   expect(await screen.findByRole("button", { name: /move dal/i })).toBeInTheDocument();
   // The tap-to-fill path must survive: dragging is an addition, never the only way in.
   expect(screen.getAllByRole("button", { name: /add to .* on /i }).length).toBeGreaterThan(0);
+});
+
+// A SHARED PLAN IS SHARED TO READ. This is the second time this app has offered controls the
+// database would refuse: RecipeDetail's canEdit carries a comment about having shown a
+// stranger a Delete. A refused write does not raise, it matches no rows and resolves, so
+// Remove did nothing and the item came back on the next refresh with no explanation.
+test("offers a relative viewing a shared plan nothing it cannot carry out", async () => {
+  viewer.userId = "someone-else";
+  const mp = await import("../lib/api/mealPlans");
+  // listPlans is re-stated rather than inherited: an earlier test in this file leaves it
+  // returning a CALENDAR plan, and in that view an item whose day is outside the date range
+  // renders in no cell at all. The first version of this test passed alone and failed in the
+  // file for that reason, which is a fixture inheriting a different test's world.
+  (mp.listPlans as any).mockResolvedValue([
+    { id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "list",
+      is_shared: true, checked_items: [], created_at: "", updated_at: "" },
+  ]);
+  (mp.listItems as any).mockResolvedValue([
+    { id: "it1", plan_id: "p1", recipe_id: "r1", day: "2026-09-20", meal_slot: "dinner", position: 0 },
+  ]);
+  const rc = await import("../lib/api/recipes");
+  (rc.listRecipes as any).mockResolvedValue([
+    { id: "r1", family_id: "f1", author_id: "me", title: "Pancakes", story: null, provenance: null,
+      servings: 4, prep_minutes: null, cook_minutes: null, visibility: "family", source_url: null,
+      created_at: "", updated_at: "" },
+  ]);
+  try {
+    render(
+      <MemoryRouter initialEntries={["/kitchen/p1"]}>
+        <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    // The plan itself is readable, and says so.
+    expect(await screen.findByRole("heading", { name: /this week/i })).toBeInTheDocument();
+    expect(screen.getByText(/only the cook who made this plan can change it/i)).toBeInTheDocument();
+
+    // And every control that writes is gone.
+    expect(screen.queryByRole("button", { name: /remove/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /increase|decrease/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("day")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("meal slot")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add recipe/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /calendar view|list view/i })).not.toBeInTheDocument();
+
+    // The portion count is still SHOWN, because it is information rather than a control: a
+    // read-only page that hides what is for dinner would be a different bug.
+    expect(screen.getByLabelText("portions value")).toBeInTheDocument();
+  } finally {
+    viewer.userId = "me";
+  }
 });
