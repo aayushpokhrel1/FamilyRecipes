@@ -407,3 +407,119 @@ it("holds every real update policy and definer function to those two locks", () 
   expect(updateWithoutCheck(sql)).toEqual([]);
   expect(definerOracles(sql)).toEqual([]);
 });
+
+// ---------------------------------------------------------------------------------------
+// Two locks added after the 2026-10-12 full audit, which found a HIGH authorization bypass
+// in the kitchen schema. Both of its halves were systemic rather than one-off.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A role gate whose left-hand side can be NULL is not a gate.
+ *
+ * `kitchen.staff_role(org)` is a bare SELECT, so it returns NULL for a caller with no staff
+ * row. Four pipeline functions wrote `if kitchen.staff_role(...) not in ('owner','chef')`.
+ * `NULL not in (...)` is NULL, and plpgsql does not execute an IF body whose condition is
+ * NULL, SO THE RAISE WAS SKIPPED FOR EXACTLY THE CALLER WITH NO AUTHORITY AT ALL. The gate
+ * refused every wrong role and admitted the absence of a role.
+ *
+ * The scenario that makes it concrete: while holding the lowest role, 'cook', a user was
+ * correctly refused. After the owner DELETED their staff row, the same user was allowed to
+ * create, revise, trial and sign a dish onto the org's live menu. Offboarding an employee
+ * increased their authority.
+ *
+ * This is the second instance of the same bug class in this codebase: the 2026-10-12
+ * migration 0047 nearly shipped `hidden_from_feed` returning NULL instead of false into a
+ * policy consumed behind `not`. Two independent instances is why this is a test and not a
+ * note. COALESCE anything nullable before comparing it.
+ */
+function nullableGates(migrations: Migration[]): string[] {
+  const offenders: string[] = [];
+  // Helpers that return NULL rather than a sentinel when the caller has no row.
+  const NULLABLE = String.raw`(?:kitchen\.)?(?:staff_role|staff_site)`;
+  // ONLY the negative operators. The direction matters and is the whole point:
+  //   `if role = 'owner' then <privileged work>`      NULL skips the work   -> fails CLOSED
+  //   `if role not in ('owner') then raise`           NULL skips the raise  -> fails OPEN
+  // The same applies inside a policy, where `staff_role(id) = 'owner'` yielding NULL simply
+  // matches no row. So an equality test against this helper is safe and is not flagged;
+  // a negated test used to guard a refusal is the shape that shipped the bypass.
+  const re = new RegExp(String.raw`${NULLABLE}\s*\([^)]*\)\s*(not\s+in|<>|!=)`, "gi");
+  // LAST DEFINITION WINS, the same as updateWithoutCheck and definerOracles above. 0041 and
+  // 0042 still contain the broken gate as history; 0049 replaces all four functions. Judging
+  // every historical body would pin the schema to its worst past version and leave no way to
+  // fix anything. Policy text outside a function body is scanned as-is, since a policy is
+  // not replaced by name the same way.
+  const ordered = [...migrations].sort((a, b) => a.file.localeCompare(b.file));
+  const liveFn = new Map<string, { file: string; body: string }>();
+  const fnRe =
+    /create\s+(?:or\s+replace\s+)?function\s+([a-z0-9_.]+)\s*\(([^)]*)\)([\s\S]*?)\$\$([\s\S]*?)\$\$/gi;
+  for (const { file, text } of ordered) {
+    // Strip `--` comments first, the same way kitchen_seal.test.ts does. 0049 quotes the
+    // broken gate verbatim in its header to explain the bug, and a guard that cannot tell
+    // code from the prose describing it would make the bug undocumentable.
+    const code = text.replace(/--.*$/gm, "");
+    let outsideFunctions = code;
+    for (const m of code.matchAll(fnRe)) {
+      liveFn.set(m[1], { file, body: m[4] });
+      outsideFunctions = outsideFunctions.replace(m[0], "");
+    }
+    for (const m of outsideFunctions.matchAll(re)) {
+      offenders.push(`${file}: ${m[0].replace(/\s+/g, " ")}`);
+    }
+  }
+  for (const [name, f] of liveFn) {
+    for (const m of f.body.matchAll(re)) {
+      // `is distinct from` is the safe form and is deliberately not matched above.
+      offenders.push(`${f.file}: ${name} -> ${m[0].replace(/\s+/g, " ")}`);
+    }
+  }
+  return offenders;
+}
+
+/**
+ * Every kitchen function must have its EXECUTE privilege stated, not defaulted.
+ *
+ * 0039 granted execute on all functions IN THE SCHEMA AT THAT MOMENT. Every function added
+ * in 0040 through 0046 therefore kept Postgres's default, which is EXECUTE to PUBLIC, while
+ * 0040 separately granted anon USAGE on the schema. The audit read pg_proc and found
+ * proacl null for ALL ELEVEN kitchen definer functions. That is what made the NULL gate
+ * above reachable rather than merely wrong.
+ *
+ * A blanket revoke is the only form that covers the function nobody has written yet.
+ */
+function kitchenExecuteNotRevoked(migrations: Migration[]): boolean {
+  const all = migrations.map((m) => m.text).join("\n");
+  return !/revoke\s+execute\s+on\s+all\s+functions\s+in\s+schema\s+kitchen\s+from[^;]*public/i.test(all);
+}
+
+it("fails a role gate that compares a nullable helper with NOT IN", () => {
+  expect(
+    nullableGates(fixture("if kitchen.staff_role(p_org) not in ('owner','chef') then")),
+  ).toHaveLength(1);
+});
+
+it("fails a role gate that compares a nullable helper with <>", () => {
+  expect(nullableGates(fixture("if kitchen.staff_role(p_org) <> 'owner' then"))).toHaveLength(1);
+});
+
+it("leaves an equality test alone, because NULL there fails closed", () => {
+  // `staff_role(id) = 'owner'` inside a policy matches no row when the helper is NULL, and
+  // inside an IF it skips the privileged branch. Both are the safe direction.
+  expect(nullableGates(fixture("create policy p on kitchen.orgs for update using (kitchen.staff_role(id) = 'owner');")))
+    .toEqual([]);
+});
+
+it("accepts the two safe forms: is distinct from, and coalesce before comparing", () => {
+  expect(nullableGates(fixture("if kitchen.staff_role(p_org) is distinct from 'owner' then")))
+    .toEqual([]);
+  expect(
+    nullableGates(fixture("if coalesce(kitchen.staff_role(p_org), '') not in ('owner','chef') then")),
+  ).toEqual([]);
+});
+
+it("compares no nullable role helper with a NULL-propagating operator", () => {
+  expect(nullableGates(sql)).toEqual([]);
+});
+
+it("revokes execute on kitchen functions from public rather than relying on the default", () => {
+  expect(kitchenExecuteNotRevoked(sql)).toBe(false);
+});

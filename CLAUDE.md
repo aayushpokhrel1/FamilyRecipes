@@ -17,7 +17,8 @@ model swap the same file recorded as already tried and rejected.
 | a **code comment at the site** | A rule about specific code ("any new ingredient column must be added here too") |
 | the **Obsidian vault** | A lesson that would change how I work on a *different* project |
 | `docs/superpowers/specs/` | The design of one feature, written before building it. Still tracked: a spec explains why the code is shaped as it is |
-| `supabase/kitchen_seal.test.ts` | The rule that the professional kitchen's schema touches the family's in exactly one migration. Change the bridge, change this test, and say why in the spec |
+| `supabase/kitchen_seal.test.ts` | The rule that the professional kitchen's schema touches the family's in a named, short list of bridge migrations. There are THREE now (`0044`, `0045`, `0051`). Adding a fourth is a deliberate act: write the reason in the migration's own header, as `0051` does |
+| `supabase/deletion_parity.test.ts` | The rule that both account-deletion paths erase the same columns. They drifted once: `0014` said the flow left "no identity", `0020` added three identity columns, and only the moderator path was updated, so self-deleted cooks stayed in `public_cooks` |
 | `docs/superpowers/plans/` | The task breakdown for one feature. **Gitignored since 2026-10-02**, same reason as `PRODUCT.md`; canonical copy in the vault at `Projects/FamilyRecipes/plans/` |
 | `HANDOVER.md` | **Only** current state: commit, versions, test counts, what is half-done, what is next |
 | nowhere | A dated narrative of what you did today. `git log` already holds it, in detail |
@@ -133,6 +134,22 @@ wrong document, failing once and then passing forever while guarding nothing.
     never checks is an oracle whose subject the caller picks. `blocked_between` carried a
     comment saying it was safe because it never reveals who blocked whom, which held only
     while the app chose the arguments.
+  **A gate whose left side can be NULL is not a gate.** A full audit on 2026-10-12 found the
+  run's only HIGH here: `kitchen.staff_role(org)` is a bare SELECT, so it returns NULL for a
+  non-member, and four pipeline functions wrote `if staff_role(...) not in ('owner','chef')
+  then raise`. `NULL not in (...)` is NULL, and plpgsql skips an `IF` body whose condition is
+  NULL, so the raise never fired for the caller with no authority at all. **While employed on
+  the lowest role a user was correctly refused; once their staff row was deleted the same
+  user could sign a dish onto the live menu. Offboarding increased their authority.** The
+  direction is what matters: `if role = 'owner' then <work>` fails CLOSED and is fine, a
+  negated test guarding a refusal fails OPEN. `coalesce` it, or use `is distinct from`.
+  This was the SECOND instance of the class: `0047` nearly shipped `hidden_from_feed`
+  returning NULL into a policy consumed behind `not`. `rls.test.ts` now fails both shapes.
+  **A new function in the `kitchen` schema also needs its EXECUTE revoked.** `0039`'s
+  `grant on all functions` covered only what existed then, so everything added in `0040`-`0046`
+  kept Postgres's default of EXECUTE to PUBLIC while anon held schema USAGE. That is what made
+  the NULL gate reachable rather than merely wrong. `0049` revokes blanket-wise, which is the
+  only form that covers the function nobody has written yet.
   **The real proof lives in `tests/integration/`, not here.** Those run as an ordinary user or
   as anon against a real database, and they are the only thing that can tell a correct policy
   from a present one. `audit_2026_10_12.test.ts` attempts all six exploits. Set the policy up

@@ -233,8 +233,11 @@ export default function Privacy() {
       <h2>How long it is kept</h2>
       <p>
         Your account and recipes are kept until you delete them. Delete your account from
-        Settings and your recipes, photos and profile go with it. Two things deliberately
-        survive:
+        Settings and your login, your profile and your public identity (your handle, public
+        name, bio and photo) are erased. Recipes you wrote are not deleted along with the
+        account: they stay in the family vaults they belong to, credited to &ldquo;a former
+        member&rdquo; rather than to you. Delete the recipes you want gone before you delete
+        the account, or ask us and we will do it. Two further things deliberately survive:
       </p>
       <ul>
         <li>

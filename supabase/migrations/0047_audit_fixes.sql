@@ -30,9 +30,15 @@
 -- every direct insert. That is the strictest setting available and the one that cannot rot
 -- as columns are added.
 --
--- It also makes the venue families of 0044 unjoinable BY CONSTRUCTION. Their comment says
--- "with no member rows. Ever." and nothing enforced it; the publishing user is their
--- `created_by`, so a creator-based policy would have let that user walk in.
+-- CORRECTION, later the same day, after a full audit: this paragraph claimed that the
+-- venue families of 0044 were now unjoinable BY CONSTRUCTION. THAT WAS FALSE. Dropping the
+-- direct insert policy closes one of the two ways into family_members and leaves
+-- join_family_by_code, which is SECURITY DEFINER and had no venue exclusion. Every family
+-- gets a default invite_code and families_member_read lets the row's CREATOR read it, and
+-- the publishing user is the venue family's `created_by`, so they could read their own
+-- venue family's code and join it. Migration 0051 actually enforces the invariant.
+-- The lesson is kept here deliberately: a comment asserting a guarantee the code does not
+-- enforce is worse than no comment, because 0050 was later built on exactly this one.
 drop policy members_self_insert on family_members;
 drop policy families_insert on families;
 
@@ -102,11 +108,15 @@ grant execute on function record_terms_acceptance(text) to authenticated;
 -- `meal_plans` had the identical hole with `is_shared`.
 --
 -- The check requires membership of the DESTINATION family, which is what makes moving a row
--- impossible rather than merely awkward. One deliberate consequence: a kitchen publisher is
--- not a member of the venue family their published recipe lives in, so they can no longer
--- edit that public snapshot directly. That path was flagged by the same audit and every
--- legitimate write to a published recipe already goes through publish_dish/unpublish_dish,
--- which are definer and unaffected.
+-- impossible rather than merely awkward.
+--
+-- CORRECTION, later the same day, after a full audit: this paragraph concluded that a
+-- kitchen publisher "can no longer edit that public snapshot directly". THAT WAS TRUE ONLY
+-- OF THE recipes ROW. ing_write, step_write, photo_write and rtags_write were author-or-owner
+-- with no membership test, and recipes_delete was author-or-owner, so the publisher could
+-- still rewrite the published ingredients and steps and delete the recipe outright, which
+-- cascades kitchen.published_snapshots. Migration 0050 gives those five the same
+-- requirement. Tightening one policy and leaving its five siblings is what left the gap.
 drop policy recipes_update on recipes;
 create policy recipes_update on recipes for update
   using (author_id = auth.uid() or exists (select 1 from family_members

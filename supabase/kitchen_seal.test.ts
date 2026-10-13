@@ -21,6 +21,12 @@ const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const BRIDGE_FILES = [
   "0044_kitchen_publish_bridge.sql",
   "0045_a_taken_down_dish_says_so.sql",
+  // 0051 seals the venue families 0044 creates. The invariant is the kitchen's (a venue
+  // family never gains a member) but the only remaining way in is join_family_by_code, in
+  // the public schema, so enforcing it needs one place that sees both. The alternative,
+  // an is_venue flag on public.families, keeps the schemas apart at the cost of a flag
+  // publish_dish must remember to set; a derived check cannot drift. See 0051's header.
+  "0051_venue_families_are_sealed.sql",
 ];
 const BRIDGE = BRIDGE_FILES[0];
 

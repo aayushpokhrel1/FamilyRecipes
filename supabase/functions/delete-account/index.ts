@@ -56,10 +56,19 @@ Deno.serve(async (req) => {
   // Order matters. Blank the profile BEFORE removing the login, so that if the
   // function dies halfway the account still exists and can be retried. The
   // reverse order could leave a live name attached to a deleted login.
+  // MUST BLANK THE SAME COLUMNS AS admin/index.ts's delete_user. 0014's comment said this
+  // flow leaves no identity, which was true when profiles had four columns. 0020 then added
+  // handle, public_name and bio, only the moderator path was updated, and self-deleted cooks
+  // stayed in public_cooks: /cooks/<handle> kept serving their name and bio and the sitemap
+  // kept offering it to crawlers. supabase/deletion_parity.test.ts now fails if the two
+  // paths drift apart again, or if either leaves a column public_cooks exposes.
   const { error: blankError } = await admin.from("profiles").update({
     display_name: "A former member",
     avatar_url: null,
     preferences: {},
+    handle: null,
+    public_name: null,
+    bio: null,
   }).eq("id", user.id);
   if (blankError) return json({ error: blankError.message }, 500);
 

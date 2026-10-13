@@ -259,6 +259,7 @@ Deno.serve(async (req) => {
         .update({
           display_name: "A former member",
           avatar_url: null,
+          preferences: {},
           handle: null,
           public_name: null,
           bio: null,
