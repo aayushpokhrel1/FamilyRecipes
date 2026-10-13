@@ -1,0 +1,35 @@
+-- 0057: `recipe_photos.storage_path` could name any file in the bucket.
+--
+-- The STORAGE object has always been protected. `recipe_photos_insert` and
+-- `recipe_photos_delete` (0004) key on `(storage.foldername(name))[1]`, so a cook can only
+-- write or remove a file in a folder named after a recipe they wrote. Nothing protected the
+-- COLUMN. `photo_write` checks that the row's `recipe_id` is the caller's own recipe and says
+-- nothing about `storage_path`, so a cook could insert a photo row on their own recipe
+-- carrying somebody else's file path, read straight out of `recipe_photos` for any public
+-- recipe.
+--
+-- On its own that is an inert lie: every reader resolves a path through the storage API, where
+-- the policies above refuse it. The damage needs a second party, and there is one.
+-- `scripts/cleanup-demoted-photos.mjs` runs with the SERVICE ROLE, which is exactly the thing
+-- those storage policies do not apply to, and hands `storage_path` to `.remove()`. So a cook
+-- could add a non-cover row to a recipe of their own that already has a cover, name a stranger's
+-- photo in it, and have the operator's next maintenance sweep delete that stranger's file. The
+-- victim's own row survives, pointing at nothing, so a public recipe renders a broken image.
+--
+-- THE SERVICE ROLE REMOVED THE ONLY CHECK THE COLUMN HAD. That is the general shape worth
+-- keeping: a value is not validated because every consumer today happens to re-check it, and
+-- then one consumer stops. The fix belongs on the column, where it holds for the consumer
+-- nobody has written yet, rather than in the script that happened to find it.
+--
+-- `like`, not a regex: `recipe_id::text` is a uuid, so it cannot contain a `%` or a `_` that
+-- would turn into a wildcard. The app has always written `${recipeId}/${crypto.randomUUID()}`
+-- (`uploadRecipePhoto` in `src/lib/api/photos.ts`), so conforming rows are the only kind this
+-- app has ever created.
+--
+-- IF THIS MIGRATION FAILS ON CLOUD, it has found a row whose path does not belong to its
+-- recipe, which is worth seeing rather than skipping. A refused migration changes nothing;
+-- fix or delete the row and re-run. It is deliberately NOT `not valid`, because a constraint
+-- that exempts exactly the rows nobody has checked guards the wrong half.
+alter table recipe_photos
+  add constraint photo_path_belongs_to_its_recipe
+  check (storage_path like recipe_id::text || '/%');
