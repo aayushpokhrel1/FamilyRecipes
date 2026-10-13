@@ -243,6 +243,17 @@ p:last-child { margin-bottom: 0; }
    Getting this backwards is a contrast failure, not a taste call: see the token note. */
 a { color: var(--action-lit); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
 .plate a { color: var(--action); }
+/* A FORM LABEL ON A PLATE. `form label` sets --on-wall-soft, which is right for a form on the
+   green wall and is bone text on cream here, so an explicit colour on the label beats the
+   --ink this would otherwise inherit from .plate. Measured at a contrast ratio of 1.00: the
+   label was exactly the colour of the card.
+   Found on 2026-10-12 by opening the kitchen signup page, where it read as "three boxes with
+   nothing there". Three per-surface copies of this rule already existed (.auth-card label,
+   .settings-field > label, .ai-panel label), each added when somebody hit it on one page,
+   which left every surface nobody had hit yet broken: Families, Moderation and RecipeEdit in
+   the family app, and seven kitchen pages. It belongs on the shared surface, here.
+   src/index.contrast.test.ts fails if this override goes missing. */
+.plate label { color: var(--ink-soft); }
 a:hover { text-decoration-color: currentColor; }
 
 small { font-size: 0.8rem; color: var(--on-wall-soft); }

@@ -97,3 +97,59 @@ describe.each([
     expect(ratio(fg, bg, t)).toBeGreaterThanOrEqual(3);
   });
 });
+
+// A pair being listed above proves the PALETTE is sound. It cannot prove the right pair is the
+// one that renders, and on 2026-10-12 the wrong one did: every `<form><label>` sitting on a
+// plate drew bone text on cream at a measured contrast ratio of exactly 1.00, which is to say
+// the label was the same colour as the card. Found by Aayush opening the kitchen signup page
+// and seeing "three boxes with nothing there".
+//
+// The cause is cascade, not palette. `form label` sets `color: var(--on-wall-soft)`, correct
+// for a form on the green wall, and an explicit colour on the label beats the `color: var(--ink)`
+// it would otherwise inherit from `.plate`. So the plate needs its own override, exactly as it
+// already has one for `a` and for `:focus-visible`.
+//
+// Three such overrides already existed, each added when somebody hit this on one surface:
+// `.auth-card label`, `.settings-field > label` and `.ai-panel label`. That is the tell. A rule
+// written three times for three surfaces is a rule that belongs on the shared one, and the
+// surfaces nobody had hit yet were still broken: Families, Moderation and RecipeEdit in the
+// family app, and seven kitchen pages.
+describe("a form label on a plate", () => {
+  const ruleFor = (selector: string): string | null => {
+    // Matched as text rather than parsed, in the same spirit as the token reader above: the
+    // selector must start a rule, so it cannot be found inside a longer one. ".plate label"
+    // must not be satisfied by ".ai-panel label", and "form label" must not be satisfied by
+    // ".settings-field > label".
+    const start = new RegExp(String.raw`(?:^|[}\n])\s*` + selector.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`) + String.raw`\s*\{([^}]*)\}`, "m");
+    return start.exec(css)?.[1] ?? null;
+  };
+  const colourIn = (body: string | null): string | null =>
+    body ? (/(?:^|[;\s])color:\s*var\(--([a-z0-9-]+)\)/.exec(body)?.[1] ?? null) : null;
+
+  it("is overridden to an ink colour, because the default is for the green wall", () => {
+    const formLabel = colourIn(ruleFor("form label"));
+    expect(formLabel, "form label no longer sets a colour, so re-read this test").not.toBeNull();
+
+    // Only an on-wall default needs rescuing. If somebody makes `form label` ink by default
+    // this test should stop demanding the override rather than silently keep passing.
+    if (!formLabel!.startsWith("on-wall")) return;
+
+    const plateLabel = colourIn(ruleFor(".plate label"));
+    expect(
+      plateLabel,
+      "`form label` is var(--" + formLabel + "), which is bone, and nothing overrides it inside " +
+        "a .plate. Every form label on a card is then invisible: measured at 1.00:1. Add " +
+        "`.plate label { color: var(--ink-soft); }` next to `.plate a`.",
+    ).not.toBeNull();
+    expect(plateLabel, "the override must be an ink token, not another wall token").toMatch(/^ink/);
+  });
+
+  it("uses a token pair this file already checks for contrast", () => {
+    // Belt and braces: the override is worthless if the token it names is not itself tested
+    // against the plate above.
+    const plateLabel = colourIn(ruleFor(".plate label"));
+    if (!plateLabel) return;
+    const checked = PAIRS.some(([fg, bg]) => fg === plateLabel && bg === "plate");
+    expect(checked, `${plateLabel} on plate is not in the PAIRS list above`).toBe(true);
+  });
+});
