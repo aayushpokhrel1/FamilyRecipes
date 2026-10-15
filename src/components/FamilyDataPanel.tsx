@@ -70,7 +70,8 @@ export default function FamilyDataPanel() {
       <h3>Aisle tags</h3>
       {keys.length === 0 ? (
         <p className="vault-note">
-          No aisle tags yet. Tag an ingredient from the grocery list and it will show up here.
+          No aisle tags yet. Tag an ingredient wherever it lands in "Other" (the grocery list,
+          the cupboard, a recipe's By category view, or the recipe editor) and it shows up here.
         </p>
       ) : (
         keys.map((key) => (

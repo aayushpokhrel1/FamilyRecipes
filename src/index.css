@@ -1203,6 +1203,14 @@ button[aria-pressed="true"] {
   border-radius: var(--radius-sm);
 }
 
+/* Those small metrics are tuned for the grocery list and the cupboard, where the setter
+   trails a chip or a line of text. The recipe editor's row is full-size controls, and the
+   shrunken select read as a foreign object dropped between them. Only the browser showed
+   this: the markup is identical on all three screens. */
+.editor-row .aisle-setter select {
+  font-size: inherit; padding: 6px 8px; min-width: 9rem;
+}
+
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }
