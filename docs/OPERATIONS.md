@@ -1288,6 +1288,16 @@ unreachable pre-rewrite objects are still served, and that is what to cite it as
 is nothing left to enumerate from. That is an argument FOR the blanket GC rather than against
 it: a targeted request cannot be aimed any more.
 
+**The form's category: choose "Deletes"** (recorded 2026-10-15, from the live form). The
+alternatives are invitations, migration, restoration, transfer, repository features, log
+requests, access issues and "Remove LFS objects", so a removal of data that is still being
+served is the Deletes category and the LFS option confirms removals live there. Because the fit
+is imperfect, **lead the body with the ask** rather than the backstory, so a triager sees what
+you want in the first line, and say in that line that it is a privacy request about a third
+party's personal data. If it is routed somewhere unhelpful, GitHub also takes personal-data
+removal requests through the privacy contact in their Privacy Statement; that is a fallback
+rather than a first move, because Support is who can actually run the collection.
+
 **The request**, at <https://support.github.com/contact>. Ask them to garbage-collect
 unreachable objects on `aayushpokhrel1/FamilyRecipes`. Say the history was rewritten to remove a
 third party's email address from commit messages, that pre-rewrite commits are still served by
