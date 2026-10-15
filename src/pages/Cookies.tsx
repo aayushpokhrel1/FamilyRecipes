@@ -26,7 +26,7 @@ export default function Cookies() {
       <h2>What it does store, in your own browser</h2>
       <p>
         A few things are kept in your browser local storage. These never leave your device, they
-        are not sent to us, and they cannot be read by another site. All four exist to make a
+        are not sent to us, and they cannot be read by another site. All five exist to make a
         feature you asked for work, which is what the law calls strictly necessary:
       </p>
       <table>
@@ -69,6 +69,17 @@ export default function Cookies() {
               every page.
             </td>
             <td>Minutes, then discarded</td>
+          </tr>
+          <tr>
+            <td>
+              <code>cookTimers</code>
+            </td>
+            <td>
+              Keeps any kitchen timer you have started running, so it survives reloading the page
+              or leaving the recipe. It holds the recipe, the step number, the duration and the
+              time it is due, and nothing about you.
+            </td>
+            <td>Until the timer finishes or you cancel it</td>
           </tr>
         </tbody>
       </table>

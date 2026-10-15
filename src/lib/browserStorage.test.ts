@@ -3,7 +3,8 @@ import { sources } from "./sourceFiles";
 import html from "../../index.html?raw";
 import css from "../index.css?raw";
 
-// src/pages/Cookies.tsx tells people this app sets NO cookies and stores only four strictly
+// src/pages/Cookies.tsx tells people this app sets NO cookies and stores only a named, counted
+// list of strictly
 // necessary things, and that is the entire reason it shows no cookie banner. Under UK and EU
 // law, the day a non-essential cookie or a tracking script appears, a consent banner becomes
 // mandatory and that page becomes a false statement.
@@ -19,6 +20,7 @@ const KNOWN_KEYS = [
   "theme", // src/lib/theme.ts, and the pre-paint script in index.html
   "activeFamilyId", // src/context/FamilyContext.tsx
   "photo-url:", // src/lib/api/photos.ts, CACHE_PREFIX
+  "cookTimers", // src/lib/cookTimers.ts
 ];
 
 // Third-party tags that each require consent before they may load.
@@ -35,6 +37,25 @@ const TRACKERS = [
   "fullstory",
   "doubleclick",
 ];
+
+// The paragraph above that table states HOW MANY things are stored, in words. That number
+// drifted the moment a fourth key was added, because nobody re-reads the sentence above the
+// table they are editing. A wrong count on this page is a wrong legal claim, so it is checked
+// rather than trusted.
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+
+it("states a stored-item count that matches the table", () => {
+  const page = sources.find(({ path }) => path.endsWith("pages/Cookies.tsx"));
+  expect(page, "Cookies.tsx not found in sources").toBeDefined();
+  const text = page!.text;
+
+  const tbody = text.slice(text.indexOf("<tbody>"), text.indexOf("</tbody>"));
+  const rows = (tbody.match(/<tr>/g) ?? []).length;
+
+  const stated = text.match(/All (\w+) exist to make a/);
+  expect(stated, "the 'All <n> exist' sentence is gone from Cookies.tsx").not.toBeNull();
+  expect(COUNT_WORDS[rows]).toBe(stated![1]);
+});
 
 it("never writes a cookie, so no consent banner is required", () => {
   const offenders = sources
