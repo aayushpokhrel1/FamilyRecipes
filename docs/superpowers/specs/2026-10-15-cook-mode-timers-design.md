@@ -78,8 +78,13 @@ Recognised:
 
 A unit must match as a whole word. This is the one parser rule that is a correctness
 requirement rather than a convenience: without it `20 ml` and `500 mg` match as twenty and five
-hundred minutes, and an ingredient quantity sitting in a step becomes a timer. There is no
-bare-letter form such as `20m` for the same reason.
+hundred minutes, and an ingredient quantity sitting in a step becomes a timer.
+
+The bare-letter forms `20m`, `1h` and `30s` ARE accepted, which an earlier draft of this spec
+said they would not be. The reason given there does not survive contact with the regex: the
+unit is captured greedily as `[a-z]+`, so `20 ml` captures `ml` and is rejected outright
+rather than reading as a bare `m`. The same holds for `mg`, `cm`, `mm`, `kg` and `tsp`, and for
+`3 medium onions`, which captures `medium`.
 
 A range takes the longer end on purpose: ringing early on food that is not done sends someone
 back to the pan, while ringing late is what every cook already expects to check for.
