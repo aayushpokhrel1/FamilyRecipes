@@ -4,7 +4,7 @@ import { deleteRecipe, getRecipe } from "../lib/api/recipes";
 import { getCoverPhotoUrl } from "../lib/api/photos";
 import { listPlans, addRecipe } from "../lib/api/mealPlans";
 import { listRecipeTags } from "../lib/api/tags";
-import { listCategoryOverrides } from "../lib/api/ingredientCategories";
+import { listCategoryOverrides, setCategoryOverride } from "../lib/api/ingredientCategories";
 import { getByline } from "../lib/api/profile";
 import type { Byline, Ingredient, Recipe, ReportReason, Step, MealPlan, Tag } from "../lib/api/types";
 import { REASON_LABELS, reasonLabel } from "../lib/api/types";
@@ -12,7 +12,8 @@ import CommentThread from "../components/CommentThread";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
 import { displayItem } from "../lib/api/normalizeItem";
-import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "../lib/groupIngredients";
+import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf, OTHER } from "../lib/groupIngredients";
+import { CATEGORY_ORDER } from "../lib/catalog";
 import { useAuth } from "../context/AuthContext";
 import { useFamily } from "../context/FamilyContext";
 import { saveToVault } from "../lib/api/saves";
@@ -175,6 +176,20 @@ export default function RecipeDetail() {
     recipe.author_id === userId ||
     families.some((f) => f.id === recipe.family_id && f.role === "owner")
   );
+
+  // Wider than canEdit ON PURPOSE: ingredient_categories_write is is_family_member with no
+  // role test, so any member may tag an aisle even on a recipe they cannot edit. Matching
+  // canEdit here would hide a control the database would have accepted. If 0013's policy
+  // changes, change this with it.
+  const canTagAisle = !!userId && families.some((f) => f.id === recipe.family_id);
+
+  async function handleSetAisle(item: string, category: string) {
+    if (!canTagAisle || !category || !recipe) return;
+    try {
+      await setCategoryOverride(recipe.family_id, item, category);
+      setOverrides(await listCategoryOverrides(recipe.family_id));
+    } catch (e: any) { setError(e.message); }
+  }
 
   const meta: Array<[string, number]> = [];
   if (recipe.servings) meta.push(["Serves", recipe.servings]);
@@ -374,6 +389,22 @@ export default function RecipeDetail() {
                       <span className="qty">{[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}</span>
                       <span>{displayItem(g.item)}</span>
                       {g.optional === true && <span className="optional">optional</span>}
+                      {/* Only in the category view, only in the Other group, only for a
+                          member: this is the screen where you SEE something misfiled. */}
+                      {groupBy === "category" && grp.section === OTHER && canTagAisle && (
+                        <span className="aisle-setter">
+                          <select
+                            aria-label={`Set aisle for ${displayItem(g.item)}`}
+                            value=""
+                            onChange={(e) => handleSetAisle(g.item, e.target.value)}
+                          >
+                            <option value="">Set aisle...</option>
+                            {CATEGORY_ORDER.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </span>
+                      )}
                     </li>
                   );
                 })}

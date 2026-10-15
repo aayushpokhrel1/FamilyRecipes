@@ -34,6 +34,12 @@ vi.mock("../lib/api/recipes", () => ({
   }),
 }));
 
+const setCategoryOverride = vi.fn().mockResolvedValue(undefined);
+vi.mock("../lib/api/ingredientCategories", () => ({
+  listCategoryOverrides: vi.fn().mockResolvedValue(new Map()),
+  setCategoryOverride: (...a: any[]) => setCategoryOverride(...a),
+}));
+
 const saveToVault = vi.fn().mockResolvedValue("new-id");
 vi.mock("../lib/api/saves", () => ({
   saveToVault: (...a: any[]) => saveToVault(...a),
@@ -431,4 +437,38 @@ test("a non-owner member of the recipe's family is not offered Edit", async () =
   );
   await screen.findByText("Dal");
   expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+});
+
+// The aisle setter sits where you SEE a misfiled ingredient: the By category view's Other
+// group. Its gate is membership of the recipe's family, which is wider than canEdit because
+// ingredient_categories_write is is_family_member with no role test.
+async function renderWithUnplaceableIngredient() {
+  (getRecipe as any).mockResolvedValueOnce({
+    recipe: baseRecipe,
+    ingredients: [{ position: 0, quantity: "1", unit: "tsp", item: "marmite" }],
+    steps: [{ position: 0, text: "mix well" }],
+    photos: [],
+  });
+  render(
+    <MemoryRouter initialEntries={["/recipes/r1"]}>
+      <Routes>
+        <Route path="/recipes/:id" element={<RecipeDetail />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("Dal");
+  await userEvent.click(screen.getByRole("button", { name: "By category" }));
+}
+
+test("a family member can set the aisle of an ingredient the catalog cannot place", async () => {
+  family.mine = [{ id: "f1", name: "Fam", invite_code: "x", created_by: "u", role: "member" }];
+  await renderWithUnplaceableIngredient();
+  await userEvent.selectOptions(screen.getByLabelText("Set aisle for marmite"), "Spices");
+  expect(setCategoryOverride).toHaveBeenCalledWith("f1", "marmite", "Spices");
+});
+
+test("a visitor from another family is not offered the aisle setter", async () => {
+  family.mine = [{ id: "f2", name: "Other", invite_code: "y", created_by: "v", role: "owner" }];
+  await renderWithUnplaceableIngredient();
+  expect(screen.queryByLabelText("Set aisle for marmite")).toBeNull();
 });
