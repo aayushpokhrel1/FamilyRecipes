@@ -217,6 +217,24 @@ export default function Privacy() {
         <Link to="/terms">the terms</Link>. Your account is yours and you can ask for it to be
         deleted at any time.
       </p>
+      {/* WHAT DELETION DOES HERE IS A DATABASE FACT, not a promise this page is free to make:
+          migration 0059 sets every attribution column in the kitchen schema to null when the
+          login goes, and the staff row cascades. The sentences below describe exactly that, so
+          if that migration is ever revisited this paragraph is part of the change. Before 0059
+          those columns refused the deletion outright, which made the paragraph above false for
+          anyone who had done any work here. */}
+      <p>
+        If you do delete your account, the work stays and your name comes off it. A dish, a
+        version, the note saying why it changed, a sign-off and a deviation all survive with the
+        person they name set to nobody, because the group is still cooking from them and a
+        record of what was decided is no use to anybody blank. Your staff row goes, so you are
+        no longer employed there, and an invitation you had sent stops working. A dish your
+        group has published stays published: taking it down is the group's decision rather than
+        yours, which is the same split as everywhere else on this page. There is no delete
+        button in this app yet, which is a gap rather than a policy: write to{" "}
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>, or use Settings in the family
+        app if you have an account there under the same sign-in.
+      </p>
 
       <h2>Your rights</h2>
       <p>

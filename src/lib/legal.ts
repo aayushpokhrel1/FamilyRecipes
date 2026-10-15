@@ -23,4 +23,8 @@ export const TERMS_UPDATED = "11 October 2026";
 //
 // Bump these alongside KITCHEN_TERMS_VERSION in src/kitchen/components/KitchenTermsGate.tsx.
 export const KITCHEN_TERMS_UPDATED = "11 October 2026";
-export const KITCHEN_PRIVACY_UPDATED = "11 October 2026";
+// 15 October 2026: the retention section now states what deleting your account does to the
+// records your work is attached to, which migration 0059 is what makes true. Only the PRIVACY
+// date moves: no acceptance is recorded against a privacy notice, so nobody needs re-asking,
+// and KITCHEN_TERMS_UPDATED stays where it is.
+export const KITCHEN_PRIVACY_UPDATED = "15 October 2026";
