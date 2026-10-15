@@ -1,4 +1,4 @@
-import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf } from "./groupIngredients";
+import { groupIngredientsBySection, groupIngredientsByCategory, alternativesOf, ingredientsForStep } from "./groupIngredients";
 import type { Ingredient } from "./api/types";
 
 const ing = (item: string, section: string | null = null): Ingredient =>
@@ -84,4 +84,32 @@ test("membership does not depend on how the list is later grouped", () => {
   const coconut = alt("coconut milk", "g1");
   const all = [cream, alt("onion"), coconut];
   expect(alternativesOf(all).has(coconut)).toBe(true);
+});
+
+test("a step that names an ingredient returns it", () => {
+  const found = ingredientsForStep([ing("olive oil"), ing("salt")], "Heat the olive oil in a pan");
+  expect(found.map((i) => i.item)).toEqual(["olive oil"]);
+});
+
+// A substring match would match "boil" here, which is the whole reason for the padding.
+test("a match must be a whole word, not a substring", () => {
+  expect(ingredientsForStep([ing("oil")], "Bring to the boil")).toEqual([]);
+});
+
+test("a plural in the step matches a singular ingredient", () => {
+  const found = ingredientsForStep([ing("onion")], "Add the onions");
+  expect(found.map((i) => i.item)).toEqual(["onion"]);
+});
+
+test("a step that mentions nothing returns an empty array", () => {
+  expect(ingredientsForStep([ing("salt")], "Add the rest and simmer")).toEqual([]);
+});
+
+test("an ingredient with an empty name is never returned", () => {
+  expect(ingredientsForStep([ing("")], "Add the rest and simmer")).toEqual([]);
+});
+
+test("case does not matter", () => {
+  const found = ingredientsForStep([ing("Butter")], "melt the butter");
+  expect(found.map((i) => i.item)).toEqual(["Butter"]);
 });
