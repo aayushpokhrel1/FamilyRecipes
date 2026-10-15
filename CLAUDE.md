@@ -42,8 +42,8 @@ comments at the code, and the generalisable ones were in the vault.
 
 The evidence for why prose docs do not work here: three bugs on 2026-09-27 had their lesson
 already written down in this project before they happened. **The failure mode is not ignorance,
-it is not re-reading.** Prefer a mechanical defence — a test that fails, a CI job, a grep, a
-comment you cannot avoid — over a document.
+it is not re-reading.** Prefer a mechanical defence (a test that fails, a CI job, a grep, a
+comment you cannot avoid) over a document.
 
 **Use `/update-docs-familyrecipes`** (`.claude/commands/update-docs-familyrecipes.md`) rather
 than re-deriving the sweep. There is also a user-level `/update-docs` holding the generic

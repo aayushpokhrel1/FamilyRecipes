@@ -976,9 +976,9 @@ storable. `groupIngredientsByCategory` in `src/lib/groupIngredients.ts` handles 
 appending unrecognised aisles before `Other`. **Three other places keep only curated aisles** and
 would drop those ingredients entirely:
 
-- `src/components/GroceryPanel.tsx` — `CATEGORY_ORDER.filter((c) => byAisle.has(c))`
-- `src/components/UpcomingGroceryPanel.tsx` — same shape
-- `src/pages/Cupboard.tsx` — `[...CATEGORY_ORDER, "Other"].filter(...)`
+- `src/components/GroceryPanel.tsx`: `CATEGORY_ORDER.filter((c) => byAisle.has(c))`
+- `src/components/UpcomingGroceryPanel.tsx`: same shape
+- `src/pages/Cupboard.tsx`: `[...CATEGORY_ORDER, "Other"].filter(...)`
 
 No dropdown offers a non-curated value today, so nothing can write one. The fix is to share the
 rule `groupIngredientsByCategory` already implements rather than keep four copies of which one is
@@ -1018,6 +1018,15 @@ actions nobody can do from this repo.
 
   The guard is `worker/meta.test.ts`: a route with NO entry in `PUBLIC_PAGE_COPY` must still
   canonicalise to itself, because that is the branch every new route falls into.
+- **An unknown path answers 200 with a "That page is not here" page, which is a SOFT 404 to a
+  crawler, and that is deliberate.** Both apps gained a catch-all route on 2026-10-15; before
+  it, an unmatched path rendered an empty tree. The status stays 200 for two reasons, and the
+  full argument is the comment at the top of `src/pages/NotFound.tsx` rather than repeated
+  here: the Worker would need a copy of the route table to know a typo is dead, and for the
+  URL a crawler actually holds, a recipe that was public and is now unpublished, a 404 is
+  impossible because `enrichRecipePage` reads with the anon key and a family-visibility recipe
+  reads as null in exactly the same way. The kitchen host is unaffected either way, being
+  `noindex, nofollow` in both its meta tag and its header.
 - **JSON-LD `Recipe` data** is injected into each recipe page, which is what makes Google
   eligible to show a rich result (photo, times, ratings slot) instead of a plain blue link.
 - **Real titles and descriptions in the HTML.** This is the part people get wrong with a SPA:

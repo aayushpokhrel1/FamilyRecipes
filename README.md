@@ -39,7 +39,11 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   A draft belongs to its author alone and is never a row in `recipes`. A pending edit to an
   already-published recipe is a draft too: the recipe stays untouched until you publish, and if
   someone else changed it meanwhile you are told and asked, rather than silently overwriting.
-- **In-family comments** and **Cook Mode** (big-text, screen stays awake).
+- **In-family comments** and **Cook Mode**: one step at a time in big text, the screen kept
+  awake, and the step itself is the tap target because cooking hands are rarely clean. The
+  ingredients that step mentions sit under it with the amounts already scaled, the full list
+  sits beside the step rather than on top of it, you can tick an ingredient off as you add it,
+  and the step number is in the URL so a reload does not lose your place.
 - **Potluck**: a signed-in space for other households' public recipes, with search, a public
   cook page per handle, and following. Saving a copy into your own vault keeps the original
   cook's attribution, and the copy survives the original being unpublished or deleted.
@@ -47,6 +51,8 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   assign), leftovers that fill a slot without buying twice, and a grocery list built from the
   plan, grouped by supermarket aisle and scaled to each plan item's servings.
 - **The cupboard**: what you already have, so the grocery list stops telling you to buy it.
+  Add staples by typing or from the ingredient catalog, and tag an aisle for anything the
+  catalog cannot place, from whichever screen you noticed it on.
 - **Sign-in** with a verified email address or with Google.
 - **Moderator console** at `/moderation`: the report queue, an overview of site counts, and a
   roster with suspend, take down, grant moderator and delete. Visible only to a moderator, and
