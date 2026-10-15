@@ -194,3 +194,20 @@ test("an ingredient the step mentions is shown under it and can be ticked off", 
   await userEvent.click(tick);
   expect(screen.getByRole("button", { name: /1 cup flour/i })).toHaveAttribute("aria-pressed", "true");
 });
+
+// The spec's layout rule, and the bug this whole rework started from: the panel used to
+// render ABOVE the step and push it off the bottom of a phone. jsdom does no grid layout, so
+// "beside" cannot be measured here; what CAN be pinned is the half that makes "below" true on
+// a narrow screen, which is DOM order. Verified visually at 375px and 1024px as well.
+test("the ingredient panel comes after the step, never before it", async () => {
+  renderCookMode();
+  await screen.findByText("mix well");
+  await userEvent.click(screen.getByRole("button", { name: /show ingredients/i }));
+
+  const body = document.querySelector(".cook-body")!;
+  const main = body.querySelector(".cook-main")!;
+  const aside = body.querySelector(".cook-aside")!;
+  expect(main).toBeTruthy();
+  expect(aside).toBeTruthy();
+  expect(main.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

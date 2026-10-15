@@ -1012,7 +1012,15 @@ button[aria-pressed="true"] {
   cursor: pointer;
   text-align: left;
 }
-.cook-tick.is-ticked { text-decoration: line-through; opacity: 0.55; }
+/* The global button[aria-pressed="true"] rule fills a pressed toggle with dark enamel, which
+   is right for a chip and wrong here: a ticked ingredient should read as a crossed-off line,
+   not as a filled button sitting in the middle of a list. This selector outranks it. */
+.cook-tick.is-ticked {
+  text-decoration: line-through;
+  opacity: 0.55;
+  background: none;
+  border-color: var(--on-wall-soft);
+}
 .cook-ings .cook-tick { border: 0; padding: 2px 0; }
 
 /* ---------------------------------------------------------- comments ------ */
