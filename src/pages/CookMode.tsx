@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { getRecipe } from "../lib/api/recipes";
 import { logCooked } from "../lib/api/cookLog";
 import type { Ingredient, Step } from "../lib/api/types";
@@ -19,7 +19,48 @@ export default function CookMode() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const isAlternative = alternativesOf(ingredients);
   const [steps, setSteps] = useState<Step[]>([]);
-  const [index, setIndex] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // The step number travels in the URL, not in state and not in localStorage. This repo
+  // already puts anything that must survive a round trip in the URL (see src/lib/nextPath.ts),
+  // and a new storage key would have to be justified as strictly necessary in
+  // src/lib/browserStorage.test.ts and named on the Cookies page.
+  //
+  // ?step is 1-based because it is a thing a person can read and type. A URL is editable
+  // input and therefore a trust boundary: anything out of range or not a number clamps into
+  // range rather than throwing or rendering a blank step.
+  const rawStep = Number(searchParams.get("step"));
+  const index = Number.isFinite(rawStep) && rawStep >= 1
+    ? Math.min(Math.trunc(rawStep) - 1, Math.max(steps.length - 1, 0))
+    : 0;
+
+  function goToStep(next: number) {
+    const clamped = Math.max(0, Math.min(next, steps.length - 1));
+    // replace, not push: twenty steps must not mean twenty back-button presses to leave.
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("step", String(clamped + 1));
+      return params;
+    }, { replace: true });
+  }
+
+  // Swipe is the same two actions as the buttons, for a phone propped on a counter. Touch
+  // only: a mouse drag on a desktop is usually a text selection, not a gesture.
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    setTouchStartX(e.changedTouches[0]?.clientX ?? null);
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX === null) return;
+    const delta = (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+    setTouchStartX(null);
+    // 60px, so a tap with a slightly unsteady hand is still a tap.
+    if (Math.abs(delta) < 60) return;
+    goToStep(delta < 0 ? index + 1 : index - 1);
+  }
+
   const [showIngredients, setShowIngredients] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,14 +98,14 @@ export default function CookMode() {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "ArrowRight") {
-        setIndex((i) => Math.min(i + 1, steps.length - 1));
+        goToStep(index + 1);
       } else if (e.key === "ArrowLeft") {
-        setIndex((i) => Math.max(i - 1, 0));
+        goToStep(index - 1);
       }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [steps.length]);
+  }, [steps.length, index]);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +157,7 @@ export default function CookMode() {
   }
 
   return (
-    <div className="cook">
+    <div className="cook" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="cook-bar">
         <Link to={"/recipes/" + id} className="btn">Back to recipe</Link>
         <button type="button" onClick={() => setShowIngredients((v) => !v)}>
@@ -147,18 +188,30 @@ export default function CookMode() {
       )}
       {step ? (
         <>
-          <p className="cook-step">{step.text}</p>
+          {/* The step IS the Next control. Cooking hands are wet, floury or greasy, and a
+              normal button needs a clean fingertip; this takes a knuckle or the side of a
+              hand. A real <button> with an accessible name, never a <div onClick>, which
+              src/lib/accessibility.test.ts fails on. */}
+          <button
+            type="button"
+            className="cook-step"
+            onClick={() => goToStep(index + 1)}
+            disabled={index >= steps.length - 1}
+            aria-label={`Step ${index + 1} of ${steps.length}. Tap for the next step.`}
+          >
+            {step.text}
+          </button>
           <p className="cook-count">
             Step {index + 1} of {steps.length}
           </p>
           <div className="cook-nav">
-            <button type="button" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
+            <button type="button" onClick={() => goToStep(index - 1)} disabled={index === 0}>
               Previous
             </button>
             <button
               type="button"
               className="action"
-              onClick={() => setIndex((i) => i + 1)}
+              onClick={() => goToStep(index + 1)}
               disabled={index >= steps.length - 1}
             >
               Next
