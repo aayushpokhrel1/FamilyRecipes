@@ -74,12 +74,6 @@ Designed for portability: **all data access is isolated in `src/lib/api/`**, and
 it imports the Supabase client, so moving to a self-owned Node/Express + Postgres backend later
 is a bounded swap.
 
-The kitchen app runs the pipeline a professional kitchen is sold on: a dish goes from
-development, to a trial at one site, to the group menu, with every revision kept and its
-reason recorded, one version signed off, and a site's substitutions logged against the group
-version rather than replacing it. An owner can publish the approved version to Potluck under
-the venue's name, and take it down again.
-
 This repo builds **two apps from one Worker**: the family app (`index.html`, `src/`) on
 `recipes.enamelvault.com`, and the professional-kitchen app (`kitchen.html`, `src/kitchen/`,
 `src/lib/api/kitchen/`) on `kitchen.enamelvault.com`, plus the static landing page

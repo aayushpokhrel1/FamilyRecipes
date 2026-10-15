@@ -113,8 +113,8 @@ curl -s https://recipes.enamelvault.com/health/version
 
 Those two must agree. If the Worker is behind, you are about to test the previous build and
 conclude something false about this one: wait for the Cloudflare build, or check
-`gh run list --limit 1`. **This step exists because of 2026-10-12**, when a push produced no
-build at all, no failure and no notification, and the old Worker served 200s for three hours.
+`gh run list --limit 1`. This step exists because of the push that never built, which has its
+own section above (""Automatic" is not a guarantee").
 
 ### Step 2: the restyled Potluck
 
@@ -761,34 +761,25 @@ the queries are reconstructible from the tables listed above.
   Any command that syncs them wholesale will carry the local values that exist precisely
   because they are not production.
 
-- **A kitchen account used to be undeletable, and this was an ops note here for a day before
-  anyone read it as a bug.** Eight columns in `kitchen` referenced `auth.users` with no
-  on-delete action, so Postgres refused to remove the login of anyone who had started an org,
-  written a dish version, signed one off, recorded a deviation, published a dish, or minted or
-  accepted an invite. That is not only a throwaway-account annoyance: the family app's
-  `delete-account` runs `auth.admin.deleteUser` LAST, after blanking the profile, so a real
-  person who was also kitchen staff got a 500 and was left with their identity erased and
-  their login live. **Fixed in `0059`**, which makes all eight `on delete set null`: the group
-  keeps its dishes and its history with nobody named, and `kitchen.staff` and
-  `kitchen.terms_acceptance` still cascade.
+- **A kitchen account used to be undeletable, and that was an ops note in this file for a day
+  before anybody read it as a bug.** Eight attribution columns in `kitchen` referenced
+  `auth.users` with no on-delete action, so Postgres refused to remove the login of anyone who
+  had done any work there, and `delete-account` blanks the profile FIRST, so the person was
+  left with their identity erased and their login live. **Fixed in `0059`.** The rule for
+  writing a new column is in `CLAUDE.md`; the guards are `supabase/rls.test.ts` and
+  `tests/integration/kitchen_account_deletion.test.ts`. Not repeated here.
 
-  Two guards hold it. `tests/integration/kitchen_account_deletion.test.ts` deletes a user who
-  has worked in a kitchen, and `supabase/rls.test.ts` fails any NEW column that references
-  `auth.users` without an on-delete action. **So a throwaway kitchen account now deletes from
-  Authentication -> Users like any other**, and the paragraph that used to tell you to stop
-  after accepting the terms is gone because it is no longer true.
+  **What this file is for: a throwaway kitchen account now deletes from Authentication -> Users
+  like any other**, and the old advice to stop after accepting the terms is gone because it is
+  no longer true. **The last owner of an org cannot leave over the API** (`0059` tightened
+  `staff_delete`), because an org with no owner can never take its published dish down again.
+  Deleting the LOGIN still strands the org through the cascade on `staff.user_id`,
+  deliberately: erasure beats an invariant. An org in that state needs a service-role insert
+  into `kitchen.staff` to be administrable again, and there is no UI for it.
 
-  **What is still open is the product half**: the kitchen app offers no self-service deletion
-  of its own, so a chef's only route is the family app's Settings page, and
-  `src/kitchen/pages/Privacy.tsx` promises to answer a deletion request. `PRODUCT.md` carries
-  that, not this file.
-
-  **The last owner of an org cannot leave over the API** (`0059` tightened `staff_delete`),
-  because every act left in the schema is owner-gated and an org with no owner can never take
-  its published dish down again. Deleting the LOGIN still strands the org through the cascade
-  on `staff.user_id`, deliberately: erasure beats an invariant. An org in that state needs a
-  service-role insert into `kitchen.staff` to be administrable again, and there is no UI for
-  it.
+  **Still open and a product question, not an ops one:** the kitchen app has no self-service
+  deletion of its own, so a chef's only route is the family app's Settings page on the other
+  host. `PRODUCT.md` carries it.
 
 - **Locally the kitchen schema has an order trap** (met 2026-10-11). `npx supabase start`
   restores the database from a backup and only then starts PostgREST, so a `config.toml` that

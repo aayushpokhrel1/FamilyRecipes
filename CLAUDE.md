@@ -45,6 +45,13 @@ already written down in this project before they happened. **The failure mode is
 it is not re-reading.** Prefer a mechanical defence — a test that fails, a CI job, a grep, a
 comment you cannot avoid — over a document.
 
+**Use `/update-docs`** (`.claude/commands/update-docs.md`) rather than re-deriving the sweep.
+It holds the measurements to run, the routing table to route each fact by, and the specific
+bloat to hunt. Two mechanical defences back it up, because a doc asking for brevity does not
+get it: `src/handover.budget.test.ts` fails when `HANDOVER.md` goes over 200 lines or grows
+dated section headings, and the answer when it goes red is to MOVE content to its home, never
+to raise the budget.
+
 **Updating docs means making them TRUE, not just appending what shipped.** Correct or strike a
 stale claim where it sits rather than adding a newer entry beneath it, because the next reader
 may hit the old one first. Cross-check every number (deployed version, test count, head commit)
