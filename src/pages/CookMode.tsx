@@ -5,7 +5,7 @@ import { logCooked } from "../lib/api/cookLog";
 import type { Ingredient, Step } from "../lib/api/types";
 import PortionsStepper from "../components/PortionsStepper";
 import { scaleIngredientQty } from "../lib/api/quantity";
-import { groupIngredientsBySection, alternativesOf } from "../lib/groupIngredients";
+import { groupIngredientsBySection, alternativesOf, ingredientsForStep } from "../lib/groupIngredients";
 import { useFamily } from "../context/FamilyContext";
 import { listPantry, setState as setItemState, type PantryItem } from "../lib/api/pantry";
 import { normalizeItem, displayItem } from "../lib/api/normalizeItem";
@@ -70,6 +70,25 @@ export default function CookMode() {
   const [logged, setLogged] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [used, setUsed] = useState<PantryItem[]>([]);
+
+  // Ticked off as you add it, which is the only thing on this screen that answers "did I
+  // already put the salt in?". Keyed by normalized name so the same ingredient ticks in
+  // both the inline list and the full panel at once.
+  //
+  // DELIBERATELY NOT PERSISTED, and not reset between steps. It is per-cook: leaving the
+  // screen clears it, because a half-ticked list greeting you next time is worse than
+  // starting clean, and you may well add an ingredient during step 2 and want it still
+  // ticked at step 5.
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
+
+  function toggleTicked(item: string) {
+    const key = normalizeItem(item);
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -164,63 +183,99 @@ export default function CookMode() {
           {showIngredients ? "Hide ingredients" : "Show ingredients"}
         </button>
       </div>
-      {showIngredients && (
-        <div>
-          <PortionsStepper base={servings} onFactorChange={setFactor} />
-          {groupIngredientsBySection(ingredients).map((grp) => (
-            <div key={grp.section ?? "_"}>
-              {grp.section && <h3 className="ing-section">{grp.section}</h3>}
-              <ul className="cook-ings">
-                {grp.items.map((g, i) => {
-                  const isAlt = isAlternative.has(g);
-                  return (
-                    <li key={i} className={isAlt ? "alt-line" : undefined}>
+      <div className={showIngredients ? "cook-body cook-body-split" : "cook-body"}>
+        <div className="cook-main">
+          {step ? (
+            <>
+              {/* The step IS the Next control. Cooking hands are wet, floury or greasy, and a
+                  normal button needs a clean fingertip; this takes a knuckle or the side of a
+                  hand. A real <button> with an accessible name, never a <div onClick>, which
+                  src/lib/accessibility.test.ts fails on. */}
+              <button
+                type="button"
+                className="cook-step"
+                onClick={() => goToStep(index + 1)}
+                disabled={index >= steps.length - 1}
+                aria-label={`Step ${index + 1} of ${steps.length}. Tap for the next step.`}
+              >
+                {step.text}
+              </button>
+              <p className="cook-count">
+                Step {index + 1} of {steps.length}
+              </p>
+              <div className="cook-nav">
+                <button type="button" onClick={() => goToStep(index - 1)} disabled={index === 0}>
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="action"
+                  onClick={() => goToStep(index + 1)}
+                  disabled={index >= steps.length - 1}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="vault-note">No steps yet.</p>
+          )}
+          {/* Only what THIS step mentions, so the amount is next to the instruction without
+              opening anything. An empty match renders nothing at all rather than guessing:
+              the full list is one tap away in the panel, and a wrong ingredient under a step
+              is worse than none. */}
+          {step && ingredientsForStep(ingredients, step.text).length > 0 && (
+            <ul className="cook-step-ings">
+              {ingredientsForStep(ingredients, step.text).map((g, i) => {
+                const key = normalizeItem(g.item);
+                const isTicked = ticked.has(key);
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      className={isTicked ? "cook-tick is-ticked" : "cook-tick"}
+                      aria-pressed={isTicked}
+                      onClick={() => toggleTicked(g.item)}
+                    >
                       {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}{" "}
-                      <span>{isAlt ? "or " + displayItem(g.item) : displayItem(g.item)}</span>
-                      {g.optional === true && <span className="optional">optional</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+                      {displayItem(g.item)}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-      )}
-      {step ? (
-        <>
-          {/* The step IS the Next control. Cooking hands are wet, floury or greasy, and a
-              normal button needs a clean fingertip; this takes a knuckle or the side of a
-              hand. A real <button> with an accessible name, never a <div onClick>, which
-              src/lib/accessibility.test.ts fails on. */}
-          <button
-            type="button"
-            className="cook-step"
-            onClick={() => goToStep(index + 1)}
-            disabled={index >= steps.length - 1}
-            aria-label={`Step ${index + 1} of ${steps.length}. Tap for the next step.`}
-          >
-            {step.text}
-          </button>
-          <p className="cook-count">
-            Step {index + 1} of {steps.length}
-          </p>
-          <div className="cook-nav">
-            <button type="button" onClick={() => goToStep(index - 1)} disabled={index === 0}>
-              Previous
-            </button>
-            <button
-              type="button"
-              className="action"
-              onClick={() => goToStep(index + 1)}
-              disabled={index >= steps.length - 1}
-            >
-              Next
-            </button>
+        {showIngredients && (
+          <div className="cook-aside">
+            <PortionsStepper base={servings} onFactorChange={setFactor} />
+            {groupIngredientsBySection(ingredients).map((grp) => (
+              <div key={grp.section ?? "_"}>
+                {grp.section && <h3 className="ing-section">{grp.section}</h3>}
+                <ul className="cook-ings">
+                  {grp.items.map((g, i) => {
+                    const isAlt = isAlternative.has(g);
+                    return (
+                      <li key={i} className={isAlt ? "alt-line" : undefined}>
+                        <button
+                          type="button"
+                          className={ticked.has(normalizeItem(g.item)) ? "cook-tick is-ticked" : "cook-tick"}
+                          aria-pressed={ticked.has(normalizeItem(g.item))}
+                          onClick={() => toggleTicked(g.item)}
+                        >
+                          {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}{" "}
+                          <span>{isAlt ? "or " + displayItem(g.item) : displayItem(g.item)}</span>
+                          {g.optional === true && <span className="optional">optional</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
-        </>
-      ) : (
-        <p className="vault-note">No steps yet.</p>
-      )}
+        )}
+      </div>
       {/* Outside the steps block on purpose. Plenty of family recipes are an
           ingredient list with no method written down, and you can still cook
           one: keeping this inside made the whole cook log unreachable for them. */}
