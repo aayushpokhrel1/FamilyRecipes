@@ -39,9 +39,9 @@ vi.mock("../lib/api/pantry", () => ({
   setState: vi.fn().mockResolvedValue(undefined),
 }));
 
-function renderCookMode() {
+function renderCookMode(entry = "/recipes/r1/cook") {
   render(
-    <MemoryRouter initialEntries={["/recipes/r1/cook"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/recipes/:id/cook" element={<CookMode />} />
       </Routes>
@@ -130,4 +130,67 @@ test("skips the prompt when the recipe used nothing in the cupboard", async () =
   await userEvent.click(await screen.findByRole("button", { name: "Mark as cooked" }));
   expect(await screen.findByText(/Logged/i)).toBeInTheDocument();
   expect(screen.queryByText(/Used anything up/i)).not.toBeInTheDocument();
+});
+
+// ---------------------------------------------------------------- the rework ----
+// The step index is in the URL, the step itself advances, this step's ingredients sit under
+// it, and an ingredient can be ticked off as you add it. Spec:
+// docs/superpowers/specs/2026-10-15-cook-mode-design.md
+
+test("the step itself advances, so a knuckle will do", async () => {
+  renderCookMode();
+  const step = await screen.findByRole("button", { name: /advance from step 1 of 2/i });
+  await userEvent.click(step);
+  expect(await screen.findByText("bake it")).toBeInTheDocument();
+});
+
+test("the last step's tap target does nothing rather than wrapping round", async () => {
+  renderCookMode("/recipes/r1/cook?step=2");
+  const step = await screen.findByRole("button", { name: /advance from step 2 of 2/i });
+  expect(step).toBeDisabled();
+});
+
+// A URL is editable input, so it is a trust boundary like any other.
+test("a step number out of range or not a number clamps instead of blanking", async () => {
+  renderCookMode("/recipes/r1/cook?step=99");
+  expect(await screen.findByText("bake it")).toBeInTheDocument();
+});
+
+test("a nonsense step number falls back to the first step", async () => {
+  renderCookMode("/recipes/r1/cook?step=abc");
+  expect(await screen.findByText("mix well")).toBeInTheDocument();
+});
+
+test("opening at ?step=2 starts on the second step", async () => {
+  renderCookMode("/recipes/r1/cook?step=2");
+  expect(await screen.findByText("bake it")).toBeInTheDocument();
+});
+
+test("a step that names no ingredient shows no inline list", async () => {
+  renderCookMode();
+  await screen.findByText("mix well");
+  // "mix well" mentions no ingredient, and a wrong one is worse than none.
+  expect(screen.queryByRole("button", { name: /flour/i })).toBeNull();
+});
+
+test("an ingredient the step mentions is shown under it and can be ticked off", async () => {
+  const recipes = await import("../lib/api/recipes");
+  (recipes.getRecipe as any).mockResolvedValueOnce({
+    recipe: {
+      id: "r1", family_id: "f1", author_id: "u", title: "Dal",
+      story: null, provenance: null, servings: 2, prep_minutes: null,
+      cook_minutes: null, visibility: "family", source_url: null,
+      created_at: "", updated_at: "",
+    },
+    ingredients: [{ position: 0, quantity: "1", unit: "cup", item: "flour" }],
+    steps: [{ position: 0, text: "sift the flour" }, { position: 1, text: "bake it" }],
+    photos: [],
+  });
+  renderCookMode();
+  await screen.findByText("sift the flour");
+
+  const tick = screen.getByRole("button", { name: /1 cup flour/i });
+  expect(tick).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(tick);
+  expect(screen.getByRole("button", { name: /1 cup flour/i })).toHaveAttribute("aria-pressed", "true");
 });

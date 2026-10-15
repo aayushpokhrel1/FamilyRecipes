@@ -967,6 +967,54 @@ button[aria-pressed="true"] {
 .cook-nav { display: flex; gap: 12px; justify-content: center; }
 .cook-ings { display: inline-block; text-align: left; margin: 0 auto 12px; }
 
+/* The step is a <button> now, because it IS the Next control: cooking hands are wet or
+   floury and a normal button needs a clean fingertip. These rules strip the browser's button
+   chrome so it still reads as the step, not as a control. .cook-step above owns the type. */
+.cook-step {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 0;
+  /* The global button rule also draws a --rim-hi inset highlight and a 10px radius, which
+     survived setting border and background alone and drew a box round the step. */
+  box-shadow: none;
+  border-radius: 0;
+  text-align: center;
+  cursor: pointer;
+  /* The font rules live on .cook-step above; a button does not inherit them. */
+  font-family: var(--sign);
+}
+/* The LAST step disables the tap, and must not then look broken. No dimming, no greying:
+   the only thing that changes is that the cursor stops promising something. */
+.cook-step:disabled { cursor: default; opacity: 1; color: var(--on-wall); }
+
+/* Side by side when the panel is open and there is room, ONE column otherwise. The panel is
+   second in source order, so the single-column case puts it BELOW the step. That is the
+   whole point: it used to render above and push the step off the bottom of a phone, and
+   moving it merely to the side would have fixed that on the one device nobody cooks from. */
+.cook-body-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 20px; align-items: start; }
+.cook-aside { text-align: left; }
+
+/* What THIS step mentions, sitting under it. Centered to match the step above. */
+.cook-step-ings { list-style: none; padding: 0; margin: 0 auto 18px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+/* Tap to say you have added it. The strike-through is the whole feature: it answers "did I
+   already put the salt in?", which nothing else on this screen can. */
+.cook-tick {
+  font: inherit;
+  background: none;
+  /* --on-wall-soft, not an invented --line: the tick sits on the dark wall, and an
+     undefined custom property fails silently rather than loudly. */
+  border: 1px solid var(--on-wall-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.cook-tick.is-ticked { text-decoration: line-through; opacity: 0.55; }
+.cook-ings .cook-tick { border: 0; padding: 2px 0; }
+
 /* ---------------------------------------------------------- comments ------ */
 
 .comment { display: block; padding: 14px 18px; }
@@ -1213,6 +1261,9 @@ button[aria-pressed="true"] {
 
 @media (max-width: 720px) {
   .recipe-body { grid-template-columns: 1fr; }
+  /* One column on a phone, which puts the ingredient panel below the step rather than
+     beside it. Below is the requirement; beside is only the wide-screen luxury. */
+  .cook-body-split { grid-template-columns: 1fr; }
   .app-header { gap: 12px 14px; }
   .app-header nav { width: 100%; order: 3; }
   .app-main { padding: 22px 16px 56px; }

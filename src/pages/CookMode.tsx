@@ -190,13 +190,17 @@ export default function CookMode() {
               {/* The step IS the Next control. Cooking hands are wet, floury or greasy, and a
                   normal button needs a clean fingertip; this takes a knuckle or the side of a
                   hand. A real <button> with an accessible name, never a <div onClick>, which
-                  src/lib/accessibility.test.ts fails on. */}
+                  src/lib/accessibility.test.ts fails on.
+
+              Its label deliberately does NOT say "next". The explicit Next button below says
+              that, and two controls announcing the same word is what a screen reader reads
+              out twice with no way to tell them apart. */}
               <button
                 type="button"
                 className="cook-step"
                 onClick={() => goToStep(index + 1)}
                 disabled={index >= steps.length - 1}
-                aria-label={`Step ${index + 1} of ${steps.length}. Tap for the next step.`}
+                aria-label={`Advance from step ${index + 1} of ${steps.length}`}
               >
                 {step.text}
               </button>
