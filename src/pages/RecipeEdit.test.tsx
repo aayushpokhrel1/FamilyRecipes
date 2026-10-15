@@ -229,3 +229,34 @@ test("publishing a draft that moved shows the message and the two choices instea
   expect(screen.getByRole("heading", { name: /edit recipe/i })).toBeInTheDocument();
   unmockAll();
 });
+
+// The aisle tag must be written to the RECIPE's family, never the active one. A worker's
+// first pass wired this to activeFamily, which typechecks, renders identically and silently
+// tags the wrong household whenever you edit a recipe while another family is selected.
+// The mocked context below is deliberately a DIFFERENT family, so that mistake fails here.
+test("an aisle tag goes to the recipe's family, not the active one", async () => {
+  const setCategoryOverride = vi.fn().mockResolvedValue(undefined);
+  vi.doMock("../lib/api/ingredientCategories", () => ({
+    listCategoryOverrides: vi.fn().mockResolvedValue(new Map()),
+    setCategoryOverride,
+  }));
+  vi.doMock("../context/FamilyContext", () => ({
+    useFamily: () => ({ activeFamily: { id: "f2", name: "Wrong", invite_code: "x", created_by: "u" }, families: [] }),
+  }));
+
+  await renderEdit({
+    updateRecipe: vi.fn(),
+    getRecipe: vi.fn().mockResolvedValue({
+      recipe: baseRecipe, // family_id: "f1"
+      ingredients: [{ position: 0, quantity: null, unit: null, item: "marmite", section: null }],
+      steps: [{ position: 0, text: "Spread" }],
+      photos: [],
+    }),
+  });
+
+  fireEvent.change(await screen.findByLabelText("Set aisle for marmite"), { target: { value: "Spices" } });
+  await waitFor(() => expect(setCategoryOverride).toHaveBeenCalledWith("f1", "marmite", "Spices"));
+
+  vi.doUnmock("../lib/api/ingredientCategories");
+  vi.doUnmock("../context/FamilyContext");
+});

@@ -22,6 +22,7 @@ export default function IngredientEditor({
   const [typedSection, setTypedSection] = useState("");
 
   const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
+  const [aisleError, setAisleError] = useState<string | null>(null);
 
   // The family's own aisle tags. A failure leaves the map empty and the editor still works.
   useEffect(() => {
@@ -33,10 +34,16 @@ export default function IngredientEditor({
     return () => { ignore = true; };
   }, [familyId]);
 
+  // Every other mirror of this setter surfaces its failure. Without the catch a refused
+  // write is an unhandled rejection and the select just snaps back to "Set aisle...", which
+  // reads to the cook as "it worked" when nothing was saved.
   async function handleSetAisle(item: string, category: string) {
     if (!familyId || !category) return;
-    await setCategoryOverride(familyId, item, category);
-    setOverrides(await listCategoryOverrides(familyId));
+    try {
+      setAisleError(null);
+      await setCategoryOverride(familyId, item, category);
+      setOverrides(await listCategoryOverrides(familyId));
+    } catch (e: any) { setAisleError(e.message); }
   }
 
   function update(index: number, patch: Partial<Ingredient>) {
@@ -237,6 +244,7 @@ export default function IngredientEditor({
         Add ingredient
       </button>
       <button type="button" onClick={() => setShowPicker(true)}>Add from list</button>
+      {aisleError && <p className="form-error" role="alert">{aisleError}</p>}
       <datalist id="ingredient-items">
         {mergeItemSuggestions(itemSuggestions).map((name) => <option key={name} value={name} />)}
       </datalist>

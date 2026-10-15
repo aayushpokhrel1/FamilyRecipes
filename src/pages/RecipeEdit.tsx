@@ -7,7 +7,6 @@ import { uploadRecipePhoto } from "../lib/api/photos";
 import { reportError } from "../lib/api/errorLog";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import { mergeDraft } from "../lib/mergeDraft";
-import { useFamily } from "../context/FamilyContext";
 import AiPrefillPanel from "../components/AiPrefillPanel";
 import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
@@ -22,7 +21,6 @@ function toNumber(value: string): number | null {
 export default function RecipeEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { activeFamily } = useFamily();
   const [searchParams] = useSearchParams();
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("family");
@@ -187,12 +185,15 @@ export default function RecipeEdit() {
       )}
       <AiPrefillPanel onDraft={handlePrefill} />
       <form onSubmit={handleSubmit}>
+        {/* familyId is the RECIPE's family, not the active one. They differ when you edit a
+            recipe while another family is selected, and an aisle tag written to the active
+            family would silently land in the wrong household. TagPicker below does the same. */}
         <IngredientEditor
           items={draft.ingredients}
           onChange={(ingredients) => setDraft((d) => (d ? { ...d, ingredients } : d))}
           itemSuggestions={itemSuggestions}
           sectionSuggestions={sectionSuggestions}
-          familyId={activeFamily?.id}
+          familyId={familyId}
         />
         <StepEditor
           items={draft.steps}

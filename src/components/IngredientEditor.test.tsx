@@ -1,8 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import IngredientEditor from "./IngredientEditor";
 import type { Ingredient } from "../lib/api/types";
+
+const setCategoryOverride = vi.fn().mockResolvedValue(undefined);
+vi.mock("../lib/api/ingredientCategories", () => ({
+  listCategoryOverrides: vi.fn().mockResolvedValue(new Map()),
+  setCategoryOverride: (...a: any[]) => setCategoryOverride(...a),
+}));
 function Harness() {
   const [items, setItems] = useState<Ingredient[]>([]);
   return <IngredientEditor items={items} onChange={setItems} />;
@@ -68,4 +75,37 @@ test("an ingredient is never listed as an alternative option for itself", async 
   const options = Array.from(yogurt.querySelectorAll("option")).map((o) => o.textContent);
   expect(options).not.toContain("yogurt");
   expect(options).toContain("cream");
+});
+
+// The aisle setter appears only on a named row the catalog cannot place, and only when the
+// page passed a family to write to.
+function WithFamily({ initial, familyId }: { initial: Ingredient[]; familyId?: string }) {
+  const [items, setItems] = useState<Ingredient[]>(initial);
+  return <IngredientEditor items={items} onChange={setItems} familyId={familyId} />;
+}
+
+test("offers the aisle setter only for an ingredient the catalog cannot place", async () => {
+  render(<WithFamily familyId="f1" initial={[
+    { position: 0, quantity: "", unit: "", item: "onion", section: null },
+    { position: 1, quantity: "", unit: "", item: "marmite", section: null },
+  ]} />);
+  expect(screen.queryByLabelText("Set aisle for onion")).toBeNull();
+  await userEvent.selectOptions(screen.getByLabelText("Set aisle for marmite"), "Spices");
+  await waitFor(() => expect(setCategoryOverride).toHaveBeenCalledWith("f1", "marmite", "Spices"));
+});
+
+test("offers no aisle setter when no family was passed", () => {
+  render(<WithFamily initial={[
+    { position: 0, quantity: "", unit: "", item: "marmite", section: null },
+  ]} />);
+  expect(screen.queryByLabelText("Set aisle for marmite")).toBeNull();
+});
+
+test("a refused aisle write is reported, never swallowed", async () => {
+  setCategoryOverride.mockRejectedValueOnce(new Error("not allowed"));
+  render(<WithFamily familyId="f1" initial={[
+    { position: 0, quantity: "", unit: "", item: "marmite", section: null },
+  ]} />);
+  await userEvent.selectOptions(screen.getByLabelText("Set aisle for marmite"), "Spices");
+  expect(await screen.findByRole("alert")).toHaveTextContent("not allowed");
 });
