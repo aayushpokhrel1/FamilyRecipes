@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import FamilySwitcher from "./FamilySwitcher";
+import CookTimers from "./CookTimers";
 import { signOut } from "../lib/api/auth";
 import { forgetPhotoUrls } from "../lib/api/photos";
 import { getMyProfile } from "../lib/api/profile";
@@ -109,6 +110,7 @@ export default function AppLayout() {
             <Link to="/settings">Set one in Settings</Link>, where you can also appeal.
           </p>
         )}
+        <CookTimers />
         <Outlet />
       </main>
     </div>

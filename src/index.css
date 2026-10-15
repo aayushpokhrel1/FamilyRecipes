@@ -1593,3 +1593,22 @@ button[aria-pressed="true"] {
   color: var(--ink);
 }
 .inline-confirm button { align-self: flex-start; }
+/* The running Cook Mode timers, shown on every page that has the app shell. */
+.cook-timers { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.cook-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--chip);
+  color: var(--chip-ink);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+.cook-timer-time { font-family: var(--mono); font-weight: 600; }
+.cook-timer-what {
+  font-family: var(--sign);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.cook-timer.is-ringing { background: var(--action); color: var(--on-action); }
