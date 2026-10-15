@@ -6,6 +6,7 @@ import {
   type PantryItem, type PantryState,
 } from "../lib/api/pantry";
 import { categoryFor, CATEGORY_ORDER, CATALOG_ITEMS } from "../lib/catalog";
+import { listCategoryOverrides } from "../lib/api/ingredientCategories";
 import { listRecipeIngredientIndex } from "../lib/api/recipes";
 import { seedSuggestions } from "../lib/seedSuggestions";
 import { cookNow, type CookNowResult } from "../lib/cookNow";
@@ -28,6 +29,7 @@ export default function Cupboard() {
   const [matching, setMatching] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!activeFamily) { setLoading(false); return; }
@@ -41,6 +43,19 @@ export default function Cupboard() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+  }, [activeFamily]);
+
+  // The family's own aisle tags, so the cupboard agrees with the grocery list. This page
+  // used to call categoryFor with no overrides at all, which made it the one screen that
+  // ignored a tag the family had set: besan tagged Baking still sat under Other here.
+  // A failure leaves the map empty and the page still works.
+  useEffect(() => {
+    if (!activeFamily) return;
+    let ignore = false;
+    listCategoryOverrides(activeFamily.id)
+      .then((m) => { if (!ignore) setOverrides(m); })
+      .catch(() => { if (!ignore) setOverrides(new Map()); });
+    return () => { ignore = true; };
   }, [activeFamily]);
 
   async function handleCycle(item: PantryItem) {
@@ -104,7 +119,7 @@ export default function Cupboard() {
   // never stored. Same rule the grocery list already follows.
   const groups = new Map<string, PantryItem[]>();
   for (const item of items) {
-    const cat = categoryFor(item.label) ?? "Other";
+    const cat = categoryFor(item.label, overrides) ?? "Other";
     groups.set(cat, [...(groups.get(cat) ?? []), item]);
   }
   const order = [...CATEGORY_ORDER, "Other"].filter((c) => groups.has(c));

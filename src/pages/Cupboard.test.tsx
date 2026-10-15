@@ -21,6 +21,10 @@ vi.mock("../lib/api/pantry", () => ({
   removeItem: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../lib/api/ingredientCategories", () => ({
+  listCategoryOverrides: vi.fn().mockResolvedValue(new Map([["rice", "Baking"]])),
+}));
+
 vi.mock("../lib/api/recipes", () => ({
   listRecipeIngredientIndex: vi.fn().mockResolvedValue([]),
   listFamilyIngredientNames: vi.fn().mockResolvedValue([]),
@@ -112,4 +116,11 @@ test("adds several staples at once from the catalog picker", async () => {
   await userEvent.click(screen.getByRole("button", { name: /add selected/i }));
   await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "onion", "keep"));
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+// The cupboard was the one screen that called categoryFor without the family's overrides,
+// so a tag set on the grocery list was ignored here and the item stayed under Other.
+test("groups an item by the family's own aisle tag, not just the catalog", async () => {
+  renderCupboard();
+  expect(await screen.findByRole("heading", { name: "Baking" })).toBeInTheDocument();
 });
