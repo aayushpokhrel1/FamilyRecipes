@@ -199,8 +199,8 @@ will see it next time they open Settings, and it names the reason.
 
 ### Step 5: record what you found
 
-Put the result in `HANDOVER.md` under item 1, one line per step, **including the steps that
-found nothing**. A step recorded as clean is the only thing that stops the next session
+Put the result in `HANDOVER.md` under "Half-done: the production walk", one line per step,
+**including the steps that found nothing**. A step recorded as clean is the only thing that stops the next session
 re-walking it, because an unexamined surface and a cleared one look identical in any list.
 
 ## CI

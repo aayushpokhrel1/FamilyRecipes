@@ -45,10 +45,10 @@ leave a pointer only if a reader would otherwise not find it.
 
 ## 3. Hunt the bloat, specifically
 
-- **`HANDOVER.md` line count.** `src/handover.budget.test.ts` fails over the budget. If it is
-  red, the fix is to MOVE content to its home or delete history, never to raise the budget. It
-  hit 1,365 lines once and began contradicting itself, and a superseded line caused real wrong
-  work; it hit 715 on 2026-10-15, almost entirely narrative.
+- **`HANDOVER.md` line count.** `src/handover.budget.test.ts` fails over the budget and on
+  dated section headings. If it is red, the fix is to MOVE content to its home or delete the
+  history, **never to raise the budget**. That test's comment and `CLAUDE.md` carry why; this
+  file does not repeat it.
 - **Explanations told more than once.** Grep a distinctive phrase from any long explanation
   across all docs. Keep the copy in its home, and let the others point at it:
   `grep -rn "<phrase>" README.md PRODUCT.md DESIGN.md CLAUDE.md docs/ HANDOVER.md`
