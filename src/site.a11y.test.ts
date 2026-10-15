@@ -36,12 +36,45 @@ describe("site.html structure", () => {
     }
   });
 
-  // The CSP is script-src 'self' and a blocked inline script fails SILENTLY, so this page
-  // runs none. The ONE exception is a JSON-LD block, which is a data island the browser
-  // never executes. Anything else with a type that could run is a bug.
-  it("contains no executable script", () => {
-    const types = [...doc().querySelectorAll("script")].map((s) => s.getAttribute("type"));
-    expect(types.every((t) => t === "application/ld+json")).toBe(true);
+  // The CSP is script-src 'self' and a blocked INLINE script fails SILENTLY: no error, no
+  // console warning, it simply never runs. That is the whole hazard, and it is why the
+  // family app's theme bootstrap lives in public/theme-init.js.
+  //
+  // This used to assert that the page carried NO script of any kind, which was stricter than
+  // its own reason: a same-origin src is exactly what script-src 'self' permits. The page
+  // genuinely ran nothing until the sign-in chooser needed to open a dialog, and widening
+  // this was the deliberate moment to decide that. What must never come back is an inline
+  // block, so that is what is checked now.
+  //
+  // A JSON-LD block is a data island the browser never executes, and stays allowed.
+  it("runs no inline script, which the CSP would silently refuse", () => {
+    const offenders = [...doc().querySelectorAll("script")]
+      .filter((el) => !el.getAttribute("src"))
+      .filter((el) => el.getAttribute("type") !== "application/ld+json")
+      .map((el) => (el.textContent ?? "").slice(0, 60));
+    expect(offenders).toEqual([]);
+  });
+
+  // Every script the page does load must be same-origin, or script-src 'self' blocks it just
+  // as silently as it blocks an inline one.
+  it("loads every script from this origin", () => {
+    const srcs = [...doc().querySelectorAll("script")]
+      .map((el) => el.getAttribute("src"))
+      .filter((src) => src !== null);
+    expect(srcs.length, "the chooser script is gone from site.html").toBeGreaterThan(0);
+    for (const src of srcs) {
+      expect(src.startsWith("/"), src + " is not same-origin").toBe(true);
+    }
+  });
+
+  // The chooser is progressive enhancement: the masthead link is a real href, so a blocked
+  // or broken script leaves it doing exactly what it did before the dialog existed. Both
+  // doors must be in the markup rather than built at runtime, or a no-script visitor loses
+  // the kitchen entirely.
+  it("offers both apps as real links, so the chooser can fail safely", () => {
+    const hrefs = [...doc().querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("https://recipes.enamelvault.com/signin");
+    expect(hrefs).toContain("https://kitchen.enamelvault.com/signin");
   });
 
   it("describes the site in JSON-LD that parses", () => {

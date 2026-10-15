@@ -3,7 +3,6 @@ import { test, expect, describe, it } from "vitest";
 // worker code must not be able to reach for fs, and a test in worker/ is covered by
 // that same project. src/lib/sourceFiles.ts says the same thing for src/.
 import workerSource from "./index.ts?raw";
-import siteHtml from "../public/site.html?raw";
 import {
   avatarHandleFromPath,
   imageContentType,
@@ -520,24 +519,4 @@ describe("the image proxies never hand back storage's own content type", () => {
     // Both proxies still set one, so the pin cannot pass by the handlers disappearing.
     expect(workerSource.match(/"Content-Type": imageContentType\(/g)?.length).toBe(2);
   });
-});
-
-// The landing page is served with script-src 'self' like every other response, so an inline
-// script there does not warn, it simply never executes. The sign-in chooser depends on a
-// script running, so the day someone "simplifies" it back inline the chooser silently stops
-// opening and the only symptom is a link that still works, which nobody reports.
-//
-// application/ld+json is data rather than code and is deliberately allowed.
-it("keeps the landing page free of inline script, which the CSP would never run", () => {
-  const scripts = [...siteHtml.matchAll(/<script\b([^>]*)>/g)].map((m) => m[1]);
-  const offenders = scripts.filter(
-    (attrs) => !/\bsrc=/.test(attrs) && !/type=["']application\/ld\+json["']/.test(attrs),
-  );
-  expect(offenders).toEqual([]);
-});
-
-it("still offers the family sign-in as a plain link, so the chooser can fail safely", () => {
-  expect(siteHtml).toContain('id="signin-link"');
-  expect(siteHtml).toContain('href="https://recipes.enamelvault.com/signin"');
-  expect(siteHtml).toContain('href="https://kitchen.enamelvault.com/signin"');
 });
