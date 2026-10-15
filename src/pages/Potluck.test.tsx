@@ -151,9 +151,30 @@ test("Show more is absent when fewer than 24 recipes come back", async () => {
   expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
 });
 
-// One call for the page, never one per card. The byline rule above exists for the same
-// reason and is pinned the same way; a per-card query is an N+1 that only shows up in
-// production, where a feed has more than two cards.
+// ONE CALL FOR THE PAGE, never one per card. A per-card query is an N+1 that only shows up
+// in production, where a feed has more than two cards.
+//
+// The comment here used to say the byline rule "is pinned the same way", and it was NOT:
+// there was no assertion anywhere that getBylines is called once, only the saves one below
+// and a comment at getBylines itself. A comment claiming a guard that does not exist is
+// worse than no comment, because a reader checking whether the rule is held stops at it. The
+// byline test is now the one immediately above, written 2026-10-15 when a walk-through guide
+// repeated the same false claim.
+test("asks once for the whole page's bylines, not once per card", async () => {
+  const recipes = await import("../lib/api/recipes");
+  const profile = await import("../lib/api/profile");
+  (recipes.listPublicRecipes as any).mockResolvedValueOnce([
+    recipe("r1", "Dal"),
+    recipe("r2", "Pilaf"),
+  ]);
+  renderPotluck();
+  await screen.findByText("Dal");
+  expect(profile.getBylines).toHaveBeenCalledTimes(1);
+  // With BOTH ids in the one call. The count alone would pass a version that asked once and
+  // quietly dropped every card after the first, which renders as a grid of missing bylines.
+  expect(profile.getBylines).toHaveBeenCalledWith(["r1", "r2"]);
+});
+
 test("asks once for which recipes are already saved, not once per card", async () => {
   const recipes = await import("../lib/api/recipes");
   (recipes.listPublicRecipes as any).mockResolvedValueOnce([
