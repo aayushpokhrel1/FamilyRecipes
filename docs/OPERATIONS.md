@@ -1288,23 +1288,38 @@ unreachable pre-rewrite objects are still served, and that is what to cite it as
 is nothing left to enumerate from. That is an argument FOR the blanket GC rather than against
 it: a targeted request cannot be aimed any more.
 
-**The form's category: choose "Deletes"** (recorded 2026-10-15, from the live form). The
-alternatives are invitations, migration, restoration, transfer, repository features, log
-requests, access issues and "Remove LFS objects", so a removal of data that is still being
-served is the Deletes category and the LFS option confirms removals live there. Because the fit
-is imperfect, **lead the body with the ask** rather than the backstory, so a triager sees what
-you want in the first line, and say in that line that it is a privacy request about a third
-party's personal data. If it is routed somewhere unhelpful, GitHub also takes personal-data
-removal requests through the privacy contact in their Privacy Statement; that is a fallback
-rather than a first move, because Support is who can actually run the collection.
+**NOT FILED, BY DECISION (2026-10-15): waiting for GitHub's own maintenance to collect it.**
+Read the next two paragraphs before reopening that decision, because the obvious route is a
+trap and the thing being waited for is real but unscheduled.
 
-**The request**, at <https://support.github.com/contact>. Ask them to garbage-collect
-unreachable objects on `aayushpokhrel1/FamilyRecipes`. Say the history was rewritten to remove a
-third party's email address from commit messages, that pre-rewrite commits are still served by
-SHA, and give `e7a329e` as a commit that resolves although it is in no branch. Say explicitly
-that it is a privacy request about somebody else's personal data rather than a cleanup, because
-that is what decides how it is triaged. Do not claim to know which SHA carries the address: say
-the branch that recorded them is gone, which is why a blanket collection is what you need.
+**DO NOT USE THE SUPPORT PORTAL'S "Deletes" CATEGORY. It is a REPOSITORY PURGE form.** This
+file recommended it for one commit on 2026-10-15 and that was wrong. Picking it asks "Are you
+having trouble deleting your repository?", "What is the URL of the repository you would like to
+delete?", "Are you trying to purge a repository that has already been deleted?" and then a
+confirmation whose own words are "Once the repository is purged, it cannot be restored". That
+is a different operation on a live repository with six months of work in it. **Back out of that
+form rather than answering it.** The other categories (invitations, migration and locked state,
+restoration, transfer, repository features, log request, access issues, remove LFS objects) do
+not describe removing unreachable objects either, which is why the request has no obvious home
+and why waiting was chosen instead.
+
+**What waiting is actually waiting for.** GitHub runs its own repository maintenance, and
+unreachable objects stop being served once it collects them; there is no published schedule and
+no notification, so it is a real mechanism with an unknown date rather than a promise. That is
+an acceptable trade here because the measurement below is one command and the exposure is one
+commit nobody has a reason to look for. **If it has to be forced**, the route is NOT the Deletes
+form: it is the privacy contact in GitHub's Privacy Statement, or a general support request
+whose first line says both what you want and, explicitly, that the repository must NOT be
+deleted.
+
+**The standing check**, which is the only thing that resolves this either way:
+
+```bash
+gh api repos/aayushpokhrel1/FamilyRecipes/commits/e7a329e --jq .sha
+```
+
+While it returns a SHA, the objects are still being served. A 404 means the collection has
+happened and this whole section can go.
 
 **Forks: 0** as of 2026-10-15
 (`gh api repos/aayushpokhrel1/FamilyRecipes --jq .forks_count`). GC of one repository does not
