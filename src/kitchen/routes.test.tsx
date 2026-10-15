@@ -43,6 +43,28 @@ describe("the kitchen routes", () => {
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
   });
 
+  // Without a catch-all React Router matches nothing and renders an EMPTY tree: no header,
+  // no nav, nothing. A typo or a stale link looked like a broken app.
+  it("answers an unknown path with a page rather than nothing", () => {
+    render(
+      <MemoryRouter initialEntries={["/orgs/nope/not-a-page"]}>
+        <KitchenRoutes />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("heading", { name: /that page is not here/i })).toBeInTheDocument();
+  });
+
+  // A catch-all is ranked by specificity, not source order, so a real route must still beat
+  // it. Cheap to assert and the whole risk of adding one.
+  it("does not swallow a route that does exist", () => {
+    render(
+      <MemoryRouter initialEntries={["/terms"]}>
+        <KitchenRoutes />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("heading", { name: /that page is not here/i })).toBeNull();
+  });
+
   it("has a route for an invite link, reachable without a session", () => {
     render(
       <MemoryRouter initialEntries={["/join/abc123"]}>

@@ -24,6 +24,7 @@ import Moderation from "./pages/Moderation";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Cookies from "./pages/Cookies";
+import NotFound from "./pages/NotFound";
 import Help from "./pages/Help";
 import TermsGate from "./components/TermsGate";
 
@@ -69,6 +70,11 @@ export default function AppRoutes() {
         <Route path="privacy" element={<Privacy />} />
         <Route path="cookies" element={<Cookies />} />
         <Route path="help" element={<Help />} />
+        {/* The catch-all, LAST in this block and public on purpose. A dead link is not an
+            action, so gating it would bounce a signed-out visitor to sign-in to be told a
+            page does not exist. It sits inside AppLayout so the header comes back and there
+            is a way out. Without it React Router matches nothing and renders an empty tree. */}
+        <Route path="*" element={<NotFound />} />
       </Route>
       <Route
         element={

@@ -19,6 +19,9 @@ const PUBLIC_AND_UNGATED = [
   "recipes/:id",   // a shared recipe link must open without a session
   "cooks/:handle", // the same, for a published cook's page
   "terms", "privacy", "cookies", "help", // a notice you can only read after consenting is not one
+  // The catch-all. Telling someone a page does not exist is not an action, and gating it
+  // would send a signed-out visitor through sign-in to be told their link is dead.
+  "*",
 ];
 
 describe("the terms gate covers every route that DOES something", () => {

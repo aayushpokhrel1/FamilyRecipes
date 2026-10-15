@@ -31,6 +31,9 @@ const UNGATED = [
   // public documents outside its gate for the same reason.
   "/terms",
   "/privacy",
+  // The catch-all. Telling someone a page does not exist is not an action, and gating it
+  // would send a signed-out visitor through sign-in to be told their link is dead.
+  "*",
 ];
 
 function gatedBand(): string {

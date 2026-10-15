@@ -14,6 +14,7 @@ import Staff from "./pages/Staff";
 import Dishes from "./pages/Dishes";
 import DishDetail from "./pages/DishDetail";
 import JoinByLink from "./pages/JoinByLink";
+import NotFound from "./pages/NotFound";
 
 // RequireAuth is the family app's, reused on purpose: it holds the rule that the destination
 // travels in the URL through safeNext rather than in router state, and that rule was learned
@@ -44,6 +45,10 @@ export default function KitchenRoutes() {
       <Route element={<KitchenApp />}>
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        {/* Band 2 with the documents, not band 3. A dead link is not an action, so gating it
+            would send a signed-out visitor through sign-in to be told the page does not
+            exist. Inside KitchenApp, so the header and footer come back. */}
+        <Route path="*" element={<NotFound />} />
         <Route element={<GatedLayout />}>
           <Route path="/join/:code" element={<JoinByLink />} />
           <Route
