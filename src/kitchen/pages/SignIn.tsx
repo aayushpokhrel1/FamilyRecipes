@@ -58,7 +58,7 @@ export default function SignIn() {
 
   return (
     <form onSubmit={submit} className="plate auth-card">
-      <AuthMark />
+      <AuthMark label="Enamel Vault for kitchens" />
       <h1>Sign in</h1>
       <label htmlFor="email">
         Email

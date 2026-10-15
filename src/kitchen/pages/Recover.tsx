@@ -41,7 +41,7 @@ export default function Recover() {
   if (done) {
     return (
       <div className="plate auth-card">
-        <AuthMark />
+        <AuthMark label="Enamel Vault for kitchens" />
         <h1>Choose a new password</h1>
         <p role="status">Password updated.</p>
         <p>
@@ -53,7 +53,7 @@ export default function Recover() {
 
   return (
     <form onSubmit={handleSubmit} className="plate auth-card">
-      <AuthMark />
+      <AuthMark label="Enamel Vault for kitchens" />
       <h1>Choose a new password</h1>
       <label htmlFor="new-password">
         New password

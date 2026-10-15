@@ -48,7 +48,7 @@ export default function SignIn() {
 
   return (
     <form onSubmit={handleSubmit} className="plate auth-card">
-      <AuthMark />
+      <AuthMark label="Family Recipes" />
       <h1>Sign in</h1>
       <label>
         Email

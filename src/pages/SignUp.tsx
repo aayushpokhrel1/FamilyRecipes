@@ -35,7 +35,7 @@ export default function SignUp() {
   if (sent) {
     return (
       <div className="plate auth-card">
-        <AuthMark />
+        <AuthMark label="Family Recipes" />
         <h1>Check your email</h1>
         <p>
           We sent a confirmation link to <strong>{email}</strong>. Click it to finish setting up
@@ -53,7 +53,7 @@ export default function SignUp() {
 
   return (
     <form onSubmit={handleSubmit} className="plate auth-card">
-      <AuthMark />
+      <AuthMark label="Family Recipes" />
       <h1>Sign up</h1>
       {/* autoComplete is what lets a password manager fill and SAVE these; without
           new-password a manager offers the existing password instead of generating one.

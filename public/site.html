@@ -172,6 +172,25 @@
       dialog#signin-choice::backdrop {
         background: rgba(16, 36, 32, 0.6);
       }
+      /* This page is otherwise all links, so it carries no button style at all and this one
+         came out as a grey Arial default in the middle of the slab-serif. Quiet on purpose:
+         it sits beside two red actions and must not read as a third. */
+      dialog#signin-choice form[method="dialog"] {
+        margin: 18px 0 0;
+      }
+      dialog#signin-choice form[method="dialog"] button {
+        font-family: inherit;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--ink-soft);
+        background: none;
+        border: 1px solid var(--rim);
+        border-radius: 6px;
+        padding: 9px 16px;
+        cursor: pointer;
+      }
       .plate {
         background: var(--plate);
         border: 1px solid var(--rim);

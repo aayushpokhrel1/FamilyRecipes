@@ -163,7 +163,19 @@ site_url = "http://127.0.0.1:3000"
 # an experiment as much as a setting. An invite now rides to the confirmation email as
 # ?next=, and whether GoTrue's allow list matches a URL that carries a query string decides
 # whether the hosted project needs a globstar entry too. See docs/OPERATIONS.md.
-additional_redirect_urls = ["https://127.0.0.1:3000", "http://localhost:5174/auth/callback**"]
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://localhost:5174/auth/callback**",
+  # /recover, for both hosts. Without the exact path here GoTrue does NOT error: it silently
+  # substitutes site_url, so a password reset link lands on 127.0.0.1:3000 and the reset page
+  # is never reached. Proved by walking it on 2026-10-15, which is the only way it shows up.
+  "http://localhost:5174/recover",
+  # The kitchen app runs on its own hostname in dev (see vite.config.ts), so its callbacks are
+  # a different origin and need their own entries. Same globstar as the family one, because
+  # an invite rides to the callback as ?next=.
+  "http://kitchen.localhost:5174/auth/callback**",
+  "http://kitchen.localhost:5174/recover",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

@@ -59,7 +59,7 @@ export default function AuthCallback() {
   if (error) {
     return (
       <div className="plate auth-card">
-        <AuthMark />
+        <AuthMark label="Family Recipes" />
         <h1>Could not sign you in</h1>
         <p role="alert">{error}</p>
         <p>
@@ -71,7 +71,7 @@ export default function AuthCallback() {
 
   return (
     <div className="plate auth-card">
-      <AuthMark />
+      <AuthMark label="Family Recipes" />
       <h1>Signing you in</h1>
       <p role="status">One moment.</p>
     </div>
