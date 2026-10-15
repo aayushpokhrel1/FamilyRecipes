@@ -45,7 +45,12 @@ already written down in this project before they happened. **The failure mode is
 it is not re-reading.** Prefer a mechanical defence — a test that fails, a CI job, a grep, a
 comment you cannot avoid — over a document.
 
-**Use `/update-docs`** (`.claude/commands/update-docs.md`) rather than re-deriving the sweep.
+**Use `/update-docs-familyrecipes`** (`.claude/commands/update-docs-familyrecipes.md`) rather
+than re-deriving the sweep. There is also a user-level `/update-docs` holding the generic
+discipline for every project; **this repo's is the one to run here**, because it carries the
+real commands (`npx supabase migration list --linked`, `/health/version`) and this repo's file
+routing. The names are deliberately different: they were both `update-docs` for an hour, and the
+user-level one won, so the repo-specific procedure never loaded.
 It holds the measurements to run, the routing table to route each fact by, and the specific
 bloat to hunt. Two mechanical defences back it up, because a doc asking for brevity does not
 get it: `src/handover.budget.test.ts` fails when `HANDOVER.md` goes over 200 lines or grows

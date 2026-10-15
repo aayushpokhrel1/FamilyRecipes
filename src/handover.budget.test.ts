@@ -38,7 +38,7 @@ describe("HANDOVER.md", () => {
       lines,
       `HANDOVER.md is ${lines} lines, over the ${BUDGET}-line budget. Move content to its home ` +
         `(CLAUDE.md has the routing table) or delete the narrative; do not raise the budget. ` +
-        `Run /update-docs for the sweep.`,
+        `Run /update-docs-familyrecipes for the sweep.`,
     ).toBeLessThanOrEqual(BUDGET);
   });
 

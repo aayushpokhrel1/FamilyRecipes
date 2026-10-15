@@ -1,6 +1,11 @@
 ---
-description: Sweep every doc for stale claims, route each fact to its one home, and cut bloat
+description: FamilyRecipes doc sweep: stale claims, one home per fact, and bloat
 ---
+
+**This is the FamilyRecipes-specific sweep, and the one to run in this repo.** The user-level
+`/update-docs` holds the same discipline without this project's commands or file routing; it is
+a separate name on purpose, because while both were called `update-docs` the user-level one won
+and this file never loaded.
 
 Sweep the docs. **"Update the docs" means making them TRUE and keeping each fact in ONE place**,
 not appending what shipped. Work through all of it, not the file you happen to have open.
