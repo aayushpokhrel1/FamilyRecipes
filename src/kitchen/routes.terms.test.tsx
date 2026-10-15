@@ -27,6 +27,9 @@ const UNGATED = [
   "/signin",
   "/signup",
   "/auth/callback",
+  // Same band and same reason as /signin: a recovery session is not a normal sign-in, and
+  // someone resetting a forgotten password has by definition not got in yet.
+  "/recover",
   // A notice you can only read after consenting is not a notice. The family app keeps its four
   // public documents outside its gate for the same reason.
   "/terms",

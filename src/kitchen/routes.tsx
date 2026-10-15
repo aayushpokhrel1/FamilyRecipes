@@ -5,6 +5,7 @@ import GatedLayout from "./components/GatedLayout";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
+import Recover from "./pages/Recover";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Dashboard from "./pages/Dashboard";
@@ -42,6 +43,9 @@ export default function KitchenRoutes() {
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* Band 1 with the other auth pages, for the family app's reason: a recovery session is
+          not a normal sign-in, and a guard would bounce the reset link to /signin. */}
+      <Route path="/recover" element={<Recover />} />
       <Route element={<KitchenApp />}>
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
