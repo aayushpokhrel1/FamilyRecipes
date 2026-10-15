@@ -6,7 +6,7 @@ import {
   type PantryItem, type PantryState,
 } from "../lib/api/pantry";
 import { categoryFor, CATEGORY_ORDER, CATALOG_ITEMS } from "../lib/catalog";
-import { listCategoryOverrides } from "../lib/api/ingredientCategories";
+import { listCategoryOverrides, setCategoryOverride } from "../lib/api/ingredientCategories";
 import { listRecipeIngredientIndex } from "../lib/api/recipes";
 import { seedSuggestions } from "../lib/seedSuggestions";
 import { cookNow, type CookNowResult } from "../lib/cookNow";
@@ -86,6 +86,16 @@ export default function Cupboard() {
         return [...list.filter((i) => !ids.has(i.id)), ...added]
           .sort((a, b) => a.label.localeCompare(b.label));
       });
+    } catch (e: any) { setError(e.message); }
+  }
+
+  // Re-read the map rather than patching it locally: normalizeItem decides the key, and a
+  // second copy of that rule here would be the thing that drifts.
+  async function handleSetAisle(item: PantryItem, category: string) {
+    if (!activeFamily || !category) return;
+    try {
+      await setCategoryOverride(activeFamily.id, item.label, category);
+      setOverrides(await listCategoryOverrides(activeFamily.id));
     } catch (e: any) { setError(e.message); }
   }
 
@@ -234,6 +244,22 @@ export default function Cupboard() {
                 >
                   &times;
                 </button>
+                {/* Only on the rows where the problem is visible, same as the grocery list.
+                    A row already in the right aisle does not need the clutter. */}
+                {cat === "Other" && (
+                  <span className="aisle-setter">
+                    <select
+                      aria-label={`Set aisle for ${item.label}`}
+                      value=""
+                      onChange={(e) => handleSetAisle(item, e.target.value)}
+                    >
+                      <option value="">Set aisle...</option>
+                      {CATEGORY_ORDER.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </span>
+                )}
               </li>
             ))}
           </ul>

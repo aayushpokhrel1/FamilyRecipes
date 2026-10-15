@@ -13,6 +13,7 @@ vi.mock("../lib/api/pantry", () => ({
   listPantry: vi.fn().mockResolvedValue([
     { id: "p1", key: "rice", label: "Rice", kind: "keep", state: "have", expires_on: null },
     { id: "p2", key: "olive oil", label: "Olive oil", kind: "keep", state: "low", expires_on: null },
+    { id: "p4", key: "marmite", label: "Marmite", kind: "keep", state: "have", expires_on: null },
   ]),
   addItem: vi.fn().mockResolvedValue({
     id: "p3", key: "salt", label: "Salt", kind: "keep", state: "have", expires_on: null,
@@ -23,6 +24,7 @@ vi.mock("../lib/api/pantry", () => ({
 
 vi.mock("../lib/api/ingredientCategories", () => ({
   listCategoryOverrides: vi.fn().mockResolvedValue(new Map([["rice", "Baking"]])),
+  setCategoryOverride: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../lib/api/recipes", () => ({
@@ -123,4 +125,17 @@ test("adds several staples at once from the catalog picker", async () => {
 test("groups an item by the family's own aisle tag, not just the catalog", async () => {
   renderCupboard();
   expect(await screen.findByRole("heading", { name: "Baking" })).toBeInTheDocument();
+});
+
+test("offers Set aisle only on rows the catalog could not place", async () => {
+  const cats = await import("../lib/api/ingredientCategories");
+  renderCupboard();
+  await screen.findByText("Rice");
+
+  // Rice resolves to Baking via the override, so it needs no setter; the unknown one does.
+  expect(screen.queryByLabelText("Set aisle for Rice")).toBeNull();
+  const setter = screen.getByLabelText("Set aisle for Marmite");
+  await userEvent.selectOptions(setter, "Spices");
+  await waitFor(() =>
+    expect(cats.setCategoryOverride).toHaveBeenCalledWith("f1", "Marmite", "Spices"));
 });
