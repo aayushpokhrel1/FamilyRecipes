@@ -1,22 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import IngredientCatalogPicker from "./IngredientCatalogPicker";
 import type { Ingredient } from "../lib/api/types";
-import { mergeItemSuggestions, mergeSectionSuggestions } from "../lib/catalog";
+import { mergeItemSuggestions, mergeSectionSuggestions, categoryFor, CATEGORY_ORDER } from "../lib/catalog";
+import { listCategoryOverrides, setCategoryOverride } from "../lib/api/ingredientCategories";
 
 export default function IngredientEditor({
   items,
   onChange,
   itemSuggestions = [],
   sectionSuggestions = [],
+  familyId,
 }: {
   items: Ingredient[];
   onChange: (items: Ingredient[]) => void;
   itemSuggestions?: string[];
   sectionSuggestions?: string[];
+  familyId?: string;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [namingRow, setNamingRow] = useState<number | null>(null);
   const [typedSection, setTypedSection] = useState("");
+
+  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
+
+  // The family's own aisle tags. A failure leaves the map empty and the editor still works.
+  useEffect(() => {
+    if (!familyId) return;
+    let ignore = false;
+    listCategoryOverrides(familyId)
+      .then((m) => { if (!ignore) setOverrides(m); })
+      .catch(() => { if (!ignore) setOverrides(new Map()); });
+    return () => { ignore = true; };
+  }, [familyId]);
+
+  async function handleSetAisle(item: string, category: string) {
+    if (!familyId || !category) return;
+    await setCategoryOverride(familyId, item, category);
+    setOverrides(await listCategoryOverrides(familyId));
+  }
 
   function update(index: number, patch: Partial<Ingredient>) {
     onChange(items.map((g, i) => (i === index ? { ...g, ...patch } : g)));
@@ -187,6 +208,23 @@ export default function IngredientEditor({
               return <option key={k} value={String(k)}>{other.item || `ingredient ${k + 1}`}</option>;
             })}
           </select>
+          {/* Only on a named row the catalog cannot place, and only when the page gave us a
+              family to write to. A row already in the right aisle gains no clutter: this row
+              is wide enough already. */}
+          {familyId && g.item.trim() !== "" && categoryFor(g.item, overrides) === null && (
+            <span className="aisle-setter">
+              <select
+                aria-label={`Set aisle for ${g.item}`}
+                value=""
+                onChange={(e) => handleSetAisle(g.item, e.target.value)}
+              >
+                <option value="">Set aisle...</option>
+                {CATEGORY_ORDER.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </span>
+          )}
           <button type="button" onClick={() => remove(i)}>
             Remove
           </button>

@@ -7,6 +7,7 @@ import { uploadRecipePhoto } from "../lib/api/photos";
 import { reportError } from "../lib/api/errorLog";
 import type { RecipeDraft, Visibility } from "../lib/api/types";
 import { mergeDraft } from "../lib/mergeDraft";
+import { useFamily } from "../context/FamilyContext";
 import AiPrefillPanel from "../components/AiPrefillPanel";
 import IngredientEditor from "../components/IngredientEditor";
 import StepEditor from "../components/StepEditor";
@@ -21,6 +22,7 @@ function toNumber(value: string): number | null {
 export default function RecipeEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { activeFamily } = useFamily();
   const [searchParams] = useSearchParams();
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("family");
@@ -190,6 +192,7 @@ export default function RecipeEdit() {
           onChange={(ingredients) => setDraft((d) => (d ? { ...d, ingredients } : d))}
           itemSuggestions={itemSuggestions}
           sectionSuggestions={sectionSuggestions}
+          familyId={activeFamily?.id}
         />
         <StepEditor
           items={draft.steps}

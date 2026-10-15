@@ -129,6 +129,7 @@ export default function RecipeCreate() {
           onChange={(ingredients) => setDraft((d) => ({ ...d, ingredients }))}
           itemSuggestions={itemSuggestions}
           sectionSuggestions={sectionSuggestions}
+          familyId={activeFamily?.id}
         />
         <StepEditor
           items={draft.steps}
