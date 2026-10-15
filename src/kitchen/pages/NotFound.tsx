@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 // family page into this app, which supabase/kitchen_seal.test.ts fails on, and it would send
 // a chef to /help, a route that does not exist on this host.
 //
-// Same known ceiling as the family page: this renders a 200, because telling the Worker which
-// paths are real would mean a second copy of the route table.
+// The family page carries a note about serving a 200 rather than a 404. It does not apply
+// here: this whole host is noindex, nofollow in both the meta tag and an X-Robots-Tag header
+// the Worker sends, so no crawler ever sees this page or its status.
 export default function NotFound() {
   return (
     <div className="prose plate">
