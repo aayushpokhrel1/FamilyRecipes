@@ -10,6 +10,9 @@ import { useFamily } from "../context/FamilyContext";
 import { listPantry, setState as setItemState, type PantryItem } from "../lib/api/pantry";
 import { normalizeItem, displayItem } from "../lib/api/normalizeItem";
 import Skeleton from "../components/Skeleton";
+import { findDurations } from "../lib/stepDuration";
+import { start as startTimer, findRunning, subscribe as subscribeTimers } from "../lib/cookTimers";
+import { armAlarm } from "../lib/cookAlarm";
 
 
 
@@ -65,6 +68,11 @@ export default function CookMode() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [servings, setServings] = useState<number | null>(null);
+  const [title, setTitle] = useState("");
+  // The timer store is module-level and outlives this page, so this screen has to be TOLD
+  // when it changes rather than owning the state. Without this a chip would not flip to
+  // "running" until something else re-rendered the page.
+  const [timerTick, setTimerTick] = useState(0);
   const [factor, setFactor] = useState(1);
   const [logging, setLogging] = useState(false);
   const [logged, setLogged] = useState(false);
@@ -90,6 +98,8 @@ export default function CookMode() {
     });
   }
 
+  useEffect(() => subscribeTimers(() => setTimerTick((n) => n + 1)), []);
+
   useEffect(() => {
     if (!id) return;
     let ignore = false;
@@ -100,6 +110,7 @@ export default function CookMode() {
         setIngredients(data.ingredients);
         setSteps(data.steps);
         setServings(data.recipe.servings);
+        setTitle(data.recipe.title);
       })
       .catch((err) => {
         if (ignore) return;
@@ -244,6 +255,46 @@ export default function CookMode() {
                       {[scaleIngredientQty(g.quantity, factor), g.unit].filter(Boolean).join(" ")}{" "}
                       {displayItem(g.item)}
                     </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {/* OUTSIDE the cook-step button, and that is not cosmetic: the step text IS the
+              Next control, so a tappable duration inside it would nest one interactive
+              element in another. src/lib/accessibility.test.ts fails on that, and it would
+              make the step itself unreliable to tap with the side of a floury hand. */}
+          {step && findDurations(step.text).length > 0 && (
+            <ul className="cook-timer-chips" key={timerTick}>
+              {findDurations(step.text).map((d) => {
+                const running = findRunning(id ?? "", index + 1, d.index);
+                return (
+                  <li key={d.index}>
+                    {running ? (
+                      <span className="chip is-running">{d.label}, running</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="chip"
+                        aria-label={`Start a ${d.label} timer for step ${index + 1}`}
+                        onClick={() => {
+                          // The gesture that makes the beep legal twenty minutes from now.
+                          // See the comment at the top of src/lib/cookAlarm.ts: autoplay
+                          // policy silently suppresses audio with no gesture behind it.
+                          armAlarm();
+                          startTimer({
+                            recipeId: id ?? "",
+                            recipeTitle: title,
+                            stepNumber: index + 1,
+                            label: d.label,
+                            matchIndex: d.index,
+                            seconds: d.seconds,
+                          });
+                        }}
+                      >
+                        {d.label}
+                      </button>
+                    )}
                   </li>
                 );
               })}

@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import CookMode from "./CookMode";
+import { getRecipe } from "../lib/api/recipes";
+import * as timers from "../lib/cookTimers";
 
 const family = vi.hoisted(() => ({
   active: { id: "f1", name: "F", invite_code: "x", created_by: "u" } as
@@ -210,4 +212,73 @@ test("the ingredient panel comes after the step, never before it", async () => {
   expect(main).toBeTruthy();
   expect(aside).toBeTruthy();
   expect(main.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+// A recipe whose steps you choose, queued for the next render only. The module-level mock
+// above has no duration in either step, which is right for the other tests and useless here.
+function mockSteps(...texts: string[]) {
+  vi.mocked(getRecipe).mockResolvedValueOnce({
+    recipe: {
+      id: "r1", family_id: "f1", author_id: "u", title: "Dal",
+      story: null, provenance: null, servings: 2, prep_minutes: null,
+      cook_minutes: null, visibility: "family", source_url: null,
+      created_at: "", updated_at: "",
+    },
+    ingredients: [],
+    steps: texts.map((text, i) => ({ position: i, text })),
+    photos: [],
+  } as never);
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  timers.resetForTests();
+});
+
+test("offers a timer chip for each duration in the step", async () => {
+  mockSteps("Simmer for 20 minutes, then rest 45 seconds.");
+  renderCookMode();
+  expect(await screen.findByRole("button", { name: /start a 20 minutes timer/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /start a 45 seconds timer/i })).toBeInTheDocument();
+});
+
+test("offers no chip for a step with no duration", async () => {
+  mockSteps("Chop the onions finely.");
+  renderCookMode();
+  expect(await screen.findByText("Chop the onions finely.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /timer/i })).not.toBeInTheDocument();
+});
+
+test("tapping a chip starts a timer carrying the recipe and step", async () => {
+  mockSteps("Simmer for 20 minutes.");
+  renderCookMode();
+  await userEvent.click(await screen.findByRole("button", { name: /start a 20 minutes timer/i }));
+  expect(timers.list()).toHaveLength(1);
+  expect(timers.list()[0].label).toBe("20 minutes");
+  expect(timers.list()[0].stepNumber).toBe(1);
+  expect(timers.list()[0].recipeTitle).toBe("Dal");
+});
+
+// Two identical labels in ONE step. This is why a timer's identity carries the parser's
+// match index and not just the recipe, the step and the label: starting one of them must
+// not mark the other as already running.
+test("keeps two identical durations in one step as two separate chips", async () => {
+  mockSteps("Fry 5 minutes, then rest 5 minutes.");
+  renderCookMode();
+  const chips = await screen.findAllByRole("button", { name: /start a 5 minutes timer/i });
+  expect(chips).toHaveLength(2);
+  await userEvent.click(chips[0]);
+  expect(timers.list()).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: /start a 5 minutes timer/i })).toHaveLength(1);
+  expect(screen.getByText(/5 minutes, running/i)).toBeInTheDocument();
+});
+
+// The step text is itself the Next control, so a chip inside it would nest interactive
+// elements and make the step unreliable to tap.
+test("keeps the chips outside the step button", async () => {
+  mockSteps("Simmer for 20 minutes.");
+  renderCookMode();
+  const chip = await screen.findByRole("button", { name: /start a 20 minutes timer/i });
+  const step = screen.getByRole("button", { name: /advance from step 1/i });
+  expect(step).not.toContainElement(chip);
 });
