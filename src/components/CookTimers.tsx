@@ -30,6 +30,13 @@ export default function CookTimers() {
 
   useEffect(() => {
     if (items.length === 0) return;
+    // RESYNC BEFORE TICKING. The interval below only runs while a timer exists, so after an
+    // idle spell `now` is frozen at whatever it was when the last timer went. Without this
+    // line the first paint of a new timer subtracts a stale clock and overstates the
+    // remaining time by exactly how long the strip sat empty: a browser walk caught a fresh
+    // twenty minute timer rendering as 20:02, and an app left open for an hour would have
+    // shown 1:20:00 for a second before correcting itself.
+    setNow(Date.now());
     const handle = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(handle);
   }, [items.length]);

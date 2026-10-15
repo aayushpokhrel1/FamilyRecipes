@@ -59,6 +59,22 @@ describe("CookTimers", () => {
     expect(timers.list()).toHaveLength(0);
   });
 
+  // Found by a browser walk, not by the suite: a fresh twenty minute timer rendered as
+  // 20:02. The ticking interval only runs while a timer exists, so after an idle spell the
+  // component's `now` is frozen at whatever it was when the last timer went, and the first
+  // paint subtracts a stale clock. The overstatement is exactly how long the strip sat empty.
+  it("does not show a stale remaining time on the first paint after an idle spell", () => {
+    vi.useFakeTimers();
+    render(<CookTimers />);
+    act(() => {
+      vi.advanceTimersByTime(600_000);
+    });
+    act(() => {
+      timers.start({ ...seed, seconds: 150 });
+    });
+    expect(screen.getByText("2:30")).toBeInTheDocument();
+  });
+
   it("updates as the clock runs", () => {
     vi.useFakeTimers();
     act(() => {
