@@ -92,47 +92,99 @@ npm run test:int
 ## Walking production signed in
 
 **Why this is not optional, and not the same as `npm test`.** Every defect found in the last
-month of sessions came from a browser, not the suite: the three on 2026-09-27 had their lesson
-already written down in this repo, the invite link was broken on production for three doors out
-of four with 690 tests green, and the kitchen walk on 2026-10-11 found three defects no test
-saw. The suite proves the rules it was told about. A browser is the only thing that asks whether
-the page is the one a person actually gets.
+month came from a browser, not the suite. The three on 2026-09-27 had their lesson already
+written down in this repo. The invite link was broken on production for three doors out of four
+with 690 tests green. The kitchen walk on 2026-10-11 found three defects no test saw. The suite
+proves the rules it was told about; a browser is the only thing that asks whether the page is
+the one a person actually gets.
 
-Sign in on production as the real account, work down the list, and do step 2 LAST because it
-ends with an account being deleted.
+Budget twenty minutes. Do the steps in order: step 3 ends with an account being deleted, and
+step 4 is a question you want answered before you have changed anything.
 
-### 1. The restyled Potluck (not looked at since the restyle)
+### Step 1: know what you are testing
 
-`https://recipes.enamelvault.com/potluck`, signed in. Two behaviours are pinned by tests and
-must not have been lost; the point of doing it by hand is that both failures LOOK fine.
+```bash
+git fetch origin && git log --oneline -1 origin/master
+```
 
-- **Bylines come from ONE `getBylines` call per page.** Open DevTools, Network, filter `rest/v1`,
-  reload. There must be exactly one request mentioning `public_recipe_bylines`, not one per
-  card. A regression here is invisible on a page of six recipes and is a stampede on a page of
-  sixty.
-- **An empty Following list short-circuits.** Switch the feed to Following with nobody followed.
-  It must say so and show nothing. The failure mode is that it falls back to showing
-  EVERYTHING, which reads like a working feed and is the opposite of what the filter means.
-- Then just look at it: the grid at a phone width, a card with no photo, a long title, a byline
-  with no handle.
+```bash
+curl -s https://recipes.enamelvault.com/health/version
+```
 
-### 2. Delete the throwaway account left on production (2026-10-10)
+Those two must agree. If the Worker is behind, you are about to test the previous build and
+conclude something false about this one: wait for the Cloudflare build, or check
+`gh run list --limit 1`. **This step exists because of 2026-10-12**, when a push produced no
+build at all, no failure and no notification, and the old Worker served 200s for three hours.
 
-**Delete it from the app's own Settings page, signed in AS the throwaway, never from the
-Supabase dashboard.** The dashboard removes the auth user and nothing else, and `0014` dropped
-the `profiles -> auth.users` foreign key on purpose, so the profile row SURVIVES with its
-handle, public name, bio and avatar intact: `/cooks/<handle>` goes on serving them and the
-sitemap goes on offering them to crawlers. That is the exact drift `0052` had to backfill.
-Settings calls the `delete-account` function, which blanks all of it in the right order.
+### Step 2: the restyled Potluck
 
-Afterwards, confirm rather than assume: `/cooks/<that handle>` must 404, and the handle must be
-gone from `/sitemap.xml`.
+`https://recipes.enamelvault.com/potluck`, signed in as the real account. Two behaviours are
+pinned by tests and must not have been lost. **Both failures look fine**, which is the whole
+reason to do this by hand.
 
-### 3. The one read-only question only production can answer
+1. **Bylines come from ONE `getBylines` call per page.** Open DevTools (F12), Network tab,
+   filter on `rest/v1`, then hard-reload (Ctrl+Shift+R). Count the requests whose URL mentions
+   `public_recipe_bylines`: there must be exactly **one**, not one per card. A regression is
+   invisible on a page of six recipes and is a stampede on a page of sixty.
+2. **An empty Following list short-circuits.** Switch the feed to Following while following
+   nobody. It must say so and show nothing. The failure is falling back to showing
+   **everything**, which reads like a working feed and is the exact opposite of what the filter
+   means.
+
+Then simply look, at these four things specifically, because they are where a grid restyle
+breaks and no test can see it: a phone-width window, a card with no photo, a card with a very
+long title, and a byline for a cook with no handle.
+
+**If something is wrong, write it down and stop; do not fix it in the browser.** The fix belongs
+in a commit with a test, and the two behaviours above already have tests to extend rather than
+to re-invent.
+
+### Step 3: delete the throwaway account left on production (2026-10-10)
+
+**Identify it first, and do not guess.** Supabase dashboard, Authentication, Users, sorted by
+created. You are looking for the one created on 2026-10-10 that is not a family member's. Cross
+check in the SQL editor before deleting anything:
+
+```sql
+select p.id, p.display_name, p.handle, p.public_name, u.email, u.created_at,
+       (select count(*) from family_members fm where fm.user_id = p.id) as families
+from profiles p join auth.users u on u.id = p.id
+order by u.created_at desc limit 10;
+```
+
+**Delete it from the app's own Settings page, signed in AS that account. Never from the Supabase
+dashboard.** The dashboard removes the auth user and nothing else, and `0014` dropped the
+`profiles -> auth.users` foreign key on purpose, so the profile row SURVIVES with its handle,
+public name, bio and avatar intact: `/cooks/<handle>` goes on serving them and the sitemap goes
+on offering them to crawlers. That is precisely the drift `0052` had to backfill. Settings calls
+the `delete-account` function, which blanks all of it in the right order.
+
+**If you cannot sign in as it** (the password is gone and the email is not an inbox you hold),
+do by hand exactly what that function does, in this order, and remove the auth user from the
+dashboard last:
+
+```sql
+update profiles set display_name = 'A former member', avatar_url = null, preferences = '{}',
+       handle = null, public_name = null, bio = null
+ where id = '<uuid>';
+delete from meal_plans     where owner_id    = '<uuid>';
+delete from family_members where user_id     = '<uuid>';
+delete from recipe_drafts  where author_id   = '<uuid>';
+delete from follows        where follower_id = '<uuid>' or cook_id = '<uuid>';
+```
+
+The avatar FILE is not the `avatar_url`: delete the `avatars/<uuid>/` objects in Storage too.
+`supabase/deletion_parity.test.ts` is what keeps that column list honest, so if it disagrees
+with this block, trust the test.
+
+**Then confirm rather than assuming:** `/cooks/<that handle>` must 404, and the handle must be
+gone from `https://recipes.enamelvault.com/sitemap.xml`.
+
+### Step 4: the one read-only question only production can answer
 
 Is any REAL cook sitting in the cleared state? The hiding rule was live there for a while
-without the banner that explains it, so somebody could be hidden from the catalogue with
-nothing on screen telling them why. Supabase dashboard, SQL editor:
+without the banner that explains it, so somebody could be hidden from the catalogue with nothing
+on screen telling them why. SQL editor:
 
 ```sql
 select id, handle, name_cleared_at, name_cleared_reason
@@ -141,8 +193,15 @@ where name_cleared_at is not null and public_name is null;
 ```
 
 Zero rows is the answer you want and the likely one, since the only cleared cook so far was a
-test account. A real row means a person to contact, not a bug to fix: the banner is live now,
-so they will see it next time they open Settings.
+test account. **A real row is a person to contact, not a bug to fix:** the banner is live now
+(`AppLayout.tsx` renders it when `name_cleared_at` is set and `public_name` is null), so they
+will see it next time they open Settings, and it names the reason.
+
+### Step 5: record what you found
+
+Put the result in `HANDOVER.md` under item 1, one line per step, **including the steps that
+found nothing**. A step recorded as clean is the only thing that stops the next session
+re-walking it, because an unexamined surface and a cleared one look identical in any list.
 
 ## CI
 
@@ -1190,35 +1249,62 @@ If a page ever half-works in production, check the browser console for a CSP vio
 assuming a code bug: a violation reads as "Refused to load/execute", names the directive, and
 is the fastest possible diagnosis once you think to look.
 
-### The history scrub is NOT finished: ask GitHub to garbage-collect this repo
+### The history scrub: what is actually still exposed, measured 2026-10-15
 
-A history rewrite removed a third party's email address from this repository's commits. It is
-still readable, because GitHub keeps unreachable objects served until it garbage-collects, and
-nothing you can do from a terminal makes it collect. **Verified still true on 2026-10-15:**
+**Read this before writing to GitHub Support, because the handover's version of it was wrong,**
+and a privacy request that overstates its facts is one a support engineer checks, disproves and
+deprioritises. Every line below is a measurement with the command that made it.
+
+**What is NOT exposed.** The live history is clean: no email address other than Aayush's own and
+automated `noreply@` attribution trailers appears in any commit message reachable from `master`.
+
+```bash
+git log --all --format='%B' | grep -oiE '[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}' | grep -viE 'aayus\.pok@gmail\.com|noreply|@enamelvault\.com|example\.(com|dev)' | sort -u
+```
+
+Nor is it in the three merged pull requests. `refs/pull/N/head` lives for ever on GitHub, which
+normally keeps old objects alive; but all three PR heads are commits that are STILL in the
+current history (`git cat-file -e <sha>` succeeds for each), so the rewrite never touched them
+and they hold nothing the live history does not.
+
+**What IS exposed: unreachable objects, which GitHub serves until it garbage-collects.**
 
 ```bash
 gh api repos/aayushpokhrel1/FamilyRecipes/commits/e7a329e --jq .sha
 ```
 
-That returns `e7a329ee57c7...` on a PUBLIC repository. While it does, the rewrite has bought
-nothing against anybody who has, or can guess, that SHA.
+That still returns `e7a329ee57c7...` on a PUBLIC repository, while the object does not exist in
+a fresh clone at all. The rewrite removed those commits from history and GitHub went on serving
+them by SHA. That is the whole problem, and the only remaining one.
+
+**But `e7a329e` itself contains nothing private.** Checked 2026-10-15: it touches only
+`.graphifyignore`, its patch holds no address, its author and committer are Aayush's own gmail,
+and the single email-shaped string in its message is an automated `noreply@anthropic.com`
+trailer. **So do not tell Support that an address is readable at it.** It is evidence that
+unreachable pre-rewrite objects are still served, and that is what to cite it as.
+
+**Which SHA did carry the address is no longer knowable from here.** The local
+`backup-before-msg-rewrite` branch held the pre-rewrite history and has been deleted, so there
+is nothing left to enumerate from. That is an argument FOR the blanket GC rather than against
+it: a targeted request cannot be aimed any more.
 
 **The request**, at <https://support.github.com/contact>. Ask them to garbage-collect
-unreachable objects on `aayushpokhrel1/FamilyRecipes`, say the history was rewritten to remove a
-third party's email address, and give `e7a329e` as a SHA that still resolves so they can
-confirm it themselves. Be explicit that this is a privacy request about somebody else's
-personal data rather than a tidy-up, because that is what decides how they triage it.
+unreachable objects on `aayushpokhrel1/FamilyRecipes`. Say the history was rewritten to remove a
+third party's email address from commit messages, that pre-rewrite commits are still served by
+SHA, and give `e7a329e` as a commit that resolves although it is in no branch. Say explicitly
+that it is a privacy request about somebody else's personal data rather than a cleanup, because
+that is what decides how it is triaged. Do not claim to know which SHA carries the address: say
+the branch that recorded them is gone, which is why a blanket collection is what you need.
 
-**Forks do not complicate it, which is worth knowing before you write:** the repo has **0
-forks** (checked 2026-10-15, `gh api repos/aayushpokhrel1/FamilyRecipes --jq .forks_count`).
-GC of one repo does not clear a fork network, so if that number is ever not zero when you get
-to this, say so in the ticket.
+**Forks: 0** as of 2026-10-15
+(`gh api repos/aayushpokhrel1/FamilyRecipes --jq .forks_count`). GC of one repository does not
+clear a fork network, so if that number is ever not zero, say so in the ticket.
 
-**When they confirm it is done**, re-run the command above. It must fail with a 404. Until it
-does, nothing has actually changed.
+**When they say it is done**, re-run the `gh api` command above. It must fail with a 404. Until
+it does, nothing has changed, whatever the ticket says.
 
-**Separately, and regardless of the GC:** that address was public from 2026-09-25 to
-2026-09-30. The person it belongs to should be told, and that is not something the GC undoes.
+**Independently of all of it:** the address was public from 2026-09-25 to 2026-09-30. The person
+it belongs to should be told, and no garbage collection undoes that.
 
 ### Known standing risks
 
