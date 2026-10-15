@@ -98,3 +98,18 @@ test("explains an empty result", async () => {
   await userEvent.click(await screen.findByRole("button", { name: /What can I cook/i }));
   expect(await screen.findByText(/No recipes in the vault yet/i)).toBeInTheDocument();
 });
+
+test("adds several staples at once from the catalog picker", async () => {
+  const pantry = await import("../lib/api/pantry");
+  renderCupboard();
+  await screen.findByText("Rice");
+  await userEvent.click(screen.getByRole("button", { name: "Add from list" }));
+
+  // The cupboard has no sections, so the picker must not offer one.
+  expect(screen.queryByLabelText("target section")).toBeNull();
+
+  await userEvent.click(screen.getByLabelText("onion"));
+  await userEvent.click(screen.getByRole("button", { name: /add selected/i }));
+  await waitFor(() => expect(pantry.addItem).toHaveBeenCalledWith("f1", "onion", "keep"));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

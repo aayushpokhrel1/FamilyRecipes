@@ -10,6 +10,7 @@ import { listRecipeIngredientIndex } from "../lib/api/recipes";
 import { seedSuggestions } from "../lib/seedSuggestions";
 import { cookNow, type CookNowResult } from "../lib/cookNow";
 import Skeleton from "../components/Skeleton";
+import IngredientCatalogPicker from "../components/IngredientCatalogPicker";
 
 // Tap to cycle. Three states in a ring is the cheapest upkeep gesture there
 // is, and upkeep is the whole risk with a cupboard.
@@ -26,6 +27,7 @@ export default function Cupboard() {
   const [results, setResults] = useState<CookNowResult[] | null>(null);
   const [matching, setMatching] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
     if (!activeFamily) { setLoading(false); return; }
@@ -54,6 +56,21 @@ export default function Cupboard() {
       setItems((list) => [...list.filter((i) => i.id !== added.id), added]
         .sort((a, b) => a.label.localeCompare(b.label)));
       setLabel("");
+    } catch (e: any) { setError(e.message); }
+  }
+
+  // The same catalog picker the recipe ingredient editor uses. addItem upserts, so ticking
+  // something already in the cupboard refreshes that row rather than duplicating it, which is
+  // why the merge below drops by id before appending.
+  async function handleAddMany(names: string[]) {
+    if (!activeFamily) return;
+    try {
+      const added = await Promise.all(names.map((n) => addItem(activeFamily.id, n, "keep")));
+      setItems((list) => {
+        const ids = new Set(added.map((a) => a.id));
+        return [...list.filter((i) => !ids.has(i.id)), ...added]
+          .sort((a, b) => a.label.localeCompare(b.label));
+      });
     } catch (e: any) { setError(e.message); }
   }
 
@@ -223,7 +240,17 @@ export default function Cupboard() {
         <button type="button" className="action" onClick={handleAdd} disabled={!activeFamily}>
           Add
         </button>
+        <button type="button" onClick={() => setShowPicker(true)} disabled={!activeFamily}>
+          Add from list
+        </button>
       </section>
+
+      {showPicker && (
+        <IngredientCatalogPicker
+          onClose={() => setShowPicker(false)}
+          onAdd={(names) => handleAddMany(names)}
+        />
+      )}
 
       <p className="vault-note"><Link to="/kitchen">Back to My Kitchen</Link></p>
     </div>

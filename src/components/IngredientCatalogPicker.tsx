@@ -3,6 +3,8 @@ import { CATALOG } from "../lib/catalog";
 
 // Modal: pick a category (Produce, Spices, ...) then check its ingredients; a search box cuts
 // across every category at once. Checks survive switching categories.
+// Omitting defaultSection entirely (not passing null) hides the section field: the cupboard has
+// no sections, and a control whose value the caller throws away is a lie about what it does.
 export default function IngredientCatalogPicker(
   { onAdd, onClose, defaultSection }:
   { onAdd: (names: string[], section: string | null) => void; onClose: () => void; defaultSection?: string | null },
@@ -36,8 +38,10 @@ export default function IngredientCatalogPicker(
         <div className="catalog-fields">
           <input value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search all categories" aria-label="search ingredients" />
-          <input value={section} onChange={(e) => setSection(e.target.value)}
-            placeholder="Section (optional)" aria-label="target section" />
+          {defaultSection !== undefined && (
+            <input value={section} onChange={(e) => setSection(e.target.value)}
+              placeholder="Section (optional)" aria-label="target section" />
+          )}
         </div>
         {!q && (
           <div className="catalog-cats" role="group" aria-label="categories">
