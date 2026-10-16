@@ -116,8 +116,11 @@ export default function Cookies() {
 
       <h2>Do Not Track and Global Privacy Control</h2>
       <p>
-        We honour both by default, in the only way that means anything: there is no tracking to
-        turn off.
+        We honour both by default, in the only way that means anything: nothing follows you
+        between sites, and nothing is stored on your device to recognise you by. What we do
+        count is described in the <Link to="/privacy">privacy policy</Link>: a cookieless page
+        count, and a dated note of which parts of the app your own account opened. Neither can
+        see anything you do anywhere else, which is what these signals are about.
       </p>
 
       <h2>Questions</h2>

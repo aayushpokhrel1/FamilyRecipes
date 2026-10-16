@@ -26,9 +26,11 @@ export default function Privacy() {
 
       <p>
         The short version: this app keeps your recipes so you and your family can cook from
-        them. It has no advertising, no tracking pixels and no cookies, and the only analytics
-        is a cookieless page count that cannot identify you. Nothing here is sold or shared for
-        marketing, ever. The one thing that does leave our own systems is anything you put
+        them. It has no advertising, no tracking pixels and no cookies. Two things are counted:
+        a cookieless page count that cannot identify you, and, once you are signed in, a dated
+        note of which parts of the app your account opened, so we can tell whether the thing is
+        any use. Both are described below, and neither is stored on your device. Nothing here is
+        sold or shared for marketing, ever. The one thing that does leave our own systems is anything you put
         through the AI import, and the section on sharing names exactly who receives it. What
         follows is the detail, because you are entitled to it.
       </p>
