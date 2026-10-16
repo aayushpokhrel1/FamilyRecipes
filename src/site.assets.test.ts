@@ -15,12 +15,14 @@
 // HTML, and tsconfig.worker.json deliberately carries no DOM or vite types. The same reason
 // src/site.tokens.test.ts gives.
 import { describe, expect, it } from "vitest";
+import familyHtml from "../public/family.html?raw";
 import professionalHtml from "../public/professional.html?raw";
 import siteHtml from "../public/site.html?raw";
 import { SITE_PAGES, isSiteAsset, sitePageAsset } from "../worker/site";
 
 const PAGES: Record<string, string> = {
   "/site.html": siteHtml,
+  "/family.html": familyHtml,
   "/professional.html": professionalHtml,
 };
 

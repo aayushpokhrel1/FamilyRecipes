@@ -5,13 +5,14 @@ import { describe, expect, it } from "vitest";
 // and adding vite/client there to get ?raw would pull DOM types into the Worker project and
 // mask the Worker-specific errors that config exists to catch.
 import css from "./index.css?raw";
+import familyHtml from "../public/family.html?raw";
 import professionalHtml from "../public/professional.html?raw";
 import css2 from "../public/site.css?raw";
 import siteHtml from "../public/site.html?raw";
 
-// The palette moved out of site.html into the shared stylesheet when professional.html
-// was added. The SECOND COPY is now site.css, so that is what gets compared, and the two
-// HTML files are checked separately for a hex typed straight into the markup.
+// The palette moved out of site.html into the shared stylesheet when the marketing pages
+// became three. The SECOND COPY is now site.css, so that is what gets compared, and every
+// HTML page is checked separately for a hex typed straight into the markup.
 const html = css2;
 
 // The landing page is static HTML, so its colours are a SECOND copy of the palette. A second
@@ -57,11 +58,12 @@ describe("site.css colours", () => {
   });
 
   // Catches the other direction: a hex that is not in the palette at all. Run over the
-  // stylesheet AND both pages, because an inline style attribute bypasses the stylesheet
+  // stylesheet AND every page, because an inline style attribute bypasses the stylesheet
   // entirely and is exactly where a one-off colour gets typed.
   it.each([
     ["site.css", css2],
     ["site.html", siteHtml],
+    ["family.html", familyHtml],
     ["professional.html", professionalHtml],
   ])("%s contains no hex colour that is absent from index.css", (_name, source) => {
     const known = new Set(Object.values(real).map((v) => v.toLowerCase()));

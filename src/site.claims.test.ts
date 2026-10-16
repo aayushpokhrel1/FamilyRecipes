@@ -16,6 +16,7 @@
 // thing on the landing page, or build it and soften the disclaimer in the kitchen terms.
 // Deleting a word from the list below so the test goes quiet is the dishonest one.
 import { describe, expect, it } from "vitest";
+import familyHtml from "../public/family.html?raw";
 import professionalHtml from "../public/professional.html?raw";
 import siteHtml from "../public/site.html?raw";
 import kitchenTerms from "./kitchen/pages/Terms.tsx?raw";
@@ -37,6 +38,7 @@ const DISCLAIMED = ["allergen", "yield", "cost", "temperature", "shelf life"];
 // success for the page it cannot see.
 const PAGES = [
   ["site.html", siteHtml],
+  ["family.html", familyHtml],
   ["professional.html", professionalHtml],
 ] as const;
 

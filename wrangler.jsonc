@@ -11,6 +11,19 @@
     "SUPABASE_ANON_KEY": "sb_publishable_bViGBaGpqpV0tGKnghkgZQ_p-raLjKb"
   },
   "compatibility_date": "2026-09-18",
+  // RETIRED 2026-10-15. familyrecipes.aayus-pok.workers.dev served the whole family app as a
+  // second, fully crawlable copy: its robots.txt said `Allow: /`, every page canonicalised to
+  // ITSELF rather than to recipes.enamelvault.com, and it published its own sitemap listing
+  // its own URLs. That is exactly the duplicate content the host split in worker/site.ts
+  // exists to prevent, and it had been live the whole time.
+  //
+  // This host was previously kept because links sent to family pointed at it, and retiring it
+  // breaks those links rather than redirecting them. That was the deliberate choice: a
+  // redirect would have kept them alive, and it was weighed and declined.
+  //
+  // THE CUSTOM DOMAIN IS NOW THE ONLY WAY IN. There is no fallback URL if it ever breaks, so
+  // re-enabling this temporarily is the escape hatch worth remembering during an incident.
+  "workers_dev": false,
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",

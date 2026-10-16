@@ -423,8 +423,13 @@ Live at <https://recipes.enamelvault.com>, with the landing page at
 and `recipes.` is attached to the `familyrecipes` worker as a **Custom Domain**, so Cloudflare
 provisioned the proxied `AAAA` and the certificate itself.
 
-`https://familyrecipes.aayus-pok.workers.dev` still serves the same worker and **must not be
-retired**: links already sent to family point at it.
+`https://familyrecipes.aayus-pok.workers.dev` was **retired on 2026-10-15** by
+`"workers_dev": false` in `wrangler.jsonc`. It had been serving the entire family app as a
+second crawlable copy that canonicalised every page to itself and published its own sitemap,
+which is the duplicate content the host split exists to prevent. Links already sent to family
+pointed at it and now fail rather than redirecting; that was weighed and chosen deliberately
+over a redirect. **The custom domain is now the only way in**, so re-enabling this is the
+escape hatch if `recipes.enamelvault.com` ever breaks.
 
 Nothing in the repo hardcodes an origin, and `requestPasswordReset` builds its redirect from
 `window.location.origin`. The custom domain is deliberately **not** in `wrangler.jsonc`; a

@@ -12,20 +12,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>The Enamel Vault - a place for a family's recipes</title>
+    <title>The Enamel Vault - recipes kept properly, for families and kitchens</title>
     <meta
       name="description"
-      content="A private vault where a family keeps its recipes, with the story and whose they were. Free to use."
+      content="Two apps that keep a recipe with the story behind it: a private vault for a family, and dish development with sign-off for a professional kitchen."
     />
     <link rel="canonical" href="https://enamelvault.com/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="The Enamel Vault" />
-    <meta property="og:title" content="The Enamel Vault - a place for a family's recipes" />
+    <meta property="og:title" content="The Enamel Vault - recipes kept properly" />
     <meta
       property="og:description"
-      content="A private vault where a family keeps its recipes, with the story and whose they were."
+      content="Two apps that keep a recipe with the story behind it: one for a family, one for a working kitchen."
     />
     <meta property="og:url" content="https://enamelvault.com/" />
     <meta property="og:image" content="https://enamelvault.com/og.png?v=2" />
@@ -44,7 +44,7 @@
         "@type": "WebSite",
         "name": "The Enamel Vault",
         "url": "https://enamelvault.com/",
-        "description": "A private vault where a family keeps its recipes, with the story and whose they were."
+        "description": "Two apps that keep a recipe with the story behind it: a private vault for a family, and dish development with sign-off for a professional kitchen."
       }
     </script>
 
@@ -87,22 +87,28 @@
       </dialog>
 
       <main>
-        <h1>A family's recipes, kept properly</h1>
+        <h1>Recipes, kept properly</h1>
         <p class="lede">
-          A private vault for the food your family actually cooks, with the story behind each
-          dish and whose recipe it was. Not a blog, and not a folder of photos you cannot
-          search.
+          Two apps built on the same idea: a recipe is worth more than a list of ingredients,
+          so keep what happened to it and who changed it. One is for a family. One is for a
+          working kitchen. They share a name and nothing else.
         </p>
 
         <h2>Two ways in</h2>
         <div class="doors">
+          <!-- BOTH CARDS LINK TO A PAGE, not to a sign-up form, and they must stay matched.
+               This page is a hub: it belongs to neither product, so a card that jumped
+               straight to one app's sign-up would put a thumb on the scale. Each product
+               makes its own case on its own page, which is also what gives each one a title
+               and a description a search engine can match. The Sign in chooser in the
+               masthead is the shortcut for somebody who already has an account. -->
           <div class="plate">
             <h3>For a family</h3>
             <p>
-              Start a vault, invite the family with a link, and put the first recipe in. Free
-              to use.
+              A private vault for the food your family actually cooks, with the story behind
+              each dish and whose recipe it was. Free to use.
             </p>
-            <a class="action" href="https://recipes.enamelvault.com/signup">Create a vault</a>
+            <a class="action" href="/family">What it does for a family</a>
           </div>
           <div class="plate">
             <h3>For a professional kitchen</h3>
@@ -110,52 +116,19 @@
               A separate app for kitchens developing dishes, with its own accounts and its own
               data, so nothing in it touches a family vault.
             </p>
-            <!-- This action goes to the PAGE, not to sign-up, and that is the one difference
-                 from the family door beside it. The full case for the kitchen app lives on
-                 /professional so it has a title and a description a search engine can match;
-                 a reader who wants it finds the sign-up CTA at the top of that page, and
-                 anyone who already has an account uses the Sign in chooser in the masthead.
-                 Two doors to the same app on one card is what this replaced. -->
             <a class="action" href="/professional">What it does for a kitchen</a>
           </div>
         </div>
 
-        <h2>What it does</h2>
-        <ul class="does">
-          <li class="plate">
-            <strong>A private vault</strong>
-            <span>
-              Every recipe is private, family-only or public, one recipe at a time. Nothing is
-              public because of a default.
-            </span>
-          </li>
-          <li class="plate">
-            <strong>The story, not just the method</strong>
-            <span>
-              Who it came from and who changed it, kept with the ingredients and the steps,
-              because that is the part that gets lost.
-            </span>
-          </li>
-          <li class="plate">
-            <strong>Put one in from a photo or your voice</strong>
-            <span>
-              Photograph a handwritten card, paste a page, or just talk. It drafts the recipe
-              and you check it before anything is saved.
-            </span>
-          </li>
-          <li class="plate">
-            <strong>For the day you cook it</strong>
-            <span>
-              A grocery list that knows an either-or ingredient is one item, and a cooking view
-              in big type that keeps the screen awake.
-            </span>
-          </li>
-        </ul>
-
         <!-- NO HEADING HERE. buildRack() in worker/site.ts returns its own <h2> along with
              the cards, so the two appear and vanish together. A heading written here would
              survive the degraded path (Supabase unreachable, no cards) and the page would
-             serve "Some that are public" above an empty space. -->
+             serve "Some that are public" above an empty space.
+
+             THE RACK STAYS ON THE HUB rather than moving to /family with the rest of the
+             family copy. It is the only real content either page has, and a hub that is two
+             links and a paragraph is a thin page that ranks for nothing. serveSite() is also
+             the only handler that reads the catalogue, and it only answers "/". -->
         <!--RACK-->
       </main>
 

@@ -1,0 +1,152 @@
+<!doctype html>
+<!-- The family page, on enamelvault.com/family. Served by worker/index.ts via
+     serveSitePage(), exactly as professional.html is. The .html path itself is refused, so
+     the page has one URL and one canonical.
+
+     WHY THIS PAGE EXISTS. Until 2026-10-15 the apex homepage WAS the family page: its <h1>
+     and <title> were both about family recipes, so the kitchen app had no page of its own
+     while the family product quietly owned the strongest URL on the domain. /professional
+     fixed half of that; this page fixes the other half, and the homepage is now a hub that
+     belongs to neither product.
+
+     THE COST, WRITTEN DOWN SO NOBODY REDISCOVERS IT AS A SURPRISE. The apex is the strongest
+     page on the domain and it no longer targets "family recipes" on its own. This page does.
+     If family traffic falls, that is where to look first, and the honest fix is to make this
+     page better rather than to re-point the homepage at one of the two products.
+
+     NO INLINE SCRIPT, EVER: the CSP is script-src 'self' and a blocked inline script fails
+     silently. src/site.a11y.test.ts holds that for all three pages. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A private vault for your family's recipes - The Enamel Vault</title>
+    <meta
+      name="description"
+      content="A private vault for the food your family actually cooks, with the story behind each dish and whose recipe it was. Invite the family with a link. Free to use."
+    />
+    <link rel="canonical" href="https://enamelvault.com/family" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Enamel Vault" />
+    <meta property="og:title" content="A private vault for your family's recipes" />
+    <meta
+      property="og:description"
+      content="The food your family actually cooks, with the story behind each dish and whose recipe it was."
+    />
+    <meta property="og:url" content="https://enamelvault.com/family" />
+    <meta property="og:image" content="https://enamelvault.com/og.png?v=2" />
+    <meta
+      property="og:image:alt"
+      content="Family Recipes, on an enamel plate against a pantry-green wall."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "The Enamel Vault for families",
+        "url": "https://enamelvault.com/family",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Web browser",
+        "description": "A private vault for the food your family actually cooks, with the story behind each dish and whose recipe it was."
+      }
+    </script>
+
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <img src="/favicon.svg" width="32" height="32" alt="" />
+        <span class="wordmark">The Enamel Vault</span>
+        <nav aria-label="Account">
+          <!-- The fallback href is the FAMILY sign-in here, because a reader of this page is
+               a family. public/signin-choice.js upgrades it into the chooser below; without
+               the script this link still goes somewhere useful. -->
+          <a id="signin-link" href="https://recipes.enamelvault.com/signin">Sign in</a>
+        </nav>
+      </header>
+
+      <dialog id="signin-choice" class="plate" aria-labelledby="signin-choice-title">
+        <h2 id="signin-choice-title">Which one?</h2>
+        <div class="doors">
+          <div>
+            <a class="action" href="https://recipes.enamelvault.com/signin">Family recipes</a>
+            <p>The vault your family cooks from.</p>
+          </div>
+          <div>
+            <a class="action" href="https://kitchen.enamelvault.com/signin">Professional kitchen</a>
+            <p>Dish development and sign-off for a working kitchen.</p>
+          </div>
+        </div>
+        <form method="dialog">
+          <button type="submit">Close</button>
+        </form>
+      </dialog>
+
+      <main>
+        <h1>A family's recipes, kept properly</h1>
+        <p class="lede">
+          A private vault for the food your family actually cooks, with the story behind each
+          dish and whose recipe it was. Not a blog, and not a folder of photos you cannot
+          search.
+        </p>
+
+        <div class="plate">
+          <h2>Start a vault</h2>
+          <p>
+            Invite the family with a link, and put the first recipe in. Free to use, and every
+            recipe is private until you decide otherwise.
+          </p>
+          <a class="action" href="https://recipes.enamelvault.com/signup">Create a vault</a>
+        </div>
+
+        <h2>What it does</h2>
+        <ul class="does">
+          <li class="plate">
+            <strong>A private vault</strong>
+            <span>
+              Every recipe is private, family-only or public, one recipe at a time. Nothing is
+              public because of a default.
+            </span>
+          </li>
+          <li class="plate">
+            <strong>The story, not just the method</strong>
+            <span>
+              Who it came from and who changed it, kept with the ingredients and the steps,
+              because that is the part that gets lost.
+            </span>
+          </li>
+          <li class="plate">
+            <strong>Put one in from a photo or your voice</strong>
+            <span>
+              Photograph a handwritten card, paste a page, or just talk. It drafts the recipe
+              and you check it before anything is saved.
+            </span>
+          </li>
+          <li class="plate">
+            <strong>For the day you cook it</strong>
+            <span>
+              A grocery list that knows an either-or ingredient is one item, and a cooking view
+              in big type that keeps the screen awake.
+            </span>
+          </li>
+        </ul>
+      </main>
+
+      <footer class="site-foot">
+        <nav aria-label="Documents">
+          <a href="https://recipes.enamelvault.com/terms">Terms</a>
+          <a href="https://recipes.enamelvault.com/privacy">Privacy</a>
+          <a href="https://recipes.enamelvault.com/cookies">Cookies</a>
+          <a href="https://recipes.enamelvault.com/help">Help</a>
+        </nav>
+        <p>Run by Aayush Pokhrel. This site sets no cookies and uses no analytics.</p>
+      </footer>
+    </div>
+    <script src="/signin-choice.js"></script>
+  </body>
+</html>

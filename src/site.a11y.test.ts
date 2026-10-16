@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 import css from "../public/site.css?raw";
+import familyHtml from "../public/family.html?raw";
 import professionalHtml from "../public/professional.html?raw";
 import siteHtml from "../public/site.html?raw";
 
 // The React-tree accessibility test in src/lib/accessibility.test.ts cannot see these files,
 // so the same classes of mistake get their own check here. jsdom parses the real markup.
 //
-// THERE ARE TWO MARKETING PAGES NOW, and every structural rule below runs against BOTH.
+// THERE ARE THREE MARKETING PAGES, and every structural rule below runs against ALL of them.
 // The repo has already paid for the other arrangement: src/routes.terms.test.ts checked one
 // of two routers, and the kitchen app shipped its entire surface ungated with the suite
 // green, because a guard covering one of two things reports success for the thing it cannot
 // see. ADDING A PAGE? Add it to PAGES. An unlisted page is an unchecked page.
 const PAGES = [
   { name: "site.html", html: siteHtml, canonical: "https://enamelvault.com/" },
+  { name: "family.html", html: familyHtml, canonical: "https://enamelvault.com/family" },
   {
     name: "professional.html",
     html: professionalHtml,
@@ -159,6 +161,7 @@ describe("the marketing pages as a set", () => {
   it("puts the rack placeholder on the homepage and nowhere else", () => {
     expect(siteHtml.match(/<!--RACK-->/g)).toHaveLength(1);
     expect(professionalHtml).not.toContain("<!--RACK-->");
+    expect(familyHtml).not.toContain("<!--RACK-->");
   });
 
   // The committing action sits inside a .plate, and `.plate a` colours link text with the
@@ -174,15 +177,25 @@ describe("the marketing pages as a set", () => {
   // The homepage sends a kitchen reader to the page built for them rather than straight at
   // a sign-up form. If this link goes, /professional is an orphan: nothing links to it, and
   // the sitemap alone is a weak signal.
-  it("links the homepage to the professional page", () => {
+  // The hub belongs to neither product, so it must reach BOTH pages. If either link goes,
+  // that page is an orphan: nothing links to it and a sitemap entry alone is a weak signal.
+  it("links the hub to both product pages", () => {
     const hrefs = [...doc(siteHtml).querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/family");
     expect(hrefs).toContain("/professional");
   });
 
-  it("offers the family signup on the homepage and the kitchen signup on the other", () => {
+  // The hub stopped being the family page on 2026-10-15. If a product's sign-up returns to
+  // it, the hub is quietly that product's page again and the split has been undone.
+  it("keeps the hub neutral, with no app sign-up on it", () => {
+    const hrefs = [...doc(siteHtml).querySelectorAll("main a")].map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.filter((h) => h.includes("/signup"))).toEqual([]);
+  });
+
+  it("puts each product's signup on that product's own page", () => {
     const hrefs = (html: string) =>
       [...doc(html).querySelectorAll("a")].map((a) => a.getAttribute("href") ?? "");
-    expect(hrefs(siteHtml)).toContain("https://recipes.enamelvault.com/signup");
+    expect(hrefs(familyHtml)).toContain("https://recipes.enamelvault.com/signup");
     expect(hrefs(professionalHtml)).toContain("https://kitchen.enamelvault.com/signup");
   });
 

@@ -51,6 +51,7 @@ export function isSiteAsset(pathname: string): boolean {
  */
 export const SITE_PAGES: Record<string, string> = {
   "/": "/site.html",
+  "/family": "/family.html",
   "/professional": "/professional.html",
 };
 
