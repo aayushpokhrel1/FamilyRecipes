@@ -1315,6 +1315,26 @@ curl -s -o /dev/null -w '%{http_code}
 
 `404` means it is still dropping counts. A `2xx` means collection is live.
 
+**What is already ruled out, re-confirmed 2026-10-16. Do not spend a session re-checking it.**
+
+- **The CSP is not the problem.** `script-src` allows `https://static.cloudflareinsights.com`
+  and `connect-src` allows `https://cloudflareinsights.com`, live on both hosts. Read them with
+  `curl -sI <host> | grep -i content-security-policy`.
+- **The beacon genuinely EXECUTES**, and the POST above is the proof: a CSP-refused script
+  never runs and never posts. Finding the `<script>` element in the DOM does NOT prove this,
+  because a blocked script is still in the DOM. That distinction is the whole difference
+  between "injected" and "running".
+- **Auto-injection is ON** on both hosts, whatever the dashboard's `auto_install` field says;
+  it read `false` while injection was demonstrably happening.
+
+So the fault is Cloudflare serving the beacon and then refusing its own collector. The leading
+fix is deleting the Web Analytics site record and letting it be recreated, which changes the
+token.
+
+**If it cannot be made to work, dropping the page count is a reasonable answer.** The app's own
+first-party events already answer more than it ever did. `/cookies` and `/privacy` describe it,
+so dropping it is a wording change as well as a dashboard one.
+
 It is cookieless and sets no identifier, so the no-banner position is unaffected and remains
 correct. But the general lesson stands: **a source scan cannot see anything the edge injects.**
 Anything switched on in the Cloudflare dashboard is invisible to every test in this repo, so
