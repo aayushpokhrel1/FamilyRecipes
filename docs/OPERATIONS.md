@@ -317,6 +317,29 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
 
+### First-party events: the order this one has to ship in
+
+This change spans all three targets, so it is the worked example of why they are listed
+separately. Do it in this order:
+
+1. **`npx supabase db push`**, applying `0060`. The table, the column and
+   `credit_signup_source` all have to exist before anything calls them.
+2. **`npx supabase functions deploy admin`**, for the `insights` action. The moderator console
+   calls it the moment the Overview tab is opened, and `ACTIVE` in the dashboard means
+   deployed, not current.
+3. **Then push master**, so Cloudflare builds the frontend that uses both.
+
+Getting 1 and 3 the wrong way round breaks every signed-in page load, not just the console:
+`AppLayout` records a visit on every navigation, so a missing table means a failed write on
+each one. It fails quietly, because `recordVisit` swallows everything by design, but the
+console's four panels would sit on an error and nothing would be recorded in the meantime.
+
+Getting 2 wrong is narrower and louder: the Overview tab shows the `insights` error and the
+tiles and chart above it still render, which is deliberate and is pinned by two tests.
+
+**Nothing here needs a Supabase redirect allow-list entry.** `?from=` rides inside `next`,
+which is already covered by the `/auth/callback**` globstar entries.
+
 ### "Automatic" is not a guarantee: the push that never built (2026-10-12)
 
 **A push can land on GitHub, pass CI, and never produce a Cloudflare build at all.** On

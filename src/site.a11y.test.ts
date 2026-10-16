@@ -26,6 +26,22 @@ function doc(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
 }
 
+// Every absolute app link on a page, as origin + path with the QUERY DROPPED.
+//
+// These links carry ?from=hub / ?from=family / ?from=professional so a signup can be credited
+// to the page that produced it. The tests that use this are about whether a door EXISTS in
+// the markup as a real href, which is a question about the path; matching the whole string
+// would make every future parameter look like a missing door.
+function appDoors(html: string): string[] {
+  return [...doc(html).querySelectorAll("a")]
+    .map((a) => a.getAttribute("href") ?? "")
+    .filter((h) => h.startsWith("https://"))
+    .map((h) => {
+      const u = new URL(h);
+      return `${u.origin}${u.pathname}`;
+    });
+}
+
 describe.each(PAGES)("$name structure", ({ html, canonical }) => {
   it("has exactly one h1", () => {
     expect(doc(html).querySelectorAll("h1")).toHaveLength(1);
@@ -104,9 +120,12 @@ describe.each(PAGES)("$name structure", ({ html, canonical }) => {
   // doors must be in the markup rather than built at runtime, or a no-script visitor loses
   // one of the two apps entirely.
   it("offers both apps as real links, so the chooser can fail safely", () => {
-    const hrefs = [...doc(html).querySelectorAll("a")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toContain("https://recipes.enamelvault.com/signin");
-    expect(hrefs).toContain("https://kitchen.enamelvault.com/signin");
+    // Compared WITHOUT the query string, because these links carry ?from= to credit the page
+    // that sent somebody, and what this test is about is that both doors exist in the markup
+    // as real hrefs. An exact-string match would make every future parameter look like a
+    // broken door.
+    expect(appDoors(html)).toContain("https://recipes.enamelvault.com/signin");
+    expect(appDoors(html)).toContain("https://kitchen.enamelvault.com/signin");
   });
 
   it("describes itself in JSON-LD that parses", () => {
@@ -193,10 +212,9 @@ describe("the marketing pages as a set", () => {
   });
 
   it("puts each product's signup on that product's own page", () => {
-    const hrefs = (html: string) =>
-      [...doc(html).querySelectorAll("a")].map((a) => a.getAttribute("href") ?? "");
-    expect(hrefs(familyHtml)).toContain("https://recipes.enamelvault.com/signup");
-    expect(hrefs(professionalHtml)).toContain("https://kitchen.enamelvault.com/signup");
+    // Query string dropped, for the reason given on appDoors.
+    expect(appDoors(familyHtml)).toContain("https://recipes.enamelvault.com/signup");
+    expect(appDoors(professionalHtml)).toContain("https://kitchen.enamelvault.com/signup");
   });
 
   // moderation@ is the only address this domain delivers to. It moved off the homepage when

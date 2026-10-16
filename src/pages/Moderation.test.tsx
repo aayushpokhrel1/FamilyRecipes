@@ -397,3 +397,63 @@ test("a failed stats load leaves the four panels standing", async () => {
   expect(screen.getByText("Coming back")).toBeInTheDocument();
   expect(screen.getByText("Onboarding")).toBeInTheDocument();
 });
+
+// A DATE-ONLY STRING IS NOT AN INSTANT, and a browser walk on 2026-10-16 showed the
+// "collecting began" line reporting 14 October for an earliest row of the 15th. new Date of a
+// bare "YYYY-MM-DD" is UTC midnight, which toLocaleDateString renders as the previous day
+// anywhere west of UTC. shortDay splits the parts instead.
+test("the collecting-began date is not shifted by a day west of UTC", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getAdminInsights.mockResolvedValue({
+    returning: {
+      repeat: { all: 0, others: 0 },
+      active7: { all: 0, others: 0 },
+      active30: { all: 0, others: 0 },
+      since: "2026-10-15",
+    },
+    funnel: {
+      signedUp: { all: 0, others: 0 },
+      joinedFamily: { all: 0, others: 0 },
+      savedRecipe: { all: 0, others: 0 },
+    },
+    surfaces: [],
+    sources: [],
+  });
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+
+  await screen.findByRole("button", { name: "Overview" });
+  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+  // The 15th, whatever the runner's timezone. Formatted with the same options the page uses,
+  // from a LOCAL-midnight Date, so this asserts the behaviour and not one locale's wording.
+  const expected = new Date(2026, 9, 15).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
+  expect(await screen.findByText(new RegExp(`Collecting began on ${expected}`))).toBeInTheDocument();
+});
+
+test("it says nothing has been recorded when there is no history at all", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getAdminInsights.mockResolvedValue({
+    returning: {
+      repeat: { all: 0, others: 0 },
+      active7: { all: 0, others: 0 },
+      active30: { all: 0, others: 0 },
+      since: null,
+    },
+    funnel: {
+      signedUp: { all: 0, others: 0 },
+      joinedFamily: { all: 0, others: 0 },
+      savedRecipe: { all: 0, others: 0 },
+    },
+    surfaces: [],
+    sources: [],
+  });
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+
+  await screen.findByRole("button", { name: "Overview" });
+  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+  // A zero here must not read as a finding about the app.
+  expect(await screen.findByText(/not low, they are unmeasured/)).toBeInTheDocument();
+});

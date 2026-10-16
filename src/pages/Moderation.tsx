@@ -23,9 +23,27 @@ type View = "reports" | "appeals" | "overview" | "people";
 // A short date for the roster. A timestamptz is a real instant, so toLocaleDateString is
 // right here, and a null last sign-in is a real answer (never signed in) rather than a
 // missing one, so it renders as a dash instead of an empty cell.
+//
+// DO NOT PASS A DATE-ONLY STRING TO THIS. See shortDay below, and the bug it exists for.
 function shortDate(iso: string | null): string {
   if (!iso) return "-";
   return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
+}
+
+// A short date for a DATE-ONLY string, "YYYY-MM-DD", which is a different thing from the
+// instant shortDate takes, and using shortDate for one is a visible bug rather than a
+// pedantic distinction.
+//
+// `new Date("2026-10-15")` is parsed as UTC midnight, so toLocaleDateString renders it as the
+// 14th anywhere west of UTC. A browser walk on 2026-10-16 caught the "collecting began on"
+// line reporting a day earlier than the earliest row. Splitting the parts and using the
+// three-argument Date constructor builds LOCAL midnight, which is what a bare date means to
+// the person reading it. The same UTC-shift trap as lastThirtyDays below, one layer up.
+function shortDay(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     year: "numeric", month: "short", day: "numeric",
   });
 }
@@ -359,7 +377,7 @@ function Overview() {
                 number here is not a finding about the app, it is an absence of history. */}
             <p className="vault-note">
               {insights.returning.since
-                ? `Collecting began on ${shortDate(insights.returning.since)}, so these numbers only mean something once there is a while behind them.`
+                ? `Collecting began on ${shortDay(insights.returning.since)}, so these numbers only mean something once there is a while behind them.`
                 : "Nothing has been recorded yet, so these numbers are not low, they are unmeasured."}
             </p>
           </section>
