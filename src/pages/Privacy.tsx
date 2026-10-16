@@ -90,6 +90,26 @@ export default function Privacy() {
           </tr>
           <tr>
             <td>
+              A dated note of which parts of the app your account opened: the date and the
+              section, such as &ldquo;recipes&rdquo; or &ldquo;meal plans&rdquo;
+            </td>
+            <td>
+              So we can tell whether anyone comes back and which parts are worth improving.
+              One note per section per day, never a log of what you clicked, what you read or
+              when: opening a section fifty times in a day is recorded once. It is kept for as
+              long as your account exists and is erased with it.
+            </td>
+          </tr>
+          <tr>
+            <td>Which page you arrived from, if you came through a link on our own site</td>
+            <td>
+              So we can tell whether those pages are any use. It is one of three words naming
+              one of our own pages, recorded once when the account is created and never
+              changed, and it is erased with the account.
+            </td>
+          </tr>
+          <tr>
+            <td>
               Error reports: the error message, the page path, and your browser user-agent
               string
             </td>
@@ -260,6 +280,11 @@ export default function Privacy() {
         </li>
       </ul>
       <p>Error reports are operational data and are deleted after 90 days.</p>
+      <p>
+        The dated note of which sections your account opened, and the page you arrived from,
+        are kept for as long as the account exists and are erased with it. They are not in the
+        list of things that survive above.
+      </p>
 
       <h2>Your rights</h2>
       <p>
