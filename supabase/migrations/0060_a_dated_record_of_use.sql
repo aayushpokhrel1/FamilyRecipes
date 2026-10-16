@@ -116,7 +116,12 @@ begin
   -- A day either side of today, the same window as the column's check constraint, so a caller
   -- cannot fabricate a retention history. Written out rather than left to the constraint
   -- because a constraint violation would raise, and a measurement must not raise.
-  if p_day < current_date - 1 or p_day > current_date + 1 then
+  --
+  -- `p_day is null` is tested FIRST and explicitly. Both comparisons below are NULL for a null
+  -- argument, so plpgsql skips the IF body and the insert raises on the not-null column. That
+  -- fails closed, which is the safe direction and not the bug class rls.test.ts hunts, but it
+  -- is still a measurement raising, which this function exists not to do.
+  if p_day is null or p_day < current_date - 1 or p_day > current_date + 1 then
     return;
   end if;
 
