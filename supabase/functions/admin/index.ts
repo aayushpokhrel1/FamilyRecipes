@@ -244,7 +244,16 @@ Deno.serve(async (req) => {
       // the key here is the literal string "uncredited" and the client labels it that way. It
       // must NOT be called "direct": that would be a claim about how they arrived that the
       // column cannot support.
-      const sourceIds = new Map<string, Set<string>>();
+      //
+      // The three known sources are seeded at zero, like the surface list above, so the panel
+      // can distinguish "nobody has arrived through that page" from "the credit is not
+      // working". Without them a run with no marketing signups shows ONLY "uncredited", which
+      // reads identically to the feature being broken.
+      const sourceIds = new Map<string, Set<string>>([
+        ["hub", new Set<string>()],
+        ["family", new Set<string>()],
+        ["professional", new Set<string>()],
+      ]);
       for (const row of profileRows ?? []) {
         const { id, signup_source: source } = row as {
           id: string; signup_source: string | null;
