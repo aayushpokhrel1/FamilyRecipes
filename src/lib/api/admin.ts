@@ -10,6 +10,17 @@ export type AdminStats = {
   signupsByDay: Record<string, number>;   // "YYYY-MM-DD" -> count, last 30 days
 };
 
+export type Pair = { all: number; others: number };
+
+// Every count is a pair because the owner is currently most of the traffic, so a single total
+// would mostly report him back to himself. `others` excludes moderators.
+export type AdminInsights = {
+  returning: { repeat: Pair; active7: Pair; active30: Pair; since: string | null };
+  funnel: { signedUp: Pair; joinedFamily: Pair; savedRecipe: Pair };
+  surfaces: { surface: string; all: number; others: number }[];
+  sources: { source: string; all: number; others: number }[];
+};
+
 export type AdminUser = {
   id: string; email: string | null; emailConfirmed: boolean;
   lastSignInAt: string | null; createdAt: string; provider: string | null;
@@ -35,6 +46,10 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
 
 export function getAdminStats(): Promise<AdminStats> {
   return call<AdminStats>({ action: "stats" });
+}
+
+export function getAdminInsights(): Promise<AdminInsights> {
+  return call<AdminInsights>({ action: "insights" });
 }
 
 // Pages are 1-based, the same as the edge function, which clamps anything below 1 to 1.

@@ -148,6 +148,128 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "insights") {
+      // EVERY NUMBER BELOW IS A PAIR: `all`, and `others` meaning accounts that are not
+      // moderators. The owner is currently most of the traffic, so a single total would mostly
+      // report him back to himself. The moderator ids are fetched ONCE here and the `others`
+      // half is derived by excluding them, rather than running every query twice.
+      const { data: mods } = await admin.from("profiles").select("id").eq("is_moderator", true);
+      const moderatorIds = new Set((mods ?? []).map((m) => (m as { id: string }).id));
+      const pair = (ids: Iterable<string>): { all: number; others: number } => {
+        const all = new Set(ids);
+        let others = 0;
+        for (const id of all) if (!moderatorIds.has(id)) others += 1;
+        return { all: all.size, others };
+      };
+
+      // ponytail: reads every activity row and aggregates in memory, which is right while this
+      // table is small and wrong once it is not. The upgrade path is a SQL view or an RPC doing
+      // the grouping; it is deliberately not that yet, because a view is a migration and this
+      // needs none, and the same choice is already made and explained for signupsByDay above.
+      const { data: activityRows } = await admin
+        .from("activity_days")
+        .select("user_id, day, surface");
+
+      // The window boundaries are computed the same way `stats` does it, and compared against
+      // the `day` string, so no date filter is pushed into SQL.
+      const day7 = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+      const day30 = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+
+      const daysByUser = new Map<string, Set<string>>();
+      const active7 = new Set<string>();
+      const active30 = new Set<string>();
+      const surfaceUsers = new Map<string, Set<string>>();
+      let since: string | null = null;
+      for (const row of activityRows ?? []) {
+        const { user_id: userId, day, surface } = row as {
+          user_id: string; day: string; surface: string;
+        };
+        if (since === null || day < since) since = day;
+        const days = daysByUser.get(userId) ?? new Set<string>();
+        days.add(day);
+        daysByUser.set(userId, days);
+        if (day >= day7) active7.add(userId);
+        if (day >= day30) {
+          active30.add(userId);
+          const users = surfaceUsers.get(surface) ?? new Set<string>();
+          users.add(userId);
+          surfaceUsers.set(surface, users);
+        }
+      }
+
+      // People with activity rows on 2 or more DISTINCT days. Misses anyone who used the site
+      // on a single day, which is most one-off visitors.
+      const repeat = pair(
+        [...daysByUser.entries()].filter(([, days]) => days.size >= 2).map(([id]) => id),
+      );
+      // People with any activity row in the last 7 days. Misses anyone who reads without
+      // touching a tracked surface, and anyone whose only visit was longer ago.
+      const active7Pair = pair(active7);
+      // People with any activity row in the last 30 days. Same misses as active7, wider window.
+      const active30Pair = pair(active30);
+
+      // Count of profiles. NOT logins: a profile outlives its login on purpose, so this
+      // includes every account ever deleted.
+      const { data: profileRows } = await admin.from("profiles").select("id, signup_source");
+      const signedUp = pair((profileRows ?? []).map((p) => (p as { id: string }).id));
+
+      // Profiles with at least one family_members row. Misses anyone who never joined a family,
+      // which includes every solo cook.
+      const { data: memberRows } = await admin.from("family_members").select("user_id");
+      const joinedFamily = pair(
+        (memberRows ?? []).map((m) => (m as { user_id: string }).user_id),
+      );
+
+      // Profiles with at least one recipe (recipes.author_id). Misses anyone who only reads,
+      // and anyone whose recipes were all deleted with their account.
+      const { data: authorRows } = await admin.from("recipes").select("author_id");
+      const savedRecipe = pair(
+        (authorRows ?? []).map((r) => (r as { author_id: string }).author_id),
+      );
+
+      // Distinct people per surface over the last 30 days. Every surface appears, including the
+      // ones with zero, so the panel's rows do not move around as data arrives. Sorted by the
+      // `all` count, descending.
+      const surfaces = [
+        "recipes", "families", "potluck", "kitchen", "cupboard",
+        "cookmode", "drafts", "settings", "profile", "moderation",
+      ].map((surface) => {
+        const p = pair(surfaceUsers.get(surface) ?? []);
+        return { surface, all: p.all, others: p.others };
+      });
+      surfaces.sort((a, b) => b.all - a.all);
+
+      // Counts of profiles grouped by signup_source. `null` in the data means "arrived without a
+      // credited link", which includes everyone who signed up before this feature existed, so
+      // the key here is the literal string "uncredited" and the client labels it that way. It
+      // must NOT be called "direct": that would be a claim about how they arrived that the
+      // column cannot support.
+      const sourceIds = new Map<string, Set<string>>();
+      for (const row of profileRows ?? []) {
+        const { id, signup_source: source } = row as {
+          id: string; signup_source: string | null;
+        };
+        const key = source ?? "uncredited";
+        const ids = sourceIds.get(key) ?? new Set<string>();
+        ids.add(id);
+        sourceIds.set(key, ids);
+      }
+      const sources = [...sourceIds.entries()].map(([source, ids]) => {
+        const p = pair(ids);
+        return { source, all: p.all, others: p.others };
+      });
+
+      return json(
+        {
+          returning: { repeat, active7: active7Pair, active30: active30Pair, since },
+          funnel: { signedUp, joinedFamily, savedRecipe },
+          surfaces,
+          sources,
+        },
+        200,
+      );
+    }
+
     if (action === "users") {
       // listUsers is the ONLY route to an email: profiles does not carry one, by design.
       const page = typeof body.page === "number" && body.page > 0 ? body.page : 1;
