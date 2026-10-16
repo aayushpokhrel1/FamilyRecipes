@@ -279,6 +279,123 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "kitchen_insights") {
+      // THE ONE PLACE BOTH SCHEMAS MEET, and supabase/kitchen_seal.test.ts names this function so
+      // that it stays the only one. This reads kitchen tables to COUNT them and nothing else: it
+      // must never move data between the schemas, and must never hand a kitchen row to a family
+      // user. The seal exists to stop the family app serving kitchen users; an operator counting
+      // both of their own products is not that.
+      //
+      // The kitchen app is built but NOT deployed, so every number here is usually 0. That is a
+      // correct answer and not a bug: nothing below throws or returns null because a table is
+      // empty, and no placeholder is invented to fill the gap.
+      //
+      // Like `insights`, this fetches rows and aggregates in TypeScript rather than in SQL, so it
+      // needs no migration. Every query result is guarded with `(rows ?? [])`.
+      const { data: orgRows } = await admin
+        .schema("kitchen")
+        .from("orgs")
+        .select("id, created_at");
+      const { data: siteRows } = await admin
+        .schema("kitchen")
+        .from("sites")
+        .select("org_id");
+      const { data: staffRows } = await admin
+        .schema("kitchen")
+        .from("staff")
+        .select("user_id");
+      const { data: dishRows } = await admin
+        .schema("kitchen")
+        .from("dishes")
+        .select("id, org_id");
+      const { data: snapshotRows } = await admin
+        .schema("kitchen")
+        .from("published_snapshots")
+        .select("dish_id");
+      const { data: inviteRows } = await admin
+        .schema("kitchen")
+        .from("staff_invites")
+        .select("used_at");
+
+      // Rows in kitchen.orgs. Every org, including one whose owner never came back.
+      const orgs = (orgRows ?? []).length;
+      // Rows in kitchen.sites. A site is a venue, so an org with three venues counts three.
+      const sites = (siteRows ?? []).length;
+      // DISTINCT user_id across kitchen.staff. One person can hold a staff row in more than one
+      // org, and counting rows would report them once per org, so this counts people.
+      const staff = new Set(
+        (staffRows ?? []).map((s) => (s as { user_id: string }).user_id),
+      ).size;
+      // Rows in kitchen.dishes, at every stage. A dish that was never published still counts.
+      const dishes = (dishRows ?? []).length;
+      // Rows in kitchen.published_snapshots. One dish published twice counts twice, because each
+      // row is a publication event rather than a dish.
+      const published = (snapshotRows ?? []).length;
+      // Rows in kitchen.staff_invites with used_at null, meaning an invite that was created and
+      // never redeemed. Misses nothing: an expired-but-unused invite is still open here, because
+      // the table has no expiry column to read.
+      const openInvites = (inviteRows ?? []).filter(
+        (i) => (i as { used_at: string | null }).used_at === null,
+      ).length;
+
+      // The kitchen funnel, the same idea as the family one, and each number is a count of ORGS
+      // rather than of rows. An org that did the thing twice counts once.
+      const orgIdsWithSite = new Set(
+        (siteRows ?? []).map((s) => (s as { org_id: string }).org_id),
+      );
+      const orgIdsWithDish = new Set(
+        (dishRows ?? []).map((d) => (d as { org_id: string }).org_id),
+      );
+      // published_snapshots carries dish_id and not org_id, so the org is reached by mapping the
+      // dish to its org. A snapshot whose dish is missing from dishRows is dropped rather than
+      // guessed at, which is the only honest option when the join key is absent.
+      const dishToOrg = new Map(
+        (dishRows ?? []).map((d) => {
+          const { id, org_id: orgId } = d as { id: string; org_id: string };
+          return [id, orgId] as const;
+        }),
+      );
+      const orgIdsWithPublished = new Set<string>();
+      for (const row of snapshotRows ?? []) {
+        const orgId = dishToOrg.get((row as { dish_id: string }).dish_id);
+        if (orgId) orgIdsWithPublished.add(orgId);
+      }
+
+      // Orgs created per day over the last 30 days, "YYYY-MM-DD" -> count. Gaps are NOT filled:
+      // the page fills them, and the same method and shape as `signupsByDay` in `stats` above.
+      const since = new Date(Date.now() - 29 * 86400000).toISOString();
+      const orgsByDay: Record<string, number> = {};
+      for (const row of orgRows ?? []) {
+        const createdAt = String((row as { created_at: string }).created_at);
+        if (createdAt < since) continue;
+        const day = createdAt.slice(0, 10);
+        orgsByDay[day] = (orgsByDay[day] ?? 0) + 1;
+      }
+
+      // The newest org's created_at, or null when there are none. The page uses it to say how
+      // new this all is, so null is the honest answer for an empty table rather than a date.
+      let newest: string | null = null;
+      for (const row of orgRows ?? []) {
+        const createdAt = String((row as { created_at: string }).created_at);
+        if (newest === null || createdAt > newest) newest = createdAt;
+      }
+
+      return json(
+        {
+          counts: { orgs, sites, staff, dishes, published, openInvites },
+          funnel: {
+            created: orgs,
+            addedSite: orgIdsWithSite.size,
+            addedDish: orgIdsWithDish.size,
+            publishedDish: orgIdsWithPublished.size,
+          },
+          orgsByDay,
+          newest,
+        },
+        200,
+      );
+    }
+
     if (action === "users") {
       // listUsers is the ONLY route to an email: profiles does not carry one, by design.
       const page = typeof body.page === "number" && body.page > 0 ? body.page : 1;

@@ -21,6 +21,24 @@ export type AdminInsights = {
   sources: { source: string; all: number; others: number }[];
 };
 
+// These come from the `kitchen` schema, which is a separate product sharing no data with the
+// family app, and the admin function is the one place allowed to read both. Unlike
+// AdminInsights these numbers are NOT pairs: there is no moderator concept in the kitchen
+// schema, so there is nothing to exclude.
+export type KitchenInsights = {
+  counts: {
+    orgs: number; sites: number; staff: number;
+    dishes: number; published: number; openInvites: number;
+  };
+  funnel: { created: number; addedSite: number; addedDish: number; publishedDish: number };
+  orgsByDay: Record<string, number>;
+  newest: string | null;
+};
+
+export function getKitchenInsights(): Promise<KitchenInsights> {
+  return call<KitchenInsights>({ action: "kitchen_insights" });
+}
+
 export type AdminUser = {
   id: string; email: string | null; emailConfirmed: boolean;
   lastSignInAt: string | null; createdAt: string; provider: string | null;
