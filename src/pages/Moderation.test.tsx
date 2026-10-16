@@ -25,13 +25,16 @@ vi.mock("../lib/api/appeals", () => ({
   resolveAppeal: (...a: any[]) => resolveAppeal(...a),
 }));
 
-// The Overview tab is the only consumer of these, and it is mounted only when selected, so
+// The Recipes tab is the only consumer of these, and it is mounted only when selected, so
 // the roster call never runs on the page's main job.
 const getAdminStats = vi.fn();
 const getAdminInsights = vi.fn();
+// The Kitchen tab's own load, independent of both of the above.
+const getKitchenInsights = vi.fn();
 vi.mock("../lib/api/admin", () => ({
   getAdminStats: (...a: any[]) => getAdminStats(...a),
   getAdminInsights: (...a: any[]) => getAdminInsights(...a),
+  getKitchenInsights: (...a: any[]) => getKitchenInsights(...a),
   listAdminUsers: vi.fn().mockResolvedValue({ users: [], hasMore: false }),
   setModerator: vi.fn(),
   suspendUser: vi.fn(),
@@ -54,7 +57,7 @@ beforeEach(() => {
     users: 3, everJoined: 6, recipes: 9, published: 4, removed: 1,
     families: 2, openReports: 0, suspended: 0, signupsByDay: {},
   });
-  // The overview loads insights alongside stats, as an independent call: a default is needed
+  // The recipes tab loads insights alongside stats, as an independent call: a default is needed
   // here or every test that renders the page hits an unmocked function. The two loads are
   // deliberately separate in the page, and the tests below pin that neither can blank the
   // other.
@@ -78,6 +81,16 @@ beforeEach(() => {
       { source: "family", all: 2, others: 2 },
       { source: "uncredited", all: 4, others: 3 },
     ],
+  });
+  // The Kitchen tab is a separate product with its own load, and it is mounted only when
+  // selected. A default is needed here for the same reason as the insights one above: the
+  // page renders the tab's button on every render, and any test that clicks it would
+  // otherwise hit an unmocked function.
+  getKitchenInsights.mockResolvedValue({
+    counts: { orgs: 0, sites: 0, staff: 0, dishes: 0, published: 0, openInvites: 0 },
+    funnel: { created: 0, addedSite: 0, addedDish: 0, publishedDish: 0 },
+    orgsByDay: {},
+    newest: null,
   });
   resolveAppeal.mockResolvedValue(undefined);
 });
@@ -356,7 +369,7 @@ test("shows live logins and accounts-ever-joined as separate tiles", async () =>
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
   renderPage();
 
-  await userEvent.click(await screen.findByRole("button", { name: "Overview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Recipes" }));
 
   const users = (await screen.findByText("Users")).closest("li");
   expect(users).toHaveTextContent("3");
@@ -373,8 +386,8 @@ test("a failed insights load leaves the tiles and the chart standing", async () 
   getAdminInsights.mockRejectedValue(new Error("insights are down"));
   render(<MemoryRouter><Moderation /></MemoryRouter>);
 
-  await screen.findByRole("button", { name: "Overview" });
-  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+  await screen.findByRole("button", { name: "Recipes" });
+  await userEvent.click(screen.getByRole("button", { name: "Recipes" }));
 
   // The failure says so...
   expect(await screen.findByText("insights are down")).toBeInTheDocument();
@@ -390,8 +403,8 @@ test("a failed stats load leaves the four panels standing", async () => {
   getAdminStats.mockRejectedValue(new Error("stats are down"));
   render(<MemoryRouter><Moderation /></MemoryRouter>);
 
-  await screen.findByRole("button", { name: "Overview" });
-  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+  await screen.findByRole("button", { name: "Recipes" });
+  await userEvent.click(screen.getByRole("button", { name: "Recipes" }));
 
   expect(await screen.findByText("stats are down")).toBeInTheDocument();
   expect(screen.getByText("Coming back")).toBeInTheDocument();
@@ -421,8 +434,8 @@ test("the collecting-began date is not shifted by a day west of UTC", async () =
   });
   render(<MemoryRouter><Moderation /></MemoryRouter>);
 
-  await screen.findByRole("button", { name: "Overview" });
-  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+  await screen.findByRole("button", { name: "Recipes" });
+  await userEvent.click(screen.getByRole("button", { name: "Recipes" }));
 
   // The 15th, whatever the runner's timezone. Formatted with the same options the page uses,
   // from a LOCAL-midnight Date, so this asserts the behaviour and not one locale's wording.
@@ -451,9 +464,87 @@ test("it says nothing has been recorded when there is no history at all", async 
   });
   render(<MemoryRouter><Moderation /></MemoryRouter>);
 
-  await screen.findByRole("button", { name: "Overview" });
-  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+  await screen.findByRole("button", { name: "Recipes" });
+  await userEvent.click(screen.getByRole("button", { name: "Recipes" }));
 
   // A zero here must not read as a finding about the app.
   expect(await screen.findByText(/not low, they are unmeasured/)).toBeInTheDocument();
+});
+
+// The console now holds a SECOND product. The professional kitchen app is a separate schema
+// sharing no data with the family app, and it is not deployed yet, so its tab is a wall of
+// zeros by design. These tests pin the tab, the note that explains the zeros, and the fact
+// that its own failure cannot take the Recipes tab down with it.
+test("clicking Kitchen shows the counts, with a tile labelled Kitchens", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getKitchenInsights.mockResolvedValue({
+    counts: { orgs: 2, sites: 3, staff: 4, dishes: 5, published: 1, openInvites: 6 },
+    funnel: { created: 2, addedSite: 1, addedDish: 1, publishedDish: 0 },
+    orgsByDay: {},
+    newest: null,
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
+
+  const kitchens = (await screen.findByText("Kitchens")).closest("li");
+  expect(kitchens).toHaveTextContent("2");
+  expect(screen.getByText("Venues").closest("li")).toHaveTextContent("3");
+  expect(screen.getByText("Open invites").closest("li")).toHaveTextContent("6");
+});
+
+// THE NOTE IS THE POINT OF THE SECTION. Without it a wall of zeros reads as a bug rather
+// than as an unused product, so this asserts on the wording that says so.
+test("the Kitchen section says the app is not deployed, so zeros are expected", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
+
+  expect(
+    await screen.findByText(/not deployed yet, so these numbers are expected to be zero/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/nobody has used it, not that anything is broken/)).toBeInTheDocument();
+});
+
+// The Kitchen tab's load is its own, exactly like the two inside Recipes: a failure there
+// must not blank a tab that loaded perfectly, and switching back must still show it.
+test("a failed kitchen load shows its message and does not blank the Recipes section", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getKitchenInsights.mockRejectedValue(new Error("kitchen insights are down"));
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
+  expect(await screen.findByText("kitchen insights are down")).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: "Recipes" }));
+  expect(await screen.findByText("Signups, last 30 days")).toBeInTheDocument();
+});
+
+// The family app's own `kitchen` surface is a cook's MEAL PLANS, and the raw key sitting next
+// to a Kitchen tab reads as the other product's numbers. The label is the whole reason the
+// mapping exists.
+test("the features table labels the kitchen surface as Meal plans", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getAdminInsights.mockResolvedValue({
+    returning: {
+      repeat: { all: 0, others: 0 },
+      active7: { all: 0, others: 0 },
+      active30: { all: 0, others: 0 },
+      since: null,
+    },
+    funnel: {
+      signedUp: { all: 0, others: 0 },
+      joinedFamily: { all: 0, others: 0 },
+      savedRecipe: { all: 0, others: 0 },
+    },
+    surfaces: [{ surface: "kitchen", all: 3, others: 2 }],
+    sources: [],
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Recipes" }));
+
+  expect(await screen.findByText("Meal plans")).toBeInTheDocument();
+  expect(screen.queryByText("kitchen")).not.toBeInTheDocument();
 });

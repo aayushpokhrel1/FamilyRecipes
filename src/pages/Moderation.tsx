@@ -7,6 +7,7 @@ import {
   deleteUserAccount,
   getAdminInsights,
   getAdminStats,
+  getKitchenInsights,
   listAdminUsers,
   setModerator,
   suspendUser,
@@ -14,11 +15,12 @@ import {
   type AdminInsights,
   type AdminStats,
   type AdminUser,
+  type KitchenInsights,
 } from "../lib/api/admin";
 import { REASON_LABELS, type AppealRow, type PublicCook, type ReportRow } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
-type View = "reports" | "appeals" | "overview" | "people";
+type View = "reports" | "appeals" | "recipes" | "people" | "kitchen";
 
 // A short date for the roster. A timestamptz is a real instant, so toLocaleDateString is
 // right here, and a null last sign-in is a real answer (never signed in) rather than a
@@ -120,8 +122,8 @@ export default function Moderation() {
     <div>
       <h1>Moderation</h1>
 
-      {/* Four views, not four routes: the console is one page, and a URL per tab would be
-          four more router entries for no navigational gain. */}
+      {/* Five views, not five routes: the console is one page, and a URL per tab would be
+          five more router entries for no navigational gain. */}
       <div className="group-toggle">
         <button type="button" aria-pressed={view === "reports"} onClick={() => setView("reports")}>
           Reports
@@ -129,11 +131,14 @@ export default function Moderation() {
         <button type="button" aria-pressed={view === "appeals"} onClick={() => setView("appeals")}>
           Appeals
         </button>
-        <button type="button" aria-pressed={view === "overview"} onClick={() => setView("overview")}>
-          Overview
+        <button type="button" aria-pressed={view === "recipes"} onClick={() => setView("recipes")}>
+          Recipes
         </button>
         <button type="button" aria-pressed={view === "people"} onClick={() => setView("people")}>
           People
+        </button>
+        <button type="button" aria-pressed={view === "kitchen"} onClick={() => setView("kitchen")}>
+          Kitchen
         </button>
       </div>
 
@@ -187,8 +192,9 @@ export default function Moderation() {
       {/* Mounted only once the moderator switches to it, so the roster's service-role call
           never runs on the page's main job, which is the report queue. */}
       {view === "appeals" && <Appeals />}
-      {view === "overview" && <Overview />}
+      {view === "recipes" && <Overview />}
       {view === "people" && <People />}
+      {view === "kitchen" && <KitchenSection />}
     </div>
   );
 }
@@ -209,6 +215,23 @@ const SOURCE_LABELS: Record<string, string> = {
   family: "The family page",
   professional: "The professional page",
   uncredited: "Arrived without a credited link",
+};
+
+// The family app's own surfaces, in words rather than the raw key. `kitchen` here is the
+// family app's MEAL PLANS and has nothing to do with the professional kitchen app, which is
+// the whole reason these labels exist: the raw key sitting next to a Kitchen tab reads as
+// the other product's numbers.
+const SURFACE_LABELS: Record<string, string> = {
+  recipes: "Recipes",
+  families: "Families",
+  potluck: "Potluck",
+  kitchen: "Meal plans",
+  cupboard: "Cupboard",
+  cookmode: "Cook mode",
+  drafts: "Drafts",
+  settings: "Settings",
+  profile: "Profile",
+  moderation: "Moderation",
 };
 
 function Appeals() {
@@ -413,7 +436,8 @@ function Overview() {
               <tbody>
                 {insights.surfaces.map((s) => (
                   <tr key={s.surface}>
-                    <td>{s.surface}</td>
+                    {/* Falls back to the raw key, so a new surface cannot render as blank. */}
+                    <td>{SURFACE_LABELS[s.surface] ?? s.surface}</td>
                     <td>
                       <PairValue pair={s} />
                     </td>
@@ -447,6 +471,128 @@ function Overview() {
           </section>
         </>
       )}
+    </>
+  );
+}
+
+// The professional kitchen app, which is a SEPARATE PRODUCT from the family app: it lives in
+// its own `kitchen` schema and shares no data with anything above. It is not deployed yet, so
+// every number here is expected to be zero, and the note at the top of the section says so.
+// Without it a wall of zeros reads as a bug rather than as an unused product.
+//
+// The counts are NOT pairs, unlike everything in Overview: there is no moderator concept in
+// the kitchen schema, so there is nothing to exclude and no PairValue or InsightTile here.
+function KitchenSection() {
+  const [insights, setInsights] = useState<KitchenInsights | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    getKitchenInsights()
+      .then((i) => { if (!ignore) setInsights(i); })
+      .catch((e: Error) => { if (!ignore) setError(e.message); });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  if (error) return <p className="form-error">{error}</p>;
+  if (!insights) return <Skeleton shape="plate" count={3} />;
+
+  const days = lastThirtyDays(insights.orgsByDay);
+  const total = days.reduce((sum, d) => sum + d.count, 0);
+  // The busiest day is the scale, so the tallest bar is always full height. A zero busiest
+  // day would divide by zero, so it falls back to 1 and every bar renders flat.
+  const busiest = Math.max(1, ...days.map((d) => d.count));
+
+  const counts: [string, number][] = [
+    ["Kitchens", insights.counts.orgs],
+    ["Venues", insights.counts.sites],
+    ["Staff", insights.counts.staff],
+    ["Dishes", insights.counts.dishes],
+    ["Published", insights.counts.published],
+    ["Open invites", insights.counts.openInvites],
+  ];
+
+  const funnel: [string, number][] = [
+    ["Created a kitchen", insights.funnel.created],
+    ["Added a venue", insights.funnel.addedSite],
+    ["Added a dish", insights.funnel.addedDish],
+    ["Published a dish", insights.funnel.publishedDish],
+  ];
+
+  return (
+    <>
+      {/* THE MOST IMPORTANT LINE IN THE SECTION. A separate product that is not deployed
+          yet reports zeros, and zeros with no explanation read as a broken page. */}
+      <p className="vault-note">
+        The professional kitchen app is a separate product from the family app and shares no
+        data with it. It is not deployed yet, so these numbers are expected to be zero: a zero
+        here means nobody has used it, not that anything is broken.
+      </p>
+
+      <ul className="stat-row">
+        {counts.map(([label, value]) => (
+          <li key={label} className="plate stat-tile">
+            <span className="stat-value">{value}</span>
+            <span className="stat-label">{label}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Two counts that look like row counts and are not, so the difference is written down
+          rather than left to be inferred from a number that happens to be small. */}
+      <p className="vault-note">
+        Staff counts PEOPLE, not staff rows: one person can work in more than one kitchen.
+        Published counts dishes that are currently published rather than publication events,
+        because that table holds one row per dish.
+      </p>
+
+      <section className="plate panel">
+        <h2>Where a kitchen stops</h2>
+        <ul className="stat-row">
+          {funnel.map(([label, value]) => (
+            <li key={label} className="plate stat-tile">
+              <span className="stat-value">{value}</span>
+              <span className="stat-label">{label}</span>
+            </li>
+          ))}
+        </ul>
+        {/* Each step is a count of KITCHENS, not of rows: a kitchen that added three venues
+            is still one kitchen at that step, so the steps are comparable to each other. */}
+        <p className="vault-note">
+          Each step counts kitchens, not rows, so a kitchen that added three venues still
+          counts once here.
+        </p>
+      </section>
+
+      <section className="plate panel">
+        <h2>Kitchens created, last 30 days</h2>
+        {/* role="img" with a summary label: a wall of unlabelled divs says nothing to a
+            screen reader, and the individual bars are decoration for the total. */}
+        <div
+          className="signup-bars"
+          role="img"
+          aria-label={`${total} kitchens created in the last 30 days`}
+        >
+          {days.map((d) => (
+            <div
+              key={d.day}
+              className="signup-bar"
+              title={`${d.day}: ${d.count}`}
+              style={{ height: `${Math.round((d.count / busiest) * 100)}%` }}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* shortDate, NOT shortDay: `newest` is a full timestamptz, and shortDay is for bare
+          "YYYY-MM-DD" strings only. */}
+      <p className="vault-note">
+        {insights.newest
+          ? `The most recent kitchen was created on ${shortDate(insights.newest)}.`
+          : "No kitchen has been created yet."}
+      </p>
     </>
   );
 }
