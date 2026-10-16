@@ -95,3 +95,50 @@ create policy activity_self_insert on activity_days
 -- The client writes this once, after the session exists.
 alter table profiles add column signup_source text
   check (signup_source in ('hub', 'family', 'professional'));
+
+-- CREDITING A MARKETING PAGE IS A DEFINER FUNCTION, not a client update, for two reasons.
+--
+-- First, the rule that makes the number mean anything cannot live in the client. The three
+-- marketing pages link to /signin as well as /signup, so "write it whenever the column is
+-- null" would credit an existing cook who merely arrived through a marketing link, and would
+-- credit every account that predates this feature, since all of their sources are null. The
+-- panel would then report the marketing site as having produced accounts older than itself.
+-- The question is "did this page produce an ACCOUNT", so the write is refused unless the
+-- account was created minutes ago, and `now()` is the only clock that cannot be moved by the
+-- caller.
+--
+-- Second, it keeps this column out of profiles_self_update's `with check`. A cook may update
+-- their own profile, so widening that policy to admit signup_source would be one more column
+-- a self-update could set, forever. A definer function bypasses RLS by design, so the policy
+-- does not change at all and the only way to set this column is through the rule below.
+--
+-- No uuid parameter, deliberately. It takes the source and nothing else, and reads the subject
+-- from auth.uid(), so there is no id for a caller to substitute. rls.test.ts fails a definer
+-- function that takes a uuid without tying it to the caller, and the safest version of that
+-- is to take no uuid at all.
+create function credit_signup_source(p_source text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  -- The allowlist is repeated from the column's check constraint on purpose: this function
+  -- is the only writer, so a value it accepts is a value that gets stored, and relying on the
+  -- constraint alone would turn a bad argument into an exception rather than a no-op.
+  if p_source not in ('hub', 'family', 'professional') then
+    return;
+  end if;
+
+  update profiles
+     set signup_source = p_source
+   where id = auth.uid()
+     -- Written once and never overwritten, so it records the FIRST arrival. A later visit
+     -- through a different page is not a second signup.
+     and signup_source is null
+     -- Only an account that was just created. Ten minutes covers a Google round trip and an
+     -- email confirmation opened straight away; a link opened the next day is a returning
+     -- visit, not an account this page produced.
+     and created_at > now() - interval '10 minutes';
+end; $$;
+
+-- auth.uid() is null for anon, so the update matches nothing and the function is a no-op
+-- rather than an error. It still takes no privilege it does not need: execute stays with the
+-- authenticated role only, because an anonymous caller has nothing to credit.
+revoke execute on function credit_signup_source(text) from public, anon;
