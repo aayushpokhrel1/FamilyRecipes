@@ -561,15 +561,17 @@ fails if the denial returns to any marketing page or to the README), so the inje
 makes a page lie. It is still a third-party request on every page load, which is why `/privacy`
 and `/cookies` both name it.
 
-**Do not trust an `auto_install` value read from the dashboard over what a browser shows.**
-This paragraph previously recorded the site record as `auto_install: false` while the beacon
-was in fact being injected on both hosts. Whatever the dashboard says, the page is the
-authority. **Deleting the site record is the only way to make injection impossible** rather
-than merely believed to be off.
+**Injection and collection are two switches, and `auto_install` governs the second one.** This
+paragraph used to say the browser was the authority and the dashboard's `auto_install: false`
+was not to be trusted, because the beacon was demonstrably being injected on both hosts. Both
+readings were correct about different halves: the zone-level ruleset kept injecting the beacon,
+and with `auto_install` false the zone did not mount `/cdn-cgi/rum`, so every POST the beacon
+made was refused. **A running beacon is not evidence that anything is being counted**, and the
+field that looked like a stale lie was reporting the actual fault.
 
-The full account of what this beacon does and does not collect, including that its collector
-still 404s, is under "Cloudflare Web Analytics is ON, and the tests cannot see it" below. This
-bullet covers only the marketing surface's part of it.
+The full account, and the one-line fix that turned collection back on, is under "Cloudflare Web
+Analytics is ON, and the tests cannot see it" below. This bullet covers only the marketing
+surface's part of it.
 
 **The trap when attaching the custom domain.** The API refuses with `100117: Hostname already
 has externally managed DNS records` while the hand-made `AAAA -> 100::` placeholder is still
@@ -1337,13 +1339,36 @@ one in the page's `data-cf-beacon` (currently `8dab991f...`; it does).
   `enamelvault.com`, and `auto_install` reads `false` while injection is demonstrably
   happening, which is the contradiction to take to the dashboard.
 
-So the fault is Cloudflare serving the beacon and then refusing its own collector. The leading
-fix is deleting the Web Analytics site record and letting it be recreated, which changes the
-token.
+**FIXED 2026-10-16, by one field, and NOT by deleting anything.** This file recommended
+deleting the site record and letting Cloudflare recreate it. That was unnecessary and would
+have destroyed the history for nothing. The record's `auto_install` was `false` while its
+ruleset was `enabled: true`, which is the state that injects a beacon onto every page and
+mounts no collector for it. Repairing it in place restores collection, keeps the token, and
+keeps the eight days of data:
 
-**If it cannot be made to work, dropping the page count is a reasonable answer.** The app's own
+```
+PUT /accounts/<id>/rum/site_info/3146b01062d0453488f5cc9e53900f91
+{ "zone_tag": "534b45be9cc7ffdd92e4792900bbec9c", "auto_install": true,
+  "enabled": true, "lite": false }
+```
+
+`enabled` is only accepted when `auto_install` is true, which is the API telling you they are
+not independent. **Measured before and after in one browser session**: `POST /cdn-cgi/rum`
+returned 404 four times, then 204 on every page load after the PUT, on both hosts, and the
+GraphQL query above now returns rows for both. **Try the repair before the recreation on
+anything that holds history.**
+
+**The apex now collects for the first time ever**, and the counts arrive unsampled: the eight
+days of September are all multiples of ten, today's are ones.
+
+**If it ever breaks again, dropping the page count is still a reasonable answer.** The app's own
 first-party events already answer more than it ever did. `/cookies` and `/privacy` describe it,
 so dropping it is a wording change as well as a dashboard one.
+
+**What the eight days of history actually contain: Aayush developing.** 790 of 800 pageloads
+from the US, 630 of them self-referred, and the top paths are `/`, `/signin`, `/settings`,
+`/signup`, `/recipes/new` and `/recipes/:id/edit`. Nobody else was in it. Worth remembering
+before any number out of this beacon gets read as an audience.
 
 It is cookieless and sets no identifier, so the no-banner position is unaffected and remains
 correct. But the general lesson stands: **a source scan cannot see anything the edge injects.**
