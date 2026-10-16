@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeNext, withNext } from "./nextPath";
+import { safeNext, withNext, safeFrom, nextWithFrom } from "./nextPath";
 
 describe("safeNext", () => {
   it("keeps a path inside this app", () => {
@@ -40,4 +40,51 @@ describe("withNext", () => {
     expect(withNext("/signin", null)).toBe("/signin");
     expect(withNext("/signin", "https://evil.example")).toBe("/signin");
   });
+});
+
+// safeFrom is the same kind of trust boundary as safeNext, narrower because the vocabulary is
+// three words: anything else is a free-text value a stranger would be writing into the
+// database, so it becomes null rather than being passed along.
+test("safeFrom accepts the three marketing pages and nothing else", () => {
+  expect(safeFrom("hub")).toBe("hub");
+  expect(safeFrom("family")).toBe("family");
+  expect(safeFrom("professional")).toBe("professional");
+
+  expect(safeFrom("Family")).toBeNull();
+  expect(safeFrom("hub ")).toBeNull();
+  expect(safeFrom("'; drop table profiles; --")).toBeNull();
+  expect(safeFrom("")).toBeNull();
+  expect(safeFrom(null)).toBeNull();
+  expect(safeFrom(undefined)).toBeNull();
+});
+
+test("nextWithFrom leaves the destination alone when there is no marketing source", () => {
+  expect(nextWithFrom("/potluck", null)).toBe("/potluck");
+  expect(nextWithFrom(null, null)).toBeNull();
+  // A refused source must not invent a destination either, or a hostile ?from= would start
+  // sending people to the home page instead of where they asked to go.
+  expect(nextWithFrom("/potluck", "evil")).toBe("/potluck");
+  expect(nextWithFrom(null, "evil")).toBeNull();
+});
+
+test("nextWithFrom folds the source into the destination so it survives signing in", () => {
+  // With nowhere in particular to go the parameter still has to land somewhere, because
+  // AppLayout reads it off the landing page's own URL.
+  expect(nextWithFrom(null, "family")).toBe("/?from=family");
+  expect(nextWithFrom("/potluck", "hub")).toBe("/potluck?from=hub");
+});
+
+test("nextWithFrom keeps a destination that already carries a query string valid", () => {
+  // An invite link is the real case: it arrives as a next with its own parameters, and a
+  // second "?" would make the whole thing unparseable.
+  expect(nextWithFrom("/join/ABC?role=cook", "professional")).toBe(
+    "/join/ABC?role=cook&from=professional",
+  );
+});
+
+test("nextWithFrom refuses a hostile destination exactly as safeNext does", () => {
+  // The open-redirect guard is not weakened by the fold: an off-site next is still refused,
+  // and the source cannot smuggle one in.
+  expect(nextWithFrom("https://evil.example/login", "family")).toBe("/?from=family");
+  expect(nextWithFrom("//evil.example", "family")).toBe("/?from=family");
 });

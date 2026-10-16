@@ -93,3 +93,17 @@ export function recordVisit(pathname: string): void {
     // Swallowed on purpose: recording a visit must never be a way to raise an error.
   }
 }
+
+// Credits the marketing page that produced this account, once.
+//
+// Everything that makes the number honest is in credit_signup_source() in 0060, not here:
+// the account must be minutes old and the column must still be empty, and `now()` there is
+// the only clock the caller cannot move. This call is just the messenger, so it is as
+// forgiving as recordVisit: a failed credit must never be the thing that breaks a landing.
+export function creditSignupSource(from: string): void {
+  try {
+    supabase.rpc("credit_signup_source", { p_source: from }).then(undefined, () => {});
+  } catch {
+    // Swallowed on purpose, for the same reason as recordVisit above.
+  }
+}

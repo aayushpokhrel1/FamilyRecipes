@@ -1,16 +1,45 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import FamilySwitcher from "./FamilySwitcher";
 import CookTimers from "./CookTimers";
 import { signOut } from "../lib/api/auth";
 import { forgetPhotoUrls } from "../lib/api/photos";
 import { getMyProfile } from "../lib/api/profile";
+import { creditSignupSource, recordVisit } from "../lib/api/activity";
+import { safeFrom } from "../lib/nextPath";
 import { reasonLabel, type Profile } from "../lib/api/types";
 import { useAuth } from "../context/AuthContext";
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const { userId } = useAuth();
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+
+  // THIS COMPONENT IS WHERE A VISIT IS RECORDED because it is the one thing every signed-in
+  // route passes through: it renders inside RequireAuth and TermsGate, so there is no signed-in
+  // page that can be opened without it. Putting the call on each page instead would be a list
+  // nobody updates when a page is added.
+  //
+  // recordVisit deduplicates per day and surface in memory, so this firing on every navigation
+  // is one write per feature per day, not one per click.
+  useEffect(() => {
+    recordVisit(location.pathname);
+  }, [location.pathname]);
+
+  // Crediting the marketing page that sent them. `from` rode here inside `next`, which is the
+  // only value that survives a Google round trip and an email confirmation opened later; see
+  // lib/nextPath.ts. The parameter is stripped afterwards so it does not linger in the address
+  // bar and end up in a link somebody copies. The database refuses the write unless the
+  // account is minutes old, so a stale or repeated parameter credits nothing.
+  useEffect(() => {
+    const from = safeFrom(params.get("from"));
+    if (!from) return;
+    creditSignupSource(from);
+    const rest = new URLSearchParams(params);
+    rest.delete("from");
+    setParams(rest, { replace: true });
+  }, [params, setParams]);
   // The link is the ONLY way to reach /moderation: the route has no entry point anywhere
   // else, so before this a moderator had to remember the URL to find their own queue.
   //

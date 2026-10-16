@@ -4,7 +4,7 @@ import { signUp } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 import AuthMark from "../components/AuthMark";
-import { safeNext, withNext } from "../lib/nextPath";
+import { nextWithFrom, safeFrom, safeNext, withNext } from "../lib/nextPath";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -12,7 +12,10 @@ export default function SignUp() {
   // Where the invite page was taking them. It goes to the CONFIRMATION EMAIL as well as to
   // navigate() below, because with email confirmation on, the link in the inbox is the step
   // that actually lands them, often in another tab. See lib/nextPath.ts.
-  const next = safeNext(params.get("next"));
+  // nextWithFrom, not safeNext: a marketing page arrives as ?from=, and folding it into
+  // the destination here is what saves threading a second parameter through signUp(),
+  // signInWithGoogle() and both redirect URLs. See lib/nextPath.ts.
+  const next = nextWithFrom(safeNext(params.get("next")), safeFrom(params.get("from")));
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

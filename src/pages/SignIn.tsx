@@ -4,14 +4,17 @@ import { signIn, requestPasswordReset } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 import AuthMark from "../components/AuthMark";
-import { safeNext, withNext } from "../lib/nextPath";
+import { nextWithFrom, safeFrom, safeNext, withNext } from "../lib/nextPath";
 
 export default function SignIn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   // Where RequireAuth or an invite page was taking them before it sent them here. In the
   // URL, not in router state: see lib/nextPath.ts for why that distinction is the whole bug.
-  const next = safeNext(params.get("next"));
+  // nextWithFrom, not safeNext: a marketing page arrives as ?from=, and folding it into
+  // the destination here is what saves threading a second parameter through signUp(),
+  // signInWithGoogle() and both redirect URLs. See lib/nextPath.ts.
+  const next = nextWithFrom(safeNext(params.get("next")), safeFrom(params.get("from")));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { signInWithGoogle } from "../lib/api/auth";
-import { safeNext } from "../lib/nextPath";
+import { nextWithFrom, safeFrom, safeNext } from "../lib/nextPath";
 
 // Shared by SignIn and SignUp. On Google's side the two are the same act, and
 // duplicating the error handling in both pages would mean fixing it twice.
@@ -16,7 +16,7 @@ export default function GoogleButton({ label }: { label: string }) {
     setError(null);
     setBusy(true);
     try {
-      await signInWithGoogle(safeNext(params.get("next")));
+      await signInWithGoogle(nextWithFrom(safeNext(params.get("next")), safeFrom(params.get("from"))));
       // On success the browser is already leaving for Google, so busy stays true
       // deliberately: clearing it would flash the button back to ready mid-redirect.
     } catch (err) {
