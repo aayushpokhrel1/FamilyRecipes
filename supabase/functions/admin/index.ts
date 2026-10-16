@@ -328,8 +328,10 @@ Deno.serve(async (req) => {
       ).size;
       // Rows in kitchen.dishes, at every stage. A dish that was never published still counts.
       const dishes = (dishRows ?? []).length;
-      // Rows in kitchen.published_snapshots. One dish published twice counts twice, because each
-      // row is a publication event rather than a dish.
+      // Rows in kitchen.published_snapshots, which is ONE ROW PER DISH: dish_id is that table's
+      // primary key (0044), so re-publishing a dish updates its row rather than adding one.
+      // This is therefore a count of dishes that are currently published, NOT a count of
+      // publication events, and there is no way to count events from this table at all.
       const published = (snapshotRows ?? []).length;
       // Rows in kitchen.staff_invites with used_at null, meaning an invite that was created and
       // never redeemed. Misses nothing: an expired-but-unused invite is still open here, because
