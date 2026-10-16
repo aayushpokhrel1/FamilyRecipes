@@ -29,7 +29,7 @@ import { fingerprint, prose, sourceText } from "../lib/termsFingerprint";
 const PAGES: { path: string; constant: string; hash: string }[] = [
   { path: "src/pages/Privacy.tsx", constant: "PRIVACY_UPDATED", hash: "f6475ff7" },
   { path: "src/pages/Cookies.tsx", constant: "COOKIES_UPDATED", hash: "32f56d0b" },
-  { path: "src/kitchen/pages/Privacy.tsx", constant: "KITCHEN_PRIVACY_UPDATED", hash: "943061ee" },
+  { path: "src/kitchen/pages/Privacy.tsx", constant: "KITCHEN_PRIVACY_UPDATED", hash: "91f23591" },
 ];
 
 for (const page of PAGES) {

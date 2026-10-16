@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 import familyHtml from "../public/family.html?raw";
 import professionalHtml from "../public/professional.html?raw";
 import siteHtml from "../public/site.html?raw";
+import cookies from "./pages/Cookies.tsx?raw";
 import kitchenTerms from "./kitchen/pages/Terms.tsx?raw";
 
 /**
@@ -68,5 +69,34 @@ describe("the landing page does not promise what the kitchen terms refuse", () =
         ).toBe(false);
       });
     }
+  }
+});
+
+// THE MARKETING FOOTERS MUST NOT DENY THE ANALYTICS THE COOKIES PAGE DESCRIBES.
+//
+// All three footers said "sets no cookies and uses no analytics" until 2026-10-16, while
+// src/pages/Cookies.tsx had a whole section headed "The one count we do keep" explaining that
+// Cloudflare counts page views. Both are public. Only one could be true, and the footer was
+// the wrong one: Cloudflare Web Analytics has been enabled at the zone since 2026-09-25.
+//
+// The cookies page is treated as authoritative here for the same reason the kitchen terms are
+// above: it is the page written carefully, and the footer is the line nobody re-reads.
+//
+// "no cookies" is still allowed and still true. It is the ANALYTICS denial that is false.
+describe("the marketing footers do not deny what the cookies page discloses", () => {
+  it("still has the cookies page's disclosure this test is anchored to", () => {
+    expect(
+      cookies.toLowerCase().includes("counts page views"),
+      "Cookies.tsx no longer describes the page count, so this test is checking nothing",
+    ).toBe(true);
+  });
+
+  for (const [name, html] of PAGES) {
+    it(`${name} does not claim there is no analytics`, () => {
+      expect(
+        /\bno analytics\b|\buses no analytics\b|\bwithout analytics\b/.test(prose(html)),
+        `${name} denies analytics, which src/pages/Cookies.tsx says in public that we do run`,
+      ).toBe(false);
+    });
   }
 });

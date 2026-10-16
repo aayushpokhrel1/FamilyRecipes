@@ -27,4 +27,4 @@ export const KITCHEN_TERMS_UPDATED = "11 October 2026";
 // records your work is attached to, which migration 0059 is what makes true. Only the PRIVACY
 // date moves: no acceptance is recorded against a privacy notice, so nobody needs re-asking,
 // and KITCHEN_TERMS_UPDATED stays where it is.
-export const KITCHEN_PRIVACY_UPDATED = "15 October 2026";
+export const KITCHEN_PRIVACY_UPDATED = "16 October 2026";

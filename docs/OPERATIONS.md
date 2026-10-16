@@ -423,17 +423,6 @@ Live at <https://recipes.enamelvault.com>, with the landing page at
 and `recipes.` is attached to the `familyrecipes` worker as a **Custom Domain**, so Cloudflare
 provisioned the proxied `AAAA` and the certificate itself.
 
-**Cloudflare injects its analytics beacon into every HTML response, and the CSP is the only
-thing stopping it.** `static.cloudflareinsights.com/beacon.min.js` is added at the edge, not by
-anything in this repo, and `script-src 'self'` refuses it: the browser console shows the
-refusal on every page. The footer on all three marketing pages says "This site sets no cookies
-and uses no analytics", and `src/lib/browserStorage.test.ts` guards the storage half. **That
-public claim is currently true only because the CSP blocks a script Cloudflare is actively
-serving.** Anyone widening `script-src`, or adding `static.cloudflareinsights.com` to it, makes
-the claim false without touching the sentence. Turn the beacon off in the Cloudflare dashboard
-(Web Analytics) if the claim is to stand on its own. Note that `curl` does not see the
-injection; only a real browser does.
-
 `https://familyrecipes.aayus-pok.workers.dev` was **retired on 2026-10-15** by
 `"workers_dev": false` in `wrangler.jsonc`. It had been serving the entire family app as a
 second crawlable copy that canonicalised every page to itself and published its own sitemap,
@@ -1182,6 +1171,7 @@ anyone remembering, because the failure mode is never ignorance, it is not re-re
 | The claim | Where it is made | What holds it up |
 | --- | --- | --- |
 | No cookies and no trackers, so no consent banner | `src/pages/Cookies.tsx` | `src/lib/browserStorage.test.ts` |
+| The marketing footers do not deny the page count `/cookies` discloses | the three `public/*.html` footers | `src/site.claims.test.ts` |
 | WCAG 2.2 AA | `src/pages/Help.tsx` | `src/index.contrast.test.ts`, `src/lib/accessibility.test.ts` |
 | The processors we name are the processors we use | `src/pages/Privacy.tsx` | `supabase/processors.test.ts` |
 | The accepted terms version matches the terms text | `src/components/TermsGate.tsx` | `src/components/TermsGate.version.test.ts` |
@@ -1217,7 +1207,20 @@ secret. Backwards means the page is false for as long as it takes someone to not
 Enabled at the ZONE level with auto-install since 2026-09-25, so Cloudflare injects the RUM
 beacon at the edge and it never appears in `index.html`. **`browserStorage.test.ts` therefore
 cannot detect it**, and did not: the pages claimed "no analytics at all" for a week while it was
-running. That claim is now corrected on `/cookies` and `/privacy`.
+running. That claim was corrected on `/cookies` and `/privacy`.
+
+**It was then blocked by our OWN CSP from 2026-09-25 until 2026-10-16, so it collected
+nothing.** `script-src 'self'` refused the injected script on every page, and a refused script
+logs to the console and does nothing else. The net effect was the opposite of the usual
+failure: the pages honestly DISCLOSED a page count that was never actually happening. Opening
+the CSP (`ANALYTICS_SCRIPT` and `ANALYTICS_BEACON` in `worker/meta.ts`) is what made those
+pages true in both directions. **Finding it needed a real browser**: `curl` never receives the
+injection, so nothing in this repo and no shell check could see either the beacon or its
+refusal.
+
+The three marketing footers still said "uses no analytics" until the same day, contradicting
+`/cookies`, which has a section headed "The one count we do keep". `src/site.claims.test.ts`
+now fails if that denial returns to any marketing page.
 
 It is cookieless and sets no identifier, so the no-banner position is unaffected and remains
 correct. But the general lesson stands: **a source scan cannot see anything the edge injects.**

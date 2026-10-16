@@ -244,15 +244,38 @@ export function buildTags(input: BuildTagsInput): Tags {
   };
 }
 
+// Cloudflare Web Analytics. Enabled at the ZONE level with auto-install since 2026-09-25, so
+// Cloudflare injects this script at the edge and it never appears in any file in this repo.
+//
+// IT WAS BLOCKED BY OUR OWN CSP FROM THE DAY IT WAS ENABLED UNTIL 2026-10-16, and nothing said
+// so: a refused script logs to the console and does nothing else. So /cookies and /privacy
+// described a page count that was never actually being collected. Opening the CSP is what
+// makes those two pages true in both directions rather than only in the generous one.
+//
+// IT IS COOKIELESS AND SETS NO IDENTIFIER. That is the whole reason it needs no consent
+// banner, and it is the only reason. Swapping this for anything that stores something on the
+// device, or that can recognise a visitor between sessions, makes a banner legally mandatory
+// and makes src/pages/Cookies.tsx false. Do not add a second analytics host here casually.
+const ANALYTICS_SCRIPT = "https://static.cloudflareinsights.com";
+// Newer auto-injected beacons POST to a same-origin /cdn-cgi/rum, which 'self' already covers.
+// The apex host is listed too because older builds post to it directly, and getting this wrong
+// fails the same silent way the script tag did.
+const ANALYTICS_BEACON = "https://cloudflareinsights.com";
+
 export function securityHeaders(supabase: string): Record<string, string> {
   return {
     "Content-Security-Policy": [
       "default-src 'self'",
-      "script-src 'self'",
+      `script-src 'self' ${ANALYTICS_SCRIPT}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: " + supabase,
       "font-src 'self'",
-      "connect-src 'self' " + supabase + " " + supabase.replace(/^https:/, "wss:"),
+      "connect-src 'self' " +
+        supabase +
+        " " +
+        supabase.replace(/^https:/, "wss:") +
+        " " +
+        ANALYTICS_BEACON,
       "form-action 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",

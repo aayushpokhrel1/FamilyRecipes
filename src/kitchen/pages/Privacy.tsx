@@ -180,10 +180,13 @@ export default function Privacy() {
       <p>
         <strong>This app sets no cookies.</strong> It keeps one thing in your browser's local
         storage, a sign-in token, so that you stay signed in between visits, and it is removed
-        when you sign out. There is no analytics, no embed and no third-party script, which is
-        why you have not been asked to consent to anything: there is nothing to consent to. A
-        test fails the build the moment a cookie or a new storage key appears, which is the
-        exact moment a consent banner would become mandatory.
+        when you sign out. There is no embed, no advertising script and nothing that can
+        recognise you between visits, which is why you have not been asked to consent to
+        anything: consent is required to store or read something on your device, and the only
+        thing stored is the sign-in token you asked for. Our host counts page views, described
+        under Cloudflare above, without cookies and without any identifier. A test fails the
+        build the moment a cookie or a new storage key appears, which is the exact moment a
+        consent banner would become mandatory.
       </p>
 
       <h2>What your employer can see about you</h2>

@@ -144,7 +144,14 @@
           <a href="https://recipes.enamelvault.com/cookies">Cookies</a>
           <a href="https://recipes.enamelvault.com/help">Help</a>
         </nav>
-        <p>Run by Aayush Pokhrel. This site sets no cookies and uses no analytics.</p>
+        <!-- NOT "uses no analytics". Cloudflare counts page views for this site, cookielessly
+             and with no identifier, and /cookies describes exactly what that means. The old
+             sentence contradicted our own cookies page, which is worse than saying nothing.
+             src/site.claims.test.ts fails if "no analytics" comes back. -->
+        <p>
+          Run by Aayush Pokhrel. This site sets no cookies. Page views are counted without
+          one, and without anything that could identify you.
+        </p>
       </footer>
     </div>
     <script src="/signin-choice.js"></script>

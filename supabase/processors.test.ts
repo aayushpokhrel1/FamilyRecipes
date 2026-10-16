@@ -138,6 +138,11 @@ it("sends user data to no host that the privacy page has never heard of", () => 
   const disclosed = [
     { host: "supabase.co", company: "Supabase" },
     { host: "api.resend.com", company: "Resend" },
+    // Cloudflare hosts the site AND counts page views from the edge-injected RUM beacon,
+    // which worker/meta.ts has to allow in the CSP. It receives request data, so it is a
+    // processor, not a NOT_A_PROCESSOR entry. Listing it here means deleting the Cloudflare
+    // paragraph from Privacy.tsx fails the build.
+    { host: "cloudflareinsights.com", company: "Cloudflare" },
   ];
   const hosts = new Set<string>();
   for (const { text } of code) {

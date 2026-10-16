@@ -298,7 +298,17 @@ describe("securityHeaders", () => {
     expect(csp).toContain("script-src 'self'");
     // If this ever appears, the policy has stopped defending against the thing it exists for.
     expect(csp).not.toContain("'unsafe-inline' 'self'");
-    expect(csp.split("; ").find((d) => d.startsWith("script-src"))).toBe("script-src 'self'");
+  });
+
+  // PINNED EXACTLY, as an allowlist of one. script-src is the directive that decides whether a
+  // third party can run code in our origin, so it must never grow by accident. The one host
+  // here is Cloudflare's COOKIELESS page counter, which is the only reason /cookies can say no
+  // banner is needed. Adding a host that sets an identifier makes a consent banner legally
+  // mandatory and makes that page false, so this assertion is the place that argument lands.
+  it("lets exactly one third-party script host in, and names it", () => {
+    expect(csp.split("; ").find((d) => d.startsWith("script-src"))).toBe(
+      "script-src 'self' https://static.cloudflareinsights.com",
+    );
   });
 
   it("allows inline STYLE, because style={{...}} attributes are counted as inline styles", () => {
@@ -307,6 +317,9 @@ describe("securityHeaders", () => {
 
   it("lets the browser reach Supabase, which it talks to directly", () => {
     expect(csp).toContain("connect-src 'self' https://proj.supabase.co wss://proj.supabase.co");
+    // The beacon posts its counts somewhere, and a blocked POST fails as silently as a
+    // blocked script: the page works and the numbers never arrive.
+    expect(csp).toContain("https://cloudflareinsights.com");
     // Signed photo URLs are fetched straight from storage by the page.
     expect(csp).toContain("img-src 'self' data: blob: https://proj.supabase.co");
   });
