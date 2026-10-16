@@ -549,10 +549,11 @@ incapable of supporting the claim, and both statements sat in this same file dis
 doc disagree, the one whose method cannot work is the one that is wrong.
 
 It injects a beacon from `static.cloudflareinsights.com` into the page. Our CSP (`script-src
-'self'`) blocked it until 2026-10-16, so no data ever left, and at the time the pages still
-claimed "no analytics" — a claim that was therefore true BY ACCIDENT: relax the CSP and it
-silently becomes false. **A public promise should be kept by the setting that governs the
-behaviour, not by a security header downstream of it**, and that is the durable lesson here
+'self'`) blocked it from 2026-10-02 until 2026-10-16, but **800 pageloads were collected before
+that**, between 2026-09-25 and 2026-10-02, while the pages still claimed "no analytics". So the
+claim was not merely fragile, it was FALSE for eight days: the CSP arrived a week too late to
+be the accident that kept it true. **A public promise should be kept by the setting that governs
+the behaviour, not by a security header downstream of it**, and that is the durable lesson here
 rather than the wording of any one line.
 
 The pages no longer deny analytics at all (corrected 2026-10-16, and `src/site.claims.test.ts`
@@ -1283,49 +1284,58 @@ beacon at the edge and it never appears in `index.html`. **`browserStorage.test.
 cannot detect it**, and did not: the pages claimed "no analytics at all" for a week while it was
 running. That claim was corrected on `/cookies` and `/privacy`.
 
-**It was then blocked by our OWN CSP from 2026-09-25 until 2026-10-16, so it collected
-nothing.** `script-src 'self'` refused the injected script on every page, and a refused script
-logs to the console and does nothing else. The net effect was the opposite of the usual
-failure: the pages honestly DISCLOSED a page count that was never actually happening. Opening
-the CSP (`ANALYTICS_SCRIPT` and `ANALYTICS_BEACON` in `worker/meta.ts`) is what made those
-pages true in both directions. **Finding it needed a real browser**: `curl` never receives the
-injection, so nothing in this repo and no shell check could see either the beacon or its
-refusal.
+**IT DID COLLECT, for eight days, and then stopped on 2026-10-02.** The RUM API holds 800
+pageloads between 2026-09-25 and 2026-10-02 and nothing after, every one of them on
+`recipes.enamelvault.com`: **the apex has never recorded a single pageload**, before or since.
+This file claimed for a fortnight that the beacon "collected nothing" from 2026-09-25, and that
+was false. The claim rested on a probe that cannot tell (below).
 
-The three marketing footers still said "uses no analytics" until the same day, contradicting
-`/cookies`, which has a section headed "The one count we do keep". `src/site.claims.test.ts`
-now fails if that denial returns to any marketing page.
+**The CSP window was 2026-10-02 to 2026-10-16, not 2026-09-25.** `92893ae` is the commit that
+added the security headers, and collection stops on its day, so `script-src 'self'` is a real
+suspect for the stop. It is NOT the whole story, because opening the CSP on 2026-10-16
+(`ANALYTICS_SCRIPT` and `ANALYTICS_BEACON` in `worker/meta.ts`) did not revive it: the beacon
+loads and runs, and the API has recorded nothing since, including deliberate visits in a real
+browser. `941f0e9` landed the same day and is the other candidate, but see below: it is ruled
+out.
 
-**STILL NOT COLLECTING, and the remaining fault is in the dashboard, not this repo.** With the
-CSP open the beacon loads and executes with a valid token
-(`data-cf-beacon` carries `8dab991f...`), then POSTs to the same-origin `/cdn-cgi/rum`, and
-**that returns 404 on both `enamelvault.com` and `recipes.enamelvault.com`**. The 404 is an
-HTML page, not this Worker's plain-text `Not found`, and a GET to it does not take the apex's
-catch-all 302, so Cloudflare is handling `/cdn-cgi/*` ahead of the Worker and refusing its own
-collector. The likely cause is a stale auto-install: the beacon is still injected with a token
-the RUM collector no longer recognises, which happens when the site is removed or recreated in
-Web Analytics. **Check Web Analytics in the Cloudflare dashboard before believing any number.**
+**MEASURE IT WITH THE GRAPHQL API, FROM HERE. The curl probe this file used to recommend is
+worthless.** An empty `POST /cdn-cgi/rum` returns 404 on `cloudflareinsights.com` itself, and so
+does a realistic beacon payload carrying the live site token, so a 404 from our hosts says
+nothing about our zone. The one measurement that distinguishes "collecting" from "dropping
+counts" is the account's own RUM data, which the Cloudflare API serves and which this repo's
+Cloudflare access can read:
 
-Measure it the same way, because nothing in this repo can:
-
-```bash
-curl -s -o /dev/null -w '%{http_code}
-' -X POST -d '{}' https://enamelvault.com/cdn-cgi/rum
+```graphql
+query { viewer { accounts(filter: { accountTag: "<account>" }) {
+  rumPageloadEventsAdaptiveGroups(limit: 50,
+    filter: { date_geq: "2026-09-20", siteTag: "3146b01062d0453488f5cc9e53900f91" },
+    orderBy: [date_ASC]) { count dimensions { date requestHost } }
+} } }
 ```
 
-`404` means it is still dropping counts. A `2xx` means collection is live.
+`POST /graphql`. Rows mean collection; an empty array means it is dropping counts. The site
+record itself is `GET /accounts/<id>/rum/site_info/list`, and its `site_token` must equal the
+one in the page's `data-cf-beacon` (currently `8dab991f...`; it does).
 
 **What is already ruled out, re-confirmed 2026-10-16. Do not spend a session re-checking it.**
 
-- **The CSP is not the problem.** `script-src` allows `https://static.cloudflareinsights.com`
+- **The CSP is not the problem NOW.** `script-src` allows `https://static.cloudflareinsights.com`
   and `connect-src` allows `https://cloudflareinsights.com`, live on both hosts. Read them with
   `curl -sI <host> | grep -i content-security-policy`.
-- **The beacon genuinely EXECUTES**, and the POST above is the proof: a CSP-refused script
-  never runs and never posts. Finding the `<script>` element in the DOM does NOT prove this,
-  because a blocked script is still in the DOM. That distinction is the whole difference
-  between "injected" and "running".
-- **Auto-injection is ON** on both hosts, whatever the dashboard's `auto_install` field says;
-  it read `false` while injection was demonstrably happening.
+- **The beacon genuinely LOADS AND EXECUTES.** In a real browser `document.scripts` holds
+  `static.cloudflareinsights.com/beacon.min.js/v4bc70e2c...` carrying
+  `data-cf-beacon={"version":"2024.11.0","token":"8dab991f...","r":1,"spa":2}`, and it issues
+  two `POST /cdn-cgi/rum` requests per page load. A CSP-refused script never runs and never
+  posts. Finding the `<script>` element alone does NOT prove this, because a blocked script is
+  still in the DOM.
+- **`run_worker_first` is not the cause**, though it landed the same day. Cloudflare handles
+  `/cdn-cgi/*` ahead of the Worker regardless: `/cdn-cgi/trace` answers 200 with the edge's
+  own trace, while `/nonexistent-path` falls through to the Worker and gets the SPA shell.
+- **The collector is simply not mounted on this zone.** `/cdn-cgi/rum` 404s identically to
+  `/cdn-cgi/zzzznope`, with Cloudflare's own HTML 404 rather than this Worker's plain-text
+  `Not found`. The site record exists, its ruleset is `enabled: true` on zone
+  `enamelvault.com`, and `auto_install` reads `false` while injection is demonstrably
+  happening, which is the contradiction to take to the dashboard.
 
 So the fault is Cloudflare serving the beacon and then refusing its own collector. The leading
 fix is deleting the Web Analytics site record and letting it be recreated, which changes the
