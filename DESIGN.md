@@ -128,9 +128,10 @@ Two rules follow, and both have been broken already:
 - **A page wrapper carries BOTH `prose` and `plate`.** `.plate` owns the rule that recolours
   headings, so a `.prose` that is not a `.plate` puts bone headings on a bone plate.
 
-The landing page is the one place that holds a second copy of the tokens, because it is
-static HTML with no bundle. `src/index.contrast.test.ts` reads the REAL tokens out of
-`index.css`, so that copy cannot drift silently.
+`public/site.css` holds the one second copy of the tokens, because the three marketing pages
+are static HTML with no bundle. `src/site.tokens.test.ts` reads the REAL tokens out of
+`index.css` and fails if that copy drifts, and it also scans each page for a hex typed
+straight into the markup, which a stylesheet check alone would miss.
 
 ## Colors
 

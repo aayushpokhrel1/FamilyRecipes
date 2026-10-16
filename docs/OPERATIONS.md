@@ -89,6 +89,16 @@ export and not a code bug.
 npm run test:int
 ```
 
+### Trust a foreground test count, never a backgrounded one
+
+A `npm test` that is moved to the BACKGROUND mid-run can report a **reduced file and test
+count and still exit 0**, which reads exactly like tests having been deleted. A foreground
+re-run reports the full set, and so does a non-TTY run (`npm test > file`), so CI's discovery
+is unaffected. It is the harness, not the suite.
+
+This matters because the counts in `HANDOVER.md` are supposed to be measured, and a
+backgrounded run will quietly talk you into writing down a smaller number than the truth.
+
 ### A browser walk poisons the integration suite, and it looks like flakiness
 
 **Run `npx supabase db reset` before the integration suite if you have been clicking around
@@ -457,21 +467,30 @@ cached hard by every browser that saw it, and putting a page here later would ha
 by every previous visitor's cache. The decision paid for itself.
 
 `route()` in `worker/index.ts` branches on hostname before anything else. The bare host answers
-exactly three things itself and 302s everything else to the app host, path and query preserved,
-which is what the old rule did for every path and why links people already hold still work:
+a short, closed list itself and 302s everything else to the app host, path and query preserved,
+which is what the old rule did for every path and why links people already hold still work.
+`README.md` has the page map and the guards; this is what the Worker does with a request:
 
 | On `enamelvault.com` | Answer |
 | --- | --- |
-| `/` | the landing page, `public/site.html` with the recipe rack injected |
-| `/robots.txt`, `/sitemap.xml` | its own, from `worker/site.ts`, not the app's |
-| `/favicon.svg`, `/og.png`, `/fonts/*.woff2` | served here, from the asset store |
+| `/`, `/family`, `/professional` | the marketing pages, from `SITE_PAGES` in `worker/site.ts`; the hub also gets the recipe rack injected |
+| `/robots.txt`, `/sitemap.xml` | its own, generated from `SITE_PAGES`, not the app's |
+| `/site.css`, `/signin-choice.js`, `/favicon.svg`, `/og.png`, `/fonts/*.woff2` | served here, from the asset store |
 | anything else | 302 to the same path on `recipes.enamelvault.com` |
+
+**`/kitchen` is in that last row and must stay there.** It 302s to the family app's My Kitchen
+meal plans, which is a real page people reach. That is why the professional page is at
+`/professional`.
 
 **Why the assets are served and not redirected, which cost a live defect on 2026-10-10.**
 They are the same files on the same Worker, so redirecting them looks harmless. It is not: a
 302 to the app host makes them CROSS-ORIGIN, and `font-src 'self'` and `img-src 'self'` then
 refuse them. The live page rendered in the Georgia fallback, the mark was blocked and `og.png`
-pointed at a redirect, so the share card broke. It still answered 200 throughout. `isSiteAsset`
+pointed at a redirect, so the share card broke. It still answered 200 throughout. **It happened
+again on 2026-10-15 with `signin-choice.js`**, which was never in the allowlist: the sign-in
+chooser had therefore never once opened in production, and because the masthead link is a real
+href the page looked exactly as it always had. `src/site.assets.test.ts` now reads the real
+markup and fails on any same-origin reference the bare host would redirect. `isSiteAsset`
 in `worker/site.ts` is the allowlist; **add a file to `site.html` and you must add it there**,
 and it must stay an allowlist, or this host starts serving the app's `index.html` and bundle.
 
@@ -483,11 +502,11 @@ offers to onboard it as a new zone: **do not accept that**, it would create a se
 competing with the one holding the MX and DKIM records. `isSiteHost` still accepts `www`, so
 pointing it at the Worker later needs no code change.
 
-**`/site.html` is 404 on BOTH hosts, deliberately.** It is an asset, so it is fetchable by
-path, but it is not a page: on the app host it is a stray one nobody meant to publish, and on
-the bare host it is the landing page with its rack placeholder still in it. The refusal sits
-ABOVE the host branch so the bare host answers 404 directly instead of redirecting a crawler
-into a dead end.
+**Every raw template is 404 on BOTH hosts, deliberately**: `site.html`, `family.html` and
+`professional.html`. They are assets, so they are fetchable by path, but none is a page, and
+serving one would give it a second URL competing with its canonical. The refusal is generated
+from `SITE_PAGES` and sits ABOVE the host branch, so the bare host answers 404 directly
+instead of redirecting a crawler into a dead end.
 
 **If you ever remove the custom domain, put a redirect rule back in the same motion**, or the
 apex answers nothing at all.
@@ -759,6 +778,14 @@ the queries are reconstructible from the tables listed above.
 
   406 means the schema is not exposed. 401 means it is exposed and the grants are doing their
   job. The publishable key is public by design and can be read out of the deployed bundle.
+- **The redirect allow list can only be checked by reading the dashboard.** The obvious probe
+  does not work: `GET /auth/v1/authorize?provider=google&redirect_to=...` echoes ANY value back
+  in its 302 to the provider, including a deliberately bogus control, because the allow list is
+  enforced later at Supabase's own `/auth/v1/callback`. The `state` is an opaque UUID, not a
+  decodable JWT, so nothing in the response reveals which redirect was accepted. A probe that
+  returns the same answer for a known-bad input is measuring nothing; run the bogus control
+  before trusting any such check. The kitchen host's entries were confirmed this way on
+  2026-10-15, by reading the dashboard, after the probe proved useless.
 - **NEVER run `npx supabase config push` against this project.** It was considered on
   2026-10-12 as a way to add `kitchen` to the exposed schemas, because `supabase/config.toml`
   already declares `schemas = ["public", "graphql_public", "kitchen"]`. **It would have broken
@@ -767,16 +794,15 @@ the queries are reconstructible from the tables listed above.
 
   | Property | Remote (correct) | What the push would have set |
   | --- | --- | --- |
-  | `auth.additional_redirect_urls` | the `recipes.enamelvault.com/**`, `familyrecipes.aayus-pok.workers.dev/**` and `/auth/callback**` entries | `https://127.0.0.1:3000`, `http://localhost:5174/auth/callback**` |
+  | `auth.additional_redirect_urls` | the seven live entries (both app hosts, each with a `/**` and an `/auth/callback**`, the kitchen's `/recover`, and two localhost ports) | `https://127.0.0.1:3000`, `http://localhost:5174/auth/callback**` |
   | `auth.site_url` | `https://recipes.enamelvault.com` | `http://127.0.0.1:3000` |
   | `auth.mfa.totp.*` | enabled | disabled |
   | `auth.email.otp_length` | 8 | 6 |
   | `auth.email.max_frequency` | `1m0s` | `1s` |
   | `storage.analytics.enabled` | on | off |
 
-  That first row is the whole invite mechanism and the globstar entry added by hand on
-  2026-10-10, plus the `workers.dev` host that family already hold links to. The second is
-  every auth redirect on production. **`config diff` is safe and is the only one of the pair to
+  That first row is the whole invite mechanism and the globstar entries added by hand. The
+  second is every auth redirect on production. **`config diff` is safe and is the only one of the pair to
   run here**; it is also the command that caught this. The exposed-schema setting is a
   dashboard change (Settings -> API -> Exposed schemas) or a targeted Management API
   `PATCH /v1/projects/{ref}/postgrest`, never a config push.

@@ -138,9 +138,8 @@ meal planning · v1 private multi-family vault.
 **Live and offered: the professional-kitchen app.** A dish goes development, trial at
 one site, group menu, with every revision kept, one version signed off, and an owner able to
 publish the approved version to Potluck under the venue's name. It runs on its own host,
-`kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. Since
-2026-10-15 the landing page offers it alongside the family app, through a sign-in chooser and
-its own section.
+`kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. It is
+offered from the apex through the sign-in chooser and its own page, `/professional`.
 
 It stays `noindex`, enforced by a `robots.txt` and an `X-Robots-Tag` header rather than a meta
 tag alone, since the crawlers that matter never run the page. **The reason changed on
