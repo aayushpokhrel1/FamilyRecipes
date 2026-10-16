@@ -16,6 +16,7 @@
 // thing on the landing page, or build it and soften the disclaimer in the kitchen terms.
 // Deleting a word from the list below so the test goes quiet is the dishonest one.
 import { describe, expect, it } from "vitest";
+import professionalHtml from "../public/professional.html?raw";
 import siteHtml from "../public/site.html?raw";
 import kitchenTerms from "./kitchen/pages/Terms.tsx?raw";
 
@@ -26,7 +27,18 @@ import kitchenTerms from "./kitchen/pages/Terms.tsx?raw";
 // "cost" rather than "portion cost": the copy that shipped said "costs", which the longer
 // phrase did not match, so the guard went green on the exact sentence it existed to catch.
 // A claim word is what a marketing page actually writes, not the careful phrase the terms use.
-const DISCLAIMED = ["allergen", "yield", "cost"];
+// Widened on 2026-10-15 when enamelvault.com/professional was added. The terms disclaim
+// temperature and shelf life in the same breath as the first three, and a page written to
+// sell the kitchen app is far likelier to reach for them than the family homepage was.
+const DISCLAIMED = ["allergen", "yield", "cost", "temperature", "shelf life"];
+
+// BOTH marketing pages, not just the homepage. The one that actually sells the kitchen app
+// is the one most likely to over-claim, and a guard that reads only the other page reports
+// success for the page it cannot see.
+const PAGES = [
+  ["site.html", siteHtml],
+  ["professional.html", professionalHtml],
+] as const;
 
 function prose(html: string): string {
   // Comments hold reasoning for developers and are not claims made to a reader.
@@ -45,12 +57,14 @@ describe("the landing page does not promise what the kitchen terms refuse", () =
     }
   });
 
-  for (const word of DISCLAIMED) {
-    it(`does not advertise ${word}`, () => {
-      expect(
-        prose(siteHtml).includes(word),
-        `site.html advertises "${word}", which src/kitchen/pages/Terms.tsx says the app does not do`,
-      ).toBe(false);
-    });
+  for (const [name, html] of PAGES) {
+    for (const word of DISCLAIMED) {
+      it(`${name} does not advertise ${word}`, () => {
+        expect(
+          prose(html).includes(word),
+          `${name} advertises "${word}", which src/kitchen/pages/Terms.tsx says the app does not do`,
+        ).toBe(false);
+      });
+    }
   }
 });

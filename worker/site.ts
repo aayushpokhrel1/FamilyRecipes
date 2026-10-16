@@ -34,10 +34,35 @@ export function isSiteHost(hostname: string): boolean {
 // would put the app's index.html and JS bundle on this hostname too, which is the duplicate
 // content the host split exists to avoid. Anchored, so no traversal or suffix slips through.
 // ADD A FILE TO site.html? Add it here, or it will 302 away and be blocked.
-const SITE_ASSET = /^\/(favicon\.svg|og\.png|fonts\/[a-z0-9-]+\.woff2)$/;
+const SITE_ASSET = /^\/(favicon\.svg|og\.png|site\.css|signin-choice\.js|fonts\/[a-z0-9-]+\.woff2)$/;
 
 export function isSiteAsset(pathname: string): boolean {
   return SITE_ASSET.test(pathname);
+}
+
+/**
+ * The marketing pages, as `public path -> the file in ASSETS that answers it`.
+ *
+ * The file is NOT reachable at its own `.html` path: route() refuses those, exactly as it
+ * refuses site.html, so each page has one URL and that URL is its canonical. Adding a page
+ * here is most of what adding a page takes, because the sitemap below is generated from this
+ * same map and therefore cannot fall behind it. A sitemap maintained separately is a sitemap
+ * that lists a page nobody built, or misses one nobody announced.
+ */
+export const SITE_PAGES: Record<string, string> = {
+  "/": "/site.html",
+  "/professional": "/professional.html",
+};
+
+export function sitePageAsset(pathname: string): string | null {
+  return SITE_PAGES[pathname] ?? null;
+}
+
+// The raw templates, by their real filenames. Refused as public paths so neither page is
+// reachable at two URLs; both are still fetchable internally, because a Request the Worker
+// builds itself never passes through route().
+export function isSiteTemplate(pathname: string): boolean {
+  return Object.values(SITE_PAGES).includes(pathname);
 }
 
 // Cards link to the APP host. The recipe pages already live there, already carry their own
@@ -85,21 +110,28 @@ export function siteRobots(): string {
     "User-agent: *",
     "Allow: /",
     "",
-    "# The raw template, placeholders and all. Fetchable because it is an asset; never a page.",
-    "Disallow: /site.html",
+    "# The raw templates, placeholders and all. Fetchable because they are assets; never",
+    "# pages. route() refuses them outright, so this is belt and braces, and it is generated",
+    "# from the same map as the sitemap so a new page cannot be announced without being hidden",
+    "# at its .html path too.",
+    ...Object.values(SITE_PAGES).sort().map((file) => `Disallow: ${file}`),
     "",
     `Sitemap: ${SITE_ORIGIN}/sitemap.xml`,
     "",
   ].join("\n");
 }
 
+// Generated from SITE_PAGES rather than written out, so a page cannot exist without being
+// announced and cannot be announced without existing. Sorted for a stable output: a diff on
+// this file should mean a page changed, not that a map iterated differently.
 export function siteSitemap(): string {
+  const locs = Object.keys(SITE_PAGES)
+    .sort()
+    .flatMap((path) => ["  <url>", `    <loc>${SITE_ORIGIN}${path}</loc>`, "  </url>"]);
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    "  <url>",
-    `    <loc>${SITE_ORIGIN}/</loc>`,
-    "  </url>",
+    ...locs,
     "</urlset>",
     "",
   ].join("\n");

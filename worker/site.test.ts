@@ -3,9 +3,12 @@ import {
   APP_ORIGIN,
   RACK_PLACEHOLDER,
   buildRack,
+  SITE_PAGES,
   isSiteAsset,
   isSiteHost,
+  isSiteTemplate,
   renderSite,
+  sitePageAsset,
   siteRobots,
   siteSitemap,
   type SiteCard,
@@ -140,17 +143,54 @@ describe("siteRobots", () => {
     expect(body).toContain("Sitemap: https://enamelvault.com/sitemap.xml");
   });
 
-  // The template is an asset, so it is fetchable by path. It is not a page and must
-  // never be indexed as one.
-  it("disallows the raw template", () => {
-    expect(siteRobots()).toContain("Disallow: /site.html");
+  // The templates are assets, so they are fetchable by path. Neither is a page and neither
+  // must ever be indexed as one.
+  it("disallows every raw template", () => {
+    const body = siteRobots();
+    for (const file of Object.values(SITE_PAGES)) {
+      expect(body, `${file} is servable but not disallowed`).toContain(`Disallow: ${file}`);
+    }
   });
 });
 
 describe("siteSitemap", () => {
-  it("lists exactly the one page this host serves", () => {
+  it("lists every marketing page and nothing else", () => {
     const xml = siteSitemap();
-    expect(xml).toContain("<loc>https://enamelvault.com/</loc>");
-    expect(xml.match(/<loc>/g)).toHaveLength(1);
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    expect(locs.sort()).toEqual(
+      Object.keys(SITE_PAGES)
+        .map((path) => `https://enamelvault.com${path}`)
+        .sort(),
+    );
+  });
+
+  it("announces the professional page, which is the kitchen app's only indexable surface", () => {
+    expect(siteSitemap()).toContain("<loc>https://enamelvault.com/professional</loc>");
+  });
+});
+
+describe("sitePageAsset", () => {
+  it("maps a public path to the file that answers it", () => {
+    expect(sitePageAsset("/professional")).toBe("/professional.html");
+  });
+
+  // A path that is not a page must fall through to the 302, not 404 here: people hold
+  // enamelvault.com/recipes/<id> links, and enamelvault.com/kitchen reaches the family app's
+  // meal plans. That redirect is why this page is at /professional and not /kitchen.
+  it("does not claim a path the app host owns", () => {
+    expect(sitePageAsset("/kitchen")).toBeNull();
+    expect(sitePageAsset("/recipes/abc")).toBeNull();
+  });
+});
+
+describe("isSiteTemplate", () => {
+  it("refuses both raw filenames as public paths", () => {
+    expect(isSiteTemplate("/site.html")).toBe(true);
+    expect(isSiteTemplate("/professional.html")).toBe(true);
+  });
+
+  it("leaves real pages alone", () => {
+    expect(isSiteTemplate("/")).toBe(false);
+    expect(isSiteTemplate("/professional")).toBe(false);
   });
 });

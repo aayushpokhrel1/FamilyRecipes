@@ -28,7 +28,9 @@ import {
   APP_ORIGIN,
   isSiteAsset,
   isSiteHost,
+  isSiteTemplate,
   renderSite,
+  sitePageAsset,
   siteRobots,
   siteSitemap,
   type SiteCard,
@@ -224,6 +226,28 @@ async function serveSite(request: Request, env: Env): Promise<Response> {
       // Five minutes. A crawl must not mean one Supabase round trip per hit, and the
       // catalogue changing five minutes late costs nothing.
       "Cache-Control": "public, max-age=300",
+    },
+  });
+}
+
+// The marketing pages that are plain assets: no catalogue read, no placeholder, nothing to
+// degrade. serveSite() above stays separate because "/" is the only one with a rack, and the
+// "/" branch in route() runs BEFORE this one for exactly that reason. If this ever answers
+// "/", the homepage has silently lost its recipes.
+//
+// A missing file returns the asset layer's own 404 rather than throwing, which keeps the rule
+// that this Worker never 500s on a page.
+async function serveSitePage(request: Request, env: Env, asset: string): Promise<Response> {
+  const url = new URL(request.url);
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}${asset}`));
+  if (!page.ok) return page;
+  return new Response(page.body, {
+    status: page.status,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      // An hour. Nothing on these pages is generated, so the only thing that changes them is
+      // a deploy, and a deploy invalidates the edge cache anyway.
+      "Cache-Control": "public, max-age=3600",
     },
   });
 }
@@ -633,7 +657,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     // Worker builds itself never passes through route(); that is the same arrangement that
     // makes site.html and kitchen.html both unreachable by URL and fetchable internally.
     if (
-      url.pathname === "/site.html" ||
+      isSiteTemplate(url.pathname) ||
       url.pathname === KITCHEN_ENTRY ||
       url.pathname.startsWith("/prerender/")
     ) {
@@ -646,6 +670,10 @@ async function route(request: Request, env: Env): Promise<Response> {
     // instead would put the whole app on a second hostname as duplicate content.
     if (isSiteHost(url.hostname)) {
       if (url.pathname === "/") return serveSite(request, env);
+      // The other marketing pages. Static, so no catalogue read and no rack: they get a
+      // longer cache than the homepage, whose rack changes when a recipe is published.
+      const page = sitePageAsset(url.pathname);
+      if (page) return serveSitePage(request, env, page);
       if (url.pathname === "/robots.txt") {
         return new Response(siteRobots(), {
           headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
