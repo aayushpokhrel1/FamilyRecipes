@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import KitchenApp from "./App";
 import RequireAuth from "../components/RequireAuth";
 import GatedLayout from "./components/GatedLayout";
+import OrgLayout from "./components/OrgLayout";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
@@ -71,38 +72,22 @@ export default function KitchenRoutes() {
               </RequireAuth>
             }
           />
+          {/* One layout for everything inside a group, so the nav cannot be forgotten on the
+              page somebody adds next, and so RequireAuth is stated once rather than four
+              times. /orgs/new stays outside it: there is no group yet to navigate. */}
           <Route
-            path="/orgs/:id/sites"
+            path="/orgs/:id"
             element={
               <RequireAuth>
-                <Sites />
+                <OrgLayout />
               </RequireAuth>
             }
-          />
-          <Route
-            path="/orgs/:id/staff"
-            element={
-              <RequireAuth>
-                <Staff />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/orgs/:id/dishes"
-            element={
-              <RequireAuth>
-                <Dishes />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/orgs/:id/dishes/:dishId"
-            element={
-              <RequireAuth>
-                <DishDetail />
-              </RequireAuth>
-            }
-          />
+          >
+            <Route path="sites" element={<Sites />} />
+            <Route path="staff" element={<Staff />} />
+            <Route path="dishes" element={<Dishes />} />
+            <Route path="dishes/:dishId" element={<DishDetail />} />
+          </Route>
         </Route>
       </Route>
     </Routes>

@@ -1614,3 +1614,30 @@ button[aria-pressed="true"] {
 .cook-timer.is-ringing { background: var(--action); color: var(--on-action); }
 .cook-timer-chips { display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0; margin: 0 0 8px; }
 .chip.is-running { opacity: 0.7; }
+
+/* The nav inside one kitchen group. It sits on the wall, not on a plate, so it uses the
+   on-wall pair that src/index.contrast.test.ts already measures. */
+.org-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.org-nav a {
+  font-family: var(--sign);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.78rem;
+  color: var(--on-wall-soft);
+  text-decoration: none;
+}
+.org-nav a:first-child {
+  font-size: 1rem;
+  color: var(--on-wall);
+  margin-right: 4px;
+}
+.org-nav a.is-current {
+  color: var(--spark);
+}
