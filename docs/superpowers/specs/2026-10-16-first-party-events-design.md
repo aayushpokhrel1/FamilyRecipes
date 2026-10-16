@@ -192,6 +192,62 @@ The marketing footers must keep saying what is true. `src/site.claims.test.ts` a
 if the denial of analytics returns; adding a `?from=` parameter to a link sets nothing on the
 device and does not change what those pages may claim.
 
+## Three calls made after the builder check, not decisions Aayush made
+
+A builder reading this document would have had to guess at three things where a wrong guess
+would matter. They are settled here rather than left open.
+
+### Whose clock decides `day`, and why the column is constrained
+
+**The client sends its own local date.** Not `default current_date`, which is UTC: this repo
+already paid for that distinction once, and `lastThirtyDays` in `Moderation.tsx` carries the
+comment explaining that `toISOString` shifts local midnight in any UTC+ timezone onto the
+previous day, moving the whole row by one. A retention curve built on UTC days and drawn
+against a chart built on local days would disagree with itself and nobody would be able to
+tell which was wrong.
+
+A client-supplied date is client-supplied input, so the column takes a check constraint that
+`day` is within a day either side of `current_date`. Without it a cook can write any date into
+their own row, which RLS permits because it *is* their row, and forge a retention history.
+The harm is bounded, the constraint is one line, and the alternative is a number that cannot
+be trusted on exactly the question the feature exists to answer.
+
+### The insert is an upsert that ignores duplicates
+
+"One idempotent insert" is the behaviour; a plain insert on an existing primary key raises a
+duplicate-key error, and a cook moving around the app would generate a stream of them. So the
+write is an upsert on `(user_id, day, surface)` with duplicates ignored, which is a single
+statement, needs no read first, and is safe to call from more than one tab at once.
+
+Note what this does NOT change: a write refused by RLS is still to be checked. An insert that
+violates a policy raises rather than reporting zero rows, which is the opposite of the
+silent-refusal class this project keeps hitting, but the write still belongs in
+`src/lib/api/` like every other one.
+
+### Marketing credit is only written to an account that was just created
+
+The marketing pages link to `/signin` as well as `/signup`, so writing `signup_source`
+whenever it is null would credit an existing cook who happened to arrive through a marketing
+link. Worse, it would credit every account that existed before this shipped, since all of
+their sources are null, and the panel would report the marketing site as having produced
+accounts that predate it.
+
+So the write is conditional on the account being new: `signup_source` is set only when the
+profile is still null **and** the profile was created within the last few minutes. The
+question the panel answers is "did this page produce an account", and an account that already
+existed cannot have been produced by it.
+
+### Every panel shows the total and the non-moderator figure beside it
+
+Aayush's decision, 2026-10-16. He is currently most of the traffic, so a single total would
+mostly report him back to himself on every panel. Excluding moderators outright was rejected
+because his own use is the only use that currently finds bugs, and a panel that cannot see it
+hides them.
+
+So each number is a pair: everyone, and everyone who is not a moderator. The pair is labelled,
+for the same reason `users` and `everJoined` are labelled in `AdminStats`: two numbers that
+answer slightly different questions must never be collapsed into one that answers neither.
+
 ## What the builder decides
 
 - The SQL and TypeScript shape of each aggregate, and whether any of them is cheap enough in
