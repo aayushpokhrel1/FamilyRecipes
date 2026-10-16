@@ -206,3 +206,49 @@ it("follows transitive imports, so a shared module cannot smuggle a family modul
 
   expect(offenders).toEqual([]);
 });
+
+/**
+ * THE EDGE FUNCTIONS WERE THIS SEAL'S BLIND SPOT, and this closes it.
+ *
+ * Everything above reads `src/` and `supabase/migrations/`. Nothing read `supabase/functions/`,
+ * so an edge function could query `kitchen.*` and every test here would stay green while the
+ * two apps quietly met. That is the same shape as the bug recorded in CLAUDE.md about a guard
+ * covering one of two apps and reporting success for the app it cannot see.
+ *
+ * ONE FUNCTION IS ALLOWED TO SEE BOTH, deliberately, and it is named here the way the bridge
+ * migrations above are named. `admin` is the operator's own console: it runs under the service
+ * role, it is reachable only after a moderator check made against the caller's verified JWT,
+ * and it reads both schemas to COUNT them. That is not the family app serving kitchen users,
+ * which is what the seal exists to prevent; it is the one person who runs both products
+ * looking at both.
+ *
+ * The boundary it must keep: the admin function may READ kitchen tables for aggregates. It
+ * must not move data between the schemas, and it must not hand kitchen rows to a family user.
+ * No test can express that last part, so it is written here and in the function's own header.
+ * Adding a second function to this list is a deliberate act, and it needs its reason beside it.
+ */
+const FUNCTIONS_THAT_MAY_SEE_THE_KITCHEN = ["admin"];
+
+it("lets no edge function but the named one reach into the kitchen schema", () => {
+  const root = "supabase/functions";
+  const offenders: string[] = [];
+  for (const name of readdirSync(root)) {
+    const entry = join(root, name);
+    if (!statSync(entry).isDirectory()) continue;
+    if (FUNCTIONS_THAT_MAY_SEE_THE_KITCHEN.includes(name)) continue;
+    for (const file of readdirSync(entry).filter((f) => /\.ts$/.test(f))) {
+      const text = code(readFileSync(join(entry, file), "utf8"));
+      // Both spellings a client can use to leave the public schema.
+      if (/schema\(\s*["']kitchen["']\s*\)|\bkitchen\.[a-z_]+/.test(text)) {
+        offenders.push(`${name}/${file}`);
+      }
+    }
+  }
+  expect(offenders).toEqual([]);
+});
+
+it("still has the function it names, so the allowance cannot go stale", () => {
+  for (const name of FUNCTIONS_THAT_MAY_SEE_THE_KITCHEN) {
+    expect(existsSync(join("supabase/functions", name))).toBe(true);
+  }
+});
