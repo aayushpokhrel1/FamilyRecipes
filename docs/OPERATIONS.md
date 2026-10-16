@@ -1222,6 +1222,25 @@ The three marketing footers still said "uses no analytics" until the same day, c
 `/cookies`, which has a section headed "The one count we do keep". `src/site.claims.test.ts`
 now fails if that denial returns to any marketing page.
 
+**STILL NOT COLLECTING, and the remaining fault is in the dashboard, not this repo.** With the
+CSP open the beacon loads and executes with a valid token
+(`data-cf-beacon` carries `8dab991f...`), then POSTs to the same-origin `/cdn-cgi/rum`, and
+**that returns 404 on both `enamelvault.com` and `recipes.enamelvault.com`**. The 404 is an
+HTML page, not this Worker's plain-text `Not found`, and a GET to it does not take the apex's
+catch-all 302, so Cloudflare is handling `/cdn-cgi/*` ahead of the Worker and refusing its own
+collector. The likely cause is a stale auto-install: the beacon is still injected with a token
+the RUM collector no longer recognises, which happens when the site is removed or recreated in
+Web Analytics. **Check Web Analytics in the Cloudflare dashboard before believing any number.**
+
+Measure it the same way, because nothing in this repo can:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}
+' -X POST -d '{}' https://enamelvault.com/cdn-cgi/rum
+```
+
+`404` means it is still dropping counts. A `2xx` means collection is live.
+
 It is cookieless and sets no identifier, so the no-banner position is unaffected and remains
 correct. But the general lesson stands: **a source scan cannot see anything the edge injects.**
 Anything switched on in the Cloudflare dashboard is invisible to every test in this repo, so
