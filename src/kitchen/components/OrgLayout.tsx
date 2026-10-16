@@ -42,15 +42,22 @@ export default function OrgLayout() {
     <>
       <nav className="org-nav" aria-label="This kitchen group">
         <Link to="/">{name ?? "Your kitchens"}</Link>
-        <NavLink to={`/orgs/${id}/sites`} className={mark}>
-          Sites
-        </NavLink>
-        <NavLink to={`/orgs/${id}/staff`} className={mark}>
-          Staff
-        </NavLink>
-        <NavLink to={`/orgs/${id}/dishes`} className={mark}>
-          Dishes
-        </NavLink>
+        {/* The three sections wrap as ONE group rather than individually. Without this span
+            a narrow screen broke the row wherever it ran out of room, which at 375 left
+            "Dishes" stranded alone on a third line under the other two. Wrapping the set
+            keeps the name on one line and the sections together on the next, at every width
+            and with no breakpoint to maintain. */}
+        <span className="org-nav-links">
+          <NavLink to={`/orgs/${id}/sites`} className={mark}>
+            Sites
+          </NavLink>
+          <NavLink to={`/orgs/${id}/staff`} className={mark}>
+            Staff
+          </NavLink>
+          <NavLink to={`/orgs/${id}/dishes`} className={mark}>
+            Dishes
+          </NavLink>
+        </span>
       </nav>
       <Outlet />
     </>

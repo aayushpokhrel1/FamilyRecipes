@@ -1633,7 +1633,13 @@ button[aria-pressed="true"] {
   color: var(--on-wall-soft);
   text-decoration: none;
 }
-.org-nav a:first-child {
+.org-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+}
+.org-nav > a:first-child {
   font-size: 1rem;
   color: var(--on-wall);
   margin-right: 4px;
