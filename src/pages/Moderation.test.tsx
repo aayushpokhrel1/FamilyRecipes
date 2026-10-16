@@ -28,8 +28,10 @@ vi.mock("../lib/api/appeals", () => ({
 // The Overview tab is the only consumer of these, and it is mounted only when selected, so
 // the roster call never runs on the page's main job.
 const getAdminStats = vi.fn();
+const getAdminInsights = vi.fn();
 vi.mock("../lib/api/admin", () => ({
   getAdminStats: (...a: any[]) => getAdminStats(...a),
+  getAdminInsights: (...a: any[]) => getAdminInsights(...a),
   listAdminUsers: vi.fn().mockResolvedValue({ users: [], hasMore: false }),
   setModerator: vi.fn(),
   suspendUser: vi.fn(),
@@ -51,6 +53,31 @@ beforeEach(() => {
   getAdminStats.mockResolvedValue({
     users: 3, everJoined: 6, recipes: 9, published: 4, removed: 1,
     families: 2, openReports: 0, suspended: 0, signupsByDay: {},
+  });
+  // The overview loads insights alongside stats, as an independent call: a default is needed
+  // here or every test that renders the page hits an unmocked function. The two loads are
+  // deliberately separate in the page, and the tests below pin that neither can blank the
+  // other.
+  getAdminInsights.mockResolvedValue({
+    returning: {
+      repeat: { all: 2, others: 1 },
+      active7: { all: 3, others: 2 },
+      active30: { all: 4, others: 3 },
+      since: "2026-10-01",
+    },
+    funnel: {
+      signedUp: { all: 6, others: 5 },
+      joinedFamily: { all: 4, others: 3 },
+      savedRecipe: { all: 2, others: 1 },
+    },
+    surfaces: [
+      { surface: "recipes", all: 4, others: 3 },
+      { surface: "potluck", all: 1, others: 0 },
+    ],
+    sources: [
+      { source: "family", all: 2, others: 2 },
+      { source: "uncredited", all: 4, others: 3 },
+    ],
   });
   resolveAppeal.mockResolvedValue(undefined);
 });
@@ -335,4 +362,38 @@ test("shows live logins and accounts-ever-joined as separate tiles", async () =>
   expect(users).toHaveTextContent("3");
   const ever = screen.getByText("Ever joined").closest("li");
   expect(ever).toHaveTextContent("6");
+});
+
+// THE TWO LOADS ARE INDEPENDENT, and these two tests are why that cannot be quietly undone.
+// The page's own comment on the stats error says a failed load "can never blank the page or
+// take the other two sections down with it". Adding a second call put that at risk in both
+// directions, and a shared error state would have been the easy way to write it.
+test("a failed insights load leaves the tiles and the chart standing", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getAdminInsights.mockRejectedValue(new Error("insights are down"));
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+
+  await screen.findByRole("button", { name: "Overview" });
+  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+  // The failure says so...
+  expect(await screen.findByText("insights are down")).toBeInTheDocument();
+  // ...and everything that did load is still there.
+  expect(screen.getByText("Ever joined")).toBeInTheDocument();
+  expect(screen.getByText("Signups, last 30 days")).toBeInTheDocument();
+  // The panels that depend on it are gone rather than half-rendered.
+  expect(screen.queryByText("Coming back")).not.toBeInTheDocument();
+});
+
+test("a failed stats load leaves the four panels standing", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getAdminStats.mockRejectedValue(new Error("stats are down"));
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+
+  await screen.findByRole("button", { name: "Overview" });
+  await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+  expect(await screen.findByText("stats are down")).toBeInTheDocument();
+  expect(screen.getByText("Coming back")).toBeInTheDocument();
+  expect(screen.getByText("Onboarding")).toBeInTheDocument();
 });

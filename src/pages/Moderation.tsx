@@ -5,11 +5,13 @@ import { listOpenReports, resolveReport } from "../lib/api/moderation";
 import { listOpenAppeals, resolveAppeal } from "../lib/api/appeals";
 import {
   deleteUserAccount,
+  getAdminInsights,
   getAdminStats,
   listAdminUsers,
   setModerator,
   suspendUser,
   unsuspendUser,
+  type AdminInsights,
   type AdminStats,
   type AdminUser,
 } from "../lib/api/admin";
@@ -181,6 +183,16 @@ const SUBJECT_LABELS: Record<AppealRow["subject_type"], string> = {
   recipe: "A removed recipe",
 };
 
+// Where an account came from, in words rather than the raw key. `uncredited` is deliberately
+// NOT "direct": that would be a claim about how they arrived, and the bucket also holds
+// everyone who signed up before any of this was recorded.
+const SOURCE_LABELS: Record<string, string> = {
+  hub: "The front page",
+  family: "The family page",
+  professional: "The professional page",
+  uncredited: "Arrived without a credited link",
+};
+
 function Appeals() {
   const [appeals, setAppeals] = useState<AppealRow[]>([]);
   const [cooks, setCooks] = useState<Map<string, PublicCook>>(new Map());
@@ -291,23 +303,140 @@ function Appeals() {
 
 function Overview() {
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [insights, setInsights] = useState<AdminInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kept apart from `error` on purpose: a failed insights load must not blank the tiles and
+  // the chart above it, and a failed stats load must not blank the four panels below.
+  const [insightsError, setInsightsError] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
     getAdminStats()
       .then((s) => { if (!ignore) setStats(s); })
       .catch((e: Error) => { if (!ignore) setError(e.message); });
+    // An independent call with its own catch, so neither load can take the other down.
+    getAdminInsights()
+      .then((i) => { if (!ignore) setInsights(i); })
+      .catch((e: Error) => { if (!ignore) setInsightsError(e.message); });
     return () => {
       ignore = true;
     };
   }, []);
 
-  // A failed load shows its own message and nothing else, so it can never blank the page
-  // or take the other two sections down with it.
-  if (error) return <p className="form-error">{error}</p>;
-  if (!stats) return <Skeleton shape="plate" count={2} />;
+  // NO EARLY RETURN FOR EITHER FAILURE, and that is the whole point of the two states.
+  //
+  // This used to be `if (error) return <p>...</p>`, which was correct while the overview was
+  // one load: the message replaced the thing that failed. With two independent loads an early
+  // return means the FIRST failure blanks the other half as well, so a stats outage would hide
+  // four panels that loaded perfectly. Each half now renders its own outcome, and a test pins
+  // both directions.
+  return (
+    <>
+      {error ? (
+        <p className="form-error">{error}</p>
+      ) : !stats ? (
+        <Skeleton shape="plate" count={2} />
+      ) : (
+        <StatsSection stats={stats} />
+      )}
 
+      {/* The four insight panels. A failed insights load replaces ONLY these, and a failed
+          stats load replaces only the half above: neither can blank the other. */}
+      {insightsError ? (
+        <p className="form-error">{insightsError}</p>
+      ) : !insights ? (
+        <Skeleton shape="plate" count={4} />
+      ) : (
+        <>
+          <section className="plate panel">
+            <h2>Coming back</h2>
+            <ul className="stat-row">
+              <InsightTile label="Used it on more than one day" pair={insights.returning.repeat} />
+              <InsightTile label="Active in the last 7 days" pair={insights.returning.active7} />
+              <InsightTile label="Active in the last 30 days" pair={insights.returning.active30} />
+            </ul>
+            {/* The most important line in the panel: these counters start empty, so a low
+                number here is not a finding about the app, it is an absence of history. */}
+            <p className="vault-note">
+              {insights.returning.since
+                ? `Collecting began on ${shortDate(insights.returning.since)}, so these numbers only mean something once there is a while behind them.`
+                : "Nothing has been recorded yet, so these numbers are not low, they are unmeasured."}
+            </p>
+          </section>
+
+          <section className="plate panel">
+            <h2>Onboarding</h2>
+            <ul className="stat-row">
+              <InsightTile label="Signed up" pair={insights.funnel.signedUp} />
+              <InsightTile label="Joined a family" pair={insights.funnel.joinedFamily} />
+              <InsightTile label="Saved a recipe" pair={insights.funnel.savedRecipe} />
+            </ul>
+            {/* One sentence, because the long version already lives on AdminStats. */}
+            <p className="vault-note">
+              "Signed up" counts profiles rather than logins, so it includes every account ever
+              deleted.
+            </p>
+          </section>
+
+          <section className="plate panel">
+            <h2>Features used, last 30 days</h2>
+            {/* Every surface is listed, zeros included: a row at zero is information, and
+                filtering it out would hide exactly the thing worth seeing. */}
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">Surface</th>
+                  {/* PEOPLE, not visits. The server counts DISTINCT users per surface, so a
+                      cook who opened Potluck every day for a month is one. Labelling this
+                      "Uses" would be the exact conflation AdminStats already warns about. */}
+                  <th scope="col">People</th>
+                </tr>
+              </thead>
+              <tbody>
+                {insights.surfaces.map((s) => (
+                  <tr key={s.surface}>
+                    <td>{s.surface}</td>
+                    <td>
+                      <PairValue pair={s} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="plate panel">
+            <h2>Where accounts came from</h2>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">Source</th>
+                  <th scope="col">Accounts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {insights.sources.map((s) => (
+                  <tr key={s.source}>
+                    {/* Falls back to the raw key, so a new source cannot render as blank. */}
+                    <td>{SOURCE_LABELS[s.source] ?? s.source}</td>
+                    <td>
+                      <PairValue pair={s} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </>
+      )}
+    </>
+  );
+}
+
+// The tiles and the signups chart, extracted when the overview gained a second independent
+// load. It takes a non-null stats, so the caller decides what a failure or a pending load
+// looks like, and this renders only the success case.
+function StatsSection({ stats }: { stats: AdminStats }) {
   const days = lastThirtyDays(stats.signupsByDay);
   const total = days.reduce((sum, d) => sum + d.count, 0);
   // The busiest day is the scale, so the tallest bar is always full height. A zero busiest
@@ -358,6 +487,29 @@ function Overview() {
         </div>
       </section>
     </>
+  );
+}
+
+// ONE treatment for every pair in the console: the total, then the figure that excludes
+// moderators beside it. The owner is most of the traffic, so a bare total mostly reports him
+// back to himself, and moderators are not excluded outright because his own use is currently
+// the only use that finds bugs.
+function PairValue({ pair }: { pair: { all: number; others: number } }) {
+  return (
+    <>
+      <span className="stat-value">{pair.all}</span>{" "}
+      <span className="vault-note">{pair.others} not counting moderators</span>
+    </>
+  );
+}
+
+// A pair as a stat tile, so the returning and funnel figures read like the tiles above.
+function InsightTile({ label, pair }: { label: string; pair: { all: number; others: number } }) {
+  return (
+    <li className="plate stat-tile">
+      <PairValue pair={pair} />
+      <span className="stat-label">{label}</span>
+    </li>
   );
 }
 
