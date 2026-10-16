@@ -423,6 +423,17 @@ Live at <https://recipes.enamelvault.com>, with the landing page at
 and `recipes.` is attached to the `familyrecipes` worker as a **Custom Domain**, so Cloudflare
 provisioned the proxied `AAAA` and the certificate itself.
 
+**Cloudflare injects its analytics beacon into every HTML response, and the CSP is the only
+thing stopping it.** `static.cloudflareinsights.com/beacon.min.js` is added at the edge, not by
+anything in this repo, and `script-src 'self'` refuses it: the browser console shows the
+refusal on every page. The footer on all three marketing pages says "This site sets no cookies
+and uses no analytics", and `src/lib/browserStorage.test.ts` guards the storage half. **That
+public claim is currently true only because the CSP blocks a script Cloudflare is actively
+serving.** Anyone widening `script-src`, or adding `static.cloudflareinsights.com` to it, makes
+the claim false without touching the sentence. Turn the beacon off in the Cloudflare dashboard
+(Web Analytics) if the claim is to stand on its own. Note that `curl` does not see the
+injection; only a real browser does.
+
 `https://familyrecipes.aayus-pok.workers.dev` was **retired on 2026-10-15** by
 `"workers_dev": false` in `wrangler.jsonc`. It had been serving the entire family app as a
 second crawlable copy that canonicalised every page to itself and published its own sitemap,

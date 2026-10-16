@@ -5,9 +5,9 @@ with photos, story, and provenance. Each recipe carries a visibility flag (Priva
 Public) so an opt-in public recipe feed can grow on top later. A community of food lovers, built
 family-first.
 
-**Live at <https://recipes.enamelvault.com>**, with the page that explains it at
-<https://enamelvault.com>. The bare domain is the marketing surface and the subdomain is the
-app; both are served by the same Cloudflare Worker, which branches on hostname.
+**Live at <https://recipes.enamelvault.com>**, with the pages that explain it at
+<https://enamelvault.com>. The bare domain is the marketing surface and the subdomains are the
+apps; all are served by the same Cloudflare Worker, which branches on hostname.
 
 ## Documentation
 
@@ -82,10 +82,33 @@ is a bounded swap.
 
 This repo builds **two apps from one Worker**: the family app (`index.html`, `src/`) on
 `recipes.enamelvault.com`, and the professional-kitchen app (`kitchen.html`, `src/kitchen/`,
-`src/lib/api/kitchen/`) on `kitchen.enamelvault.com`, plus the static landing page
-(`public/site.html`) on the bare domain. The two apps share tokens, presentational components
+`src/lib/api/kitchen/`) on `kitchen.enamelvault.com`, plus three static marketing pages on
+the bare domain (see below). The two apps share tokens, presentational components
 and the auth plumbing, and share NO data: the kitchen's tables live in their own Postgres
 schema and `supabase/kitchen_seal.test.ts` fails if either side reaches into the other.
+
+### The marketing pages on `enamelvault.com`
+
+Three static pages, served by the Worker from `public/`, listed in `SITE_PAGES` in
+`worker/site.ts`. That map is the single source: the sitemap and the `robots.txt` disallow
+lines are both generated from it, so a page cannot be announced without existing or exist
+without being announced. Each `.html` filename is refused as a public path, so every page has
+exactly one URL and that URL is its canonical.
+
+| URL | File | What it is |
+| --- | --- | --- |
+| `/` | `public/site.html` | The hub. Belongs to neither product; links to both pages and carries the rack of public recipes |
+| `/family` | `public/family.html` | The family app's case, and its sign-up |
+| `/professional` | `public/professional.html` | The kitchen app's case, and its sign-up. This is the kitchen's ONLY indexable surface, because `kitchen.enamelvault.com` is `noindex` |
+
+They share `public/site.css`. Anything else they reference must be in `isSiteAsset()`, or the
+bare host redirects it to the app host, which makes it cross-origin and the CSP refuses it
+**silently**; `src/site.assets.test.ts` is the guard, written after exactly that shipped.
+
+Four tests run over all three pages from a list: `site.a11y` (structure, distinct titles and
+canonicals, no inline script, hub neutrality), `site.assets`, `site.tokens` (palette drift)
+and `site.claims` (no claim the kitchen terms disclaim). **Adding a page means adding it to
+those lists**, or it ships unchecked.
 
 ## Quick start
 
