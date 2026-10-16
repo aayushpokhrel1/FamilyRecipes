@@ -23,6 +23,7 @@ import recover from "../pages/Recover.tsx?raw";
 import callback from "../pages/AuthCallback.tsx?raw";
 import kitchenSignIn from "../kitchen/pages/SignIn.tsx?raw";
 import kitchenRecover from "../kitchen/pages/Recover.tsx?raw";
+import kitchenSignUp from "../kitchen/pages/SignUp.tsx?raw";
 
 const FAMILY_LABEL = "Family Recipes";
 const KITCHEN_LABEL = "Enamel Vault for kitchens";
@@ -34,6 +35,7 @@ const PAGES: { name: string; source: string; label: string }[] = [
   { name: "AuthCallback", source: callback, label: FAMILY_LABEL },
   { name: "kitchen SignIn", source: kitchenSignIn, label: KITCHEN_LABEL },
   { name: "kitchen Recover", source: kitchenRecover, label: KITCHEN_LABEL },
+  { name: "kitchen SignUp", source: kitchenSignUp, label: KITCHEN_LABEL },
 ];
 
 describe("every auth card carries the mark", () => {

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { signUp } from "../../lib/api/auth";
+import GoogleButton from "../../components/GoogleButton";
+import AuthMark from "../../components/AuthMark";
 import { safeNext, withNext } from "../../lib/nextPath";
 
 export default function SignUp() {
@@ -38,7 +40,8 @@ export default function SignUp() {
   // clicked, so there is nowhere to navigate to. Saying so is the whole content of this state.
   if (sent) {
     return (
-      <div className="prose plate">
+      <div className="plate auth-card">
+        <AuthMark label="Enamel Vault for kitchens" />
         <h1>Check your inbox</h1>
         <p>
           Confirm the address and you will come straight back here. If you were sent an
@@ -49,28 +52,51 @@ export default function SignUp() {
   }
 
   return (
-    <div className="prose plate">
+    <form onSubmit={submit} className="plate auth-card">
+      <AuthMark label="Enamel Vault for kitchens" />
       <h1>Create an account</h1>
-      <form onSubmit={submit}>
-        <label htmlFor="name">Your name</label>
+      <label htmlFor="name">
+        Your name
         <input id="name" value={name} onChange={(e) => setName(e.target.value)} />
-        <label htmlFor="email">Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <label htmlFor="password">Password</label>
+      </label>
+      <label htmlFor="email">
+        Email
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+        />
+      </label>
+      <label htmlFor="password">
+        Password
         <input
           id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
         />
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" disabled={busy}>
-          Create the account
-        </button>
-      </form>
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <button type="submit" disabled={busy}>
+        Create the account
+      </button>
+      {/* DELIBERATELY NOT the family app's "by signing up you agree". For the kitchen,
+          acceptance is recorded by KitchenTermsGate into kitchen.terms_acceptance against
+          KITCHEN_TERMS_VERSION, so claiming it happened here would make this page contradict
+          the row that is the actual record. The documents are linked so they can be read
+          before committing, which is the part that matters. */}
+      <p className="form-consent">
+        Read the <Link to="/terms">terms</Link> and the{" "}
+        <Link to="/privacy">privacy page</Link> before you start.
+      </p>
+      <GoogleButton label="Sign up with Google" />
+      {/* The destination has to survive this hop too, or an invite dies on the way back. */}
       <p>
         Already have one? <Link to={withNext("/signin", next)}>Sign in</Link>.
       </p>
-    </div>
+    </form>
   );
 }
