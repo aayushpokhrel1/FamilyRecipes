@@ -54,13 +54,21 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   Add staples by typing or from the ingredient catalog, and tag an aisle for anything the
   catalog cannot place, from whichever screen you noticed it on.
 - **Sign-in** with a verified email address or with Google.
-- **Moderator console** at `/moderation`: the report queue, an overview of site counts, and a
-  roster with suspend, take down, grant moderator and delete. Visible only to a moderator, and
-  the page re-checks that rather than relying on the nav hiding the link.
+- **Moderator console** at `/moderation`, in five sections: the report queue, appeals, a
+  **Recipes** section of counts and first-party numbers (who comes back, where people fall out
+  of onboarding, which features are used, which marketing page produced an account), a roster
+  with suspend, take down, grant moderator and delete, and a **Kitchen** section counting the
+  other product. Visible only to a moderator, and the page re-checks that rather than relying
+  on the nav hiding the link.
 - **Public documents**, readable without an account: terms, privacy policy, cookies, and help
   (`/terms`, `/privacy`, `/cookies`, `/help`). The kitchen app has its own `/terms` and
   `/privacy`, a different product with different parties, and its own acceptance gate. There is no cookie banner because the app sets
-  no cookies and loads no analytics, which a test enforces rather than a promise.
+  no cookies and stores nothing on your device, which `src/lib/browserStorage.test.ts`
+  enforces rather than a promise. **Things ARE counted**, and saying otherwise here was wrong
+  until 2026-10-16: Cloudflare counts page views cookielessly, and a signed-in account's use
+  is recorded as one dated row per section per day so the project can tell whether anyone
+  comes back. Both are described on `/privacy` and `/cookies`, neither touches the device, and
+  that is why no banner is required.
 
 ## Stack
 

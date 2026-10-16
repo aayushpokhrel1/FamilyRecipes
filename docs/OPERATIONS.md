@@ -317,28 +317,31 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
 
-### First-party events: the order this one has to ship in
+### A change that spans all three targets ships in ONE order
 
-This change spans all three targets, so it is the worked example of why they are listed
-separately. Do it in this order:
+Database, then edge function, then frontend. Always that way round, and the reason is not
+tidiness: each step is what the next one depends on.
 
-1. **`npx supabase db push`**, applying `0060`. The table, the column and
-   `credit_signup_source` all have to exist before anything calls them.
-2. **`npx supabase functions deploy admin`**, for the `insights` action. The moderator console
-   calls it the moment the Overview tab is opened, and `ACTIVE` in the dashboard means
-   deployed, not current.
-3. **Then push master**, so Cloudflare builds the frontend that uses both.
+1. **`npx supabase db push`** — tables, columns and functions must exist before anything calls
+   them.
+2. **`npx supabase functions deploy <name>`** — one at a time, by name. `ACTIVE` in the
+   dashboard means deployed, not current.
+3. **Push master**, so Cloudflare builds the frontend that uses both.
 
-Getting 1 and 3 the wrong way round breaks every signed-in page load, not just the console:
-`AppLayout` records a visit on every navigation, so a missing table means a failed write on
-each one. It fails quietly, because `recordVisit` swallows everything by design, but the
-console's four panels would sit on an error and nothing would be recorded in the meantime.
+**Getting the database last is the expensive mistake, and it is quiet.** A frontend calling a
+table or function that does not exist yet fails on every request that touches it. Where the
+caller swallows errors by design, as a measurement writer should, nothing is logged and
+nothing is recorded, and the first sign is a number that stays at zero. The 2026-10-12
+incident below is the loud version of the same class; this is the silent one.
 
-Getting 2 wrong is narrower and louder: the Overview tab shows the `insights` error and the
-tiles and chart above it still render, which is deliberate and is pinned by two tests.
+**Getting the function last is narrower and louder:** the page that calls it shows its error.
+Whether that takes the rest of the page down with it depends on whether the page loads it
+independently, which is the pattern to copy rather than a given.
 
-**Nothing here needs a Supabase redirect allow-list entry.** `?from=` rides inside `next`,
-which is already covered by the `/auth/callback**` globstar entries.
+No deploy order is written here for a NAMED feature on purpose, for the same reason no current
+migration number is: a worked example naming a tab, an action and a migration goes stale the
+first time any of the three is renamed, and the first attempt at this section managed all
+three within a day.
 
 ### "Automatic" is not a guarantee: the push that never built (2026-10-12)
 
@@ -534,16 +537,38 @@ instead of redirecting a crawler into a dead end.
 **If you ever remove the custom domain, put a redirect rule back in the same motion**, or the
 apex answers nothing at all.
 
-**Cloudflare Web Analytics auto-injection is OFF** (turned off 2026-10-10, confirmed by
-fetching the live page and finding no `cloudflareinsights` reference). It had been injecting a
-beacon from `static.cloudflareinsights.com` into the landing page. Our CSP (`script-src
-'self'`) blocked it, so no data ever left, but that made the page's "no analytics" line true BY
-ACCIDENT: relax the CSP and the claim silently becomes false. A public promise should be kept
-by the setting that governs the behaviour, not by a security header downstream of it.
+**Cloudflare Web Analytics auto-injection is ON**, on both the apex and the app host, checked
+in a real browser on 2026-10-16: `script[src*="cloudflareinsights"]` is present on each.
 
-The site record still exists in Analytics & Logs -> Web Analytics with `auto_install: false`,
-so **re-enabling automatic setup there would start injecting the beacon again** and quietly
-falsify the footer. Delete the site if you want that to be impossible rather than merely off.
+This bullet said the opposite until that check, and the way it was wrong is the point.
+It claimed auto-injection was off, "confirmed by fetching the live page and finding no
+`cloudflareinsights` reference" — but **curl cannot see this injection at all**, as the
+Cloudflare Web Analytics section further down says in as many words. The evidence was
+incapable of supporting the claim, and both statements sat in this same file disagreeing.
+**Check an edge-injected script in a browser, never with curl**, and when two sections of a
+doc disagree, the one whose method cannot work is the one that is wrong.
+
+It injects a beacon from `static.cloudflareinsights.com` into the page. Our CSP (`script-src
+'self'`) blocked it until 2026-10-16, so no data ever left, and at the time the pages still
+claimed "no analytics" — a claim that was therefore true BY ACCIDENT: relax the CSP and it
+silently becomes false. **A public promise should be kept by the setting that governs the
+behaviour, not by a security header downstream of it**, and that is the durable lesson here
+rather than the wording of any one line.
+
+The pages no longer deny analytics at all (corrected 2026-10-16, and `src/site.claims.test.ts`
+fails if the denial returns to any marketing page or to the README), so the injection no longer
+makes a page lie. It is still a third-party request on every page load, which is why `/privacy`
+and `/cookies` both name it.
+
+**Do not trust an `auto_install` value read from the dashboard over what a browser shows.**
+This paragraph previously recorded the site record as `auto_install: false` while the beacon
+was in fact being injected on both hosts. Whatever the dashboard says, the page is the
+authority. **Deleting the site record is the only way to make injection impossible** rather
+than merely believed to be off.
+
+The full account of what this beacon does and does not collect, including that its collector
+still 404s, is under "Cloudflare Web Analytics is ON, and the tests cannot see it" below. This
+bullet covers only the marketing surface's part of it.
 
 **The trap when attaching the custom domain.** The API refuses with `100117: Hostname already
 has externally managed DNS records` while the hand-made `AAAA -> 100::` placeholder is still
@@ -792,8 +817,8 @@ the queries are reconstructible from the tables listed above.
   this very bullet advised. `tests/integration/helpers.ts` creates users with
   `auth.admin.createUser`, there are 114 `makeUser` calls across the suite, and the kitchen
   publish path inserts into `public.families` and `public.recipes`. A cloud run would therefore
-  seed production with over a hundred real accounts and their data, and would corrupt the admin
-  Overview's live-logins figure, which counts real accounts. **Check it with a read-only probe
+  seed production with over a hundred real accounts and their data, and would corrupt the
+  admin console's live-logins figure, which counts real accounts. **Check it with a read-only probe
   instead**, which writes nothing and distinguishes the two failures above:
 
       curl -s -o /dev/null -w '%{http_code}

@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 import familyHtml from "../public/family.html?raw";
 import professionalHtml from "../public/professional.html?raw";
 import siteHtml from "../public/site.html?raw";
+import readme from "../README.md?raw";
 import cookies from "./pages/Cookies.tsx?raw";
 import kitchenTerms from "./kitchen/pages/Terms.tsx?raw";
 
@@ -99,4 +100,29 @@ describe("the marketing footers do not deny what the cookies page discloses", ()
       ).toBe(false);
     });
   }
+});
+
+// THE README DENIED THE ANALYTICS TOO, and nothing above could see it.
+//
+// Everything in this file reads the three marketing pages. The README said the app "loads no
+// analytics, which a test enforces rather than a promise" until 2026-10-16, which was false
+// twice over: Cloudflare Web Analytics has been on at the zone since 2026-09-25, and the app
+// now keeps its own dated record of which sections a signed-in account opened. The sentence
+// even invoked a test as its authority, while being in the one file that test did not read.
+//
+// That is the same shape as the bug recorded about the two routers and the two apps: a guard
+// covering one of several places reports success for the places it cannot see. The README is
+// a public document on a public repository, so it is held to the claim too.
+it("the README does not deny the analytics the cookies page discloses", () => {
+  const text = readme.toLowerCase();
+  expect(
+    /\bno analytics\b|\bloads no analytics\b|\bwithout analytics\b/.test(text),
+    "README.md denies analytics, which src/pages/Cookies.tsx says in public that we do run",
+  ).toBe(false);
+});
+
+it("is reading the real README, so an empty result means clean and not unscanned", () => {
+  // The guard above passes trivially if the import ever resolves to nothing.
+  expect(readme.length).toBeGreaterThan(2000);
+  expect(readme).toContain("Moderator console");
 });
