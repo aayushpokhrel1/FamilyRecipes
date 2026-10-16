@@ -28,10 +28,6 @@ create table activity_days (
   -- exactly that, and because delete-account blanks the profile FIRST and removes the login
   -- LAST, the refusal landed with the identity already erased and the login still live.
   -- rls.test.ts fails a new reference to auth.users that omits this.
-  -- DEFAULTS TO auth.uid(), so the client never sends it, which is exactly what error_log
-  -- does and for the same reason: the RLS check below already requires the row to match the
-  -- caller, so a client-supplied id could only ever restate what the database knows, or be
-  -- refused. One less attacker-controlled field on the write path.
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
 
   -- THE CLIENT'S LOCAL DATE, NOT `default current_date`. current_date is UTC, and
@@ -72,8 +68,65 @@ alter table activity_days enable row level security;
 -- about writing `with check` explicitly on every `for update` and `for all` policy is not
 -- dodged by that: there is no update policy and no `for all` policy, so a row, once written,
 -- cannot be changed by anyone holding the anon key.
+--
+-- This policy is defence in depth rather than the path the app takes. The app writes through
+-- record_visit() below, for the reason written there.
 create policy activity_self_insert on activity_days
   for insert with check (user_id = auth.uid());
+
+-- RECORDING A VISIT GOES THROUGH A FUNCTION, AND AN UPSERT FROM THE CLIENT CANNOT WORK.
+--
+-- This was written as a plain client upsert first, and an integration test refused it with
+-- 42501 for a cook writing their OWN row. Reproduced in pure SQL: a plain insert succeeds and
+-- the identical statement with `on conflict (...) do nothing` fails the insert policy.
+--
+-- The reason is the arbiter. To decide whether a row conflicts, Postgres has to LOOK at the
+-- conflicting row, so `on conflict` needs a select policy on the table. This table
+-- deliberately has none, which is the one property worth keeping: a cook cannot read their own
+-- activity, let alone anybody else's. So the upsert and "nobody can read it" cannot both be
+-- had from the client, and the table's unreadability is the half that matters.
+--
+-- A definer function bypasses RLS, which resolves it and is strictly better than the client
+-- write it replaces: the client no longer names the cook at all, so a row cannot be
+-- attributed to anyone else even in principle, rather than being refused when it is. It is the
+-- same reasoning 0047 used for family_members, where both legitimate writes became definer
+-- functions and the insert policy was dropped as unnecessary.
+--
+-- No uuid parameter, so there is no subject for a caller to substitute, and rls.test.ts's rule
+-- about a definer function taking a uuid does not apply.
+create function record_visit(p_day date, p_surface text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  -- Anonymous callers have nothing to attribute. A no-op rather than an error, because this
+  -- is called on every navigation and must never be the thing that breaks one.
+  if auth.uid() is null then
+    return;
+  end if;
+
+  -- The surface list is validated HERE as well as in the client, because this function
+  -- bypasses RLS and so is the real boundary: without it, `p_surface` is a free-text column a
+  -- signed-in caller writes at will, and the feature-use panel becomes whatever they typed.
+  if p_surface not in (
+    'recipes', 'families', 'potluck', 'kitchen', 'cupboard',
+    'cookmode', 'drafts', 'settings', 'profile', 'moderation'
+  ) then
+    return;
+  end if;
+
+  -- A day either side of today, the same window as the column's check constraint, so a caller
+  -- cannot fabricate a retention history. Written out rather than left to the constraint
+  -- because a constraint violation would raise, and a measurement must not raise.
+  if p_day < current_date - 1 or p_day > current_date + 1 then
+    return;
+  end if;
+
+  insert into activity_days (user_id, day, surface)
+  values (auth.uid(), p_day, p_surface)
+  on conflict (user_id, day, surface) do nothing;
+end; $$;
+
+-- anon gets nothing: it has no account, and the function would be a no-op anyway.
+revoke execute on function record_visit(date, text) from public, anon;
 
 -- WHICH MARKETING PAGE PRODUCED THIS ACCOUNT, or null for "arrived without a credited link".
 --
@@ -132,10 +185,22 @@ begin
      -- Written once and never overwritten, so it records the FIRST arrival. A later visit
      -- through a different page is not a second signup.
      and signup_source is null
-     -- Only an account that was just created. Ten minutes covers a Google round trip and an
-     -- email confirmation opened straight away; a link opened the next day is a returning
-     -- visit, not an account this page produced.
-     and created_at > now() - interval '10 minutes';
+     -- Only a recently created account, and the window is SEVEN DAYS rather than minutes for
+     -- a reason a browser walk found on 2026-10-16.
+     --
+     -- The credit is written when the layout first mounts, which is after the email
+     -- confirmation link is opened AND after the terms gate is accepted. The confirmation link
+     -- is opened whenever the person gets to it, which is often hours or days after the
+     -- account row was created. A ten-minute window therefore passed for a Google signup, a
+     -- few seconds end to end, and would have silently never fired for an email signup, which
+     -- is most of them. The feature would have reported the marketing pages as producing
+     -- almost nothing.
+     --
+     -- Seven days still answers the question asked, "did this page produce an ACCOUNT", because
+     -- it excludes the case this guard exists for: an established cook who clicks a marketing
+     -- link months later and would otherwise be counted as a new signup. A cook who signed up
+     -- three days ago and arrives through the link is, for this purpose, from that page.
+     and created_at > now() - interval '7 days';
 end; $$;
 
 -- auth.uid() is null for anon, so the update matches nothing and the function is a no-op

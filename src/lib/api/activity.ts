@@ -77,14 +77,15 @@ export function recordVisit(pathname: string): void {
     if (sent.has(key)) return;
     sent.add(key);
 
-    // No user_id: the column defaults to auth.uid() and the insert policy requires the row to
-    // match the caller, so sending it would only restate what the database already knows.
+    // AN RPC, NOT A CLIENT UPSERT, and 0060 has the long version. In short: `on conflict` needs
+    // a select policy, because Postgres has to look at the conflicting row to decide whether
+    // there is one, and this table deliberately has no select policy at all. So the upsert and
+    // "nobody can read it" cannot both be had from here, and the unreadability is the half
+    // worth keeping.
     //
-    // An upsert that ignores duplicates rather than a plain insert, because a plain insert on
-    // an existing primary key raises a duplicate-key error, and a cook moving around the app
-    // would generate a stream of them.
-    supabase.from("activity_days")
-      .upsert({ day, surface }, { onConflict: "user_id,day,surface", ignoreDuplicates: true })
+    // The function takes no user id. It reads the cook from auth.uid(), so this call cannot
+    // attribute a visit to anybody, which is stronger than being refused when it tries.
+    supabase.rpc("record_visit", { p_day: day, p_surface: surface })
       // A rejected promise is NOT caught by the surrounding try/catch, because nothing here
       // awaits it. This handler is the only thing standing between a failed write and an
       // unhandled rejection in the console.

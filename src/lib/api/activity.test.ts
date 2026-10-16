@@ -2,21 +2,23 @@ import activitySource from "./activity.ts?raw";
 import { vi, test, expect, beforeEach, afterEach } from "vitest";
 
 const from = vi.fn();
+const rpc = vi.fn();
 vi.mock("../supabaseClient", () => ({ supabase: {
   from: (...a: any[]) => from(...a),
+  rpc: (...a: any[]) => rpc(...a),
 }}));
 
 // The write is fire-and-forget, so the mock has to be a thenable the module can attach a
-// rejection handler to, and it has to record the payload at call time rather than on resolve.
-function mockUpsert(result: { error: unknown } = { error: null }) {
-  const upserted: { table: string; payload: any; options: any }[] = [];
-  from.mockImplementation((table: string) => ({
-    upsert: (payload: any, options: any) => {
-      upserted.push({ table, payload, options });
-      return { then: (_ok: unknown, fail?: (e: unknown) => void) => { if (result.error) fail?.(result.error); } };
-    },
-  }));
-  return { upserted };
+// rejection handler to, and it has to record the arguments at call time rather than on
+// resolve. It records an RPC rather than a table write because `on conflict` needs a select
+// policy and this table deliberately has none; 0060 has the reasoning.
+function mockRpc(result: { error: unknown } = { error: null }) {
+  const calls: { fn: string; args: any }[] = [];
+  rpc.mockImplementation((fn: string, args: any) => {
+    calls.push({ fn, args });
+    return { then: (_ok: unknown, fail?: (e: unknown) => void) => { if (result.error) fail?.(result.error); } };
+  });
+  return { calls };
 }
 
 beforeEach(() => {
@@ -97,26 +99,36 @@ test("surfaceFor ignores a leading or trailing slash", async () => {
   expect(surfaceFor("/")).toBe("recipes");
 });
 
-test("recordVisit upserts one row with day and surface, and no user_id", async () => {
-  const { upserted } = mockUpsert();
+test("recordVisit calls record_visit with the day and the surface, and names no cook", async () => {
+  const { calls } = mockRpc();
   const recordVisit = await loadRecordVisit();
 
   recordVisit("/potluck");
 
-  expect(upserted).toHaveLength(1);
-  expect(upserted[0].table).toBe("activity_days");
-  // The column defaults to auth.uid() and the insert policy requires the row to match the
-  // caller, so a client-sent user_id could only ever restate it.
-  expect(Object.keys(upserted[0].payload).sort()).toEqual(["day", "surface"]);
-  expect(upserted[0].payload.user_id).toBeUndefined();
-  expect(upserted[0].payload.surface).toBe("potluck");
-  // A plain insert on an existing primary key raises a duplicate-key error, and a cook moving
-  // around the app would generate a stream of them.
-  expect(upserted[0].options).toEqual({ onConflict: "user_id,day,surface", ignoreDuplicates: true });
+  expect(calls).toHaveLength(1);
+  expect(calls[0].fn).toBe("record_visit");
+  // THE COOK IS NOT NAMED. The function reads auth.uid() itself, so this call cannot attribute
+  // a visit to anybody, which is stronger than a policy refusing it when it tries. Anything
+  // resembling a user id in these arguments is the regression to catch.
+  expect(Object.keys(calls[0].args).sort()).toEqual(["p_day", "p_surface"]);
+  expect(calls[0].args.p_surface).toBe("potluck");
+});
+
+// An RPC rather than a table write, because `on conflict` needs a select policy (Postgres has
+// to look at the conflicting row) and this table deliberately has none. 0060 has the long
+// version. Pinned so a future tidy-up back to a client upsert fails here rather than in
+// production, where recordVisit swallows every error.
+test("recordVisit never writes to the table directly", async () => {
+  mockRpc();
+  const recordVisit = await loadRecordVisit();
+
+  recordVisit("/potluck");
+
+  expect(from).not.toHaveBeenCalled();
 });
 
 test("recordVisit writes nothing for a pathname that maps to null", async () => {
-  const { upserted } = mockUpsert();
+  const { calls } = mockRpc();
   const recordVisit = await loadRecordVisit();
 
   recordVisit("/signin");
@@ -124,27 +136,27 @@ test("recordVisit writes nothing for a pathname that maps to null", async () => 
   recordVisit("/join/CODE");
   recordVisit("/nope/not-a-page");
 
-  expect(upserted).toHaveLength(0);
+  expect(calls).toHaveLength(0);
 });
 
 test("recordVisit sends only one upsert for the same surface on the same day", async () => {
-  const { upserted } = mockUpsert();
+  const { calls } = mockRpc();
   const recordVisit = await loadRecordVisit();
 
   recordVisit("/potluck");
   recordVisit("/potluck");
 
-  expect(upserted).toHaveLength(1);
+  expect(calls).toHaveLength(1);
 });
 
 test("recordVisit records a different surface on the same day", async () => {
-  const { upserted } = mockUpsert();
+  const { calls } = mockRpc();
   const recordVisit = await loadRecordVisit();
 
   recordVisit("/potluck");
   recordVisit("/kitchen");
 
-  expect(upserted.map((u) => u.payload.surface)).toEqual(["potluck", "kitchen"]);
+  expect(calls.map((c) => c.args.p_surface)).toEqual(["potluck", "kitchen"]);
 });
 
 // The day is the LOCAL date, built from the local getters, because that is what the app means
@@ -153,7 +165,7 @@ test("recordVisit records a different surface on the same day", async () => {
 // previous day. The instant below is chosen so the two disagree in the test runner's own
 // timezone: 23:30Z is the next day east of UTC, and 00:30Z is the previous day west of it.
 test("the day sent is the local date, not the UTC one", async () => {
-  const { upserted } = mockUpsert();
+  const { calls } = mockRpc();
   const recordVisit = await loadRecordVisit();
   // Whichever side of UTC the runner is on, one of these two instants has a local date that
   // differs from its UTC date, so a toISOString()-derived day cannot pass both. The instant is
@@ -167,19 +179,19 @@ test("the day sent is the local date, not the UTC one", async () => {
 
   const now = new Date();
   const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  expect(upserted[0].payload.day).toBe(local);
+  expect(calls[0].args.p_day).toBe(local);
   // The instant really does fall on a different date in UTC, so the assertion above is not
   // passing by accident. A runner at UTC offset 0 has no local/UTC difference to show, so the
   // check is skipped there rather than weakened.
   if (offsetMinutes !== 0) {
-    expect(upserted[0].payload.day).not.toBe(now.toISOString().slice(0, 10));
+    expect(calls[0].args.p_day).not.toBe(now.toISOString().slice(0, 10));
   }
 });
 
 // A rejected promise is not caught by a surrounding try/catch when nothing awaits it, so
 // without the rejection handler this test fails with an unhandled rejection.
 test("a write that rejects does not throw out of recordVisit", async () => {
-  mockUpsert({ error: { message: "nope" } });
+  mockRpc({ error: { message: "nope" } });
   const recordVisit = await loadRecordVisit();
 
   expect(() => recordVisit("/potluck")).not.toThrow();
@@ -195,10 +207,10 @@ test("a write that rejects does not throw out of recordVisit", async () => {
 // every other test green, because an unhandled rejection does not fail a vitest run by
 // default. It is the only thing standing between a failed write and an unhandled rejection in
 // a family member's console, so it gets pinned directly.
-test("a rejection handler is attached to the upsert, not left dangling", async () => {
+test("a rejection handler is attached to the write, not left dangling", async () => {
   let handler: unknown;
-  from.mockImplementation(() => ({
-    upsert: () => ({ then: (_ok: unknown, fail?: unknown) => { handler = fail; } }),
+  rpc.mockImplementation(() => ({
+    then: (_ok: unknown, fail?: unknown) => { handler = fail; },
   }));
   const recordVisit = await loadRecordVisit();
 
@@ -227,3 +239,7 @@ test("the day is never derived from toISOString, which is the UTC trap", () => {
     .join(" ");
   expect(code).not.toContain("toISOString");
 });
+
+// The signed-out case is NOT handled in the client on purpose: record_visit() returns early
+// when auth.uid() is null, so this module does not need to know who is signed in, and a check
+// here would be a second opinion about it that can disagree with the real one.
