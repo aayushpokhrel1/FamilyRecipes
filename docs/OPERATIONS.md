@@ -89,6 +89,26 @@ export and not a code bug.
 npm run test:int
 ```
 
+### A browser walk poisons the integration suite, and it looks like flakiness
+
+**Run `npx supabase db reset` before the integration suite if you have been clicking around
+the app.** Accounts made by hand for a browser walk stay in the same local database the
+integration tests run against, and several of those tests assert invariants over the WHOLE
+database rather than over rows they created.
+
+Measured on 2026-10-15. After a walk that created two accounts, an org, a site, a dish and an
+invite, two consecutive full runs each reported `224 passed | 1 failed` with a DIFFERENT test
+failing each time, and each of those tests passed when run on its own. That reads exactly like
+a timing flake and is not one. After `npx supabase db reset` the same suite was 225/225.
+
+The two that happened to fail were the whole-database ones, which is the tell:
+`audit_2026_10_12_full.test.ts` "holds the invariant that a profile with no login has no public
+identity", and a `kitchen_invites.test.ts` case. Anything that scans rather than scopes is a
+candidate.
+
+So a red integration run is three questions, in this order: are the three env vars exported,
+has this database been walked since its last reset, and only then is it the code.
+
 ## Walking production signed in
 
 **Why this is not optional, and not the same as `npm test`.** Every defect found in the last

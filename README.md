@@ -112,13 +112,16 @@ and uptime monitoring · verified email and Google sign-in · the cupboard and "
 ingredient aisles · My Kitchen week grid · recipe enrichment and grocery scaling · My Kitchen
 meal planning · v1 private multi-family vault.
 
-**Deployed but unannounced: the professional-kitchen app.** A dish goes development, trial at
+**Live and offered: the professional-kitchen app.** A dish goes development, trial at
 one site, group menu, with every revision kept, one version signed off, and an owner able to
 publish the approved version to Potluck under the venue's name. It runs on its own host,
-`kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. It is
-deliberately `noindex` while its landing copy still says it is in development, enforced by a
-`robots.txt` and an `X-Robots-Tag` header rather than a meta tag alone, since the crawlers
-that matter never run the page.
+`kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. Since
+2026-10-15 the landing page offers it alongside the family app, through a sign-in chooser and
+its own section.
+
+It stays `noindex`, enforced by a `robots.txt` and an `X-Robots-Tag` header rather than a meta
+tag alone, since the crawlers that matter never run the page. **The reason changed on
+2026-10-15 even though the rule did not**; `worker/kitchen.ts` carries it.
 
 Next: opening Potluck beyond signed-in users, which moderation and the public documents now
 unblock, and then costs for the kitchen (yield, portion cost, supplier, allergens) in their

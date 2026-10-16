@@ -32,9 +32,21 @@ export function isSharedAsset(pathname: string): boolean {
   return SHARED_ASSET.test(pathname);
 }
 
-// Disallow everything. The public landing page tells professional kitchens that this is in
-// development, and an indexed app on this host would make that claim false. When the product
-// is announced, this file and that sentence change together.
+// Disallow everything, and NOT for the reason this comment used to give.
+//
+// It used to say the landing page called the kitchen app "in development", so an indexed app
+// on this host would make that claim false, and that this file and that sentence would change
+// together. The sentence changed on 2026-10-15: the landing page now offers the app and links
+// it. The Disallow stayed anyway, on a different and better reason.
+//
+// THE REASON NOW: this host serves an APP, not content. Every page behind it needs a session,
+// so the only thing a crawler can ever reach is a sign-in form, and indexing that earns
+// nothing while making the sign-in page compete with enamelvault.com for the product's own
+// name. The landing page is the indexable surface and it describes the kitchen in full.
+//
+// So lifting this is a real decision about how the product is found, not a tidy-up that
+// follows from the copy change. Whoever lifts it should want search traffic landing on a
+// sign-in form.
 export function kitchenRobots(): string {
   return ["User-agent: *", "Disallow: /", ""].join("\n");
 }
