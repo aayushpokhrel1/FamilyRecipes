@@ -98,8 +98,11 @@ export function recordVisit(pathname: string): void {
 // Credits the marketing page that produced this account, once.
 //
 // Everything that makes the number honest is in credit_signup_source() in 0060, not here:
-// the account must be minutes old and the column must still be empty, and `now()` there is
-// the only clock the caller cannot move. This call is just the messenger, so it is as
+// the column must still be empty and the account must be under SEVEN DAYS old, and `now()`
+// there is the only clock the caller cannot move. The window is days rather than minutes
+// because this fires when the layout first mounts, which is after the email confirmation
+// link is opened, and that happens whenever the person gets to it. 0060's own header has
+// the full reasoning; do not narrow it back without reading that. This call is just the messenger, so it is as
 // forgiving as recordVisit: a failed credit must never be the thing that breaks a landing.
 export function creditSignupSource(from: string): void {
   try {

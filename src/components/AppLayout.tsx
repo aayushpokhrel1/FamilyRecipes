@@ -30,8 +30,10 @@ export default function AppLayout() {
   // Crediting the marketing page that sent them. `from` rode here inside `next`, which is the
   // only value that survives a Google round trip and an email confirmation opened later; see
   // lib/nextPath.ts. The parameter is stripped afterwards so it does not linger in the address
-  // bar and end up in a link somebody copies. The database refuses the write unless the
-  // account is minutes old, so a stale or repeated parameter credits nothing.
+  // bar and end up in a link somebody copies. The database refuses the write unless the column
+  // is still empty and the account is under seven days old, so a stale or repeated parameter
+  // credits nothing. Seven days, not minutes: this effect runs after the confirmation link is
+  // opened, which can be days later. 0060's header has the reasoning.
   useEffect(() => {
     const from = safeFrom(params.get("from"));
     if (!from) return;

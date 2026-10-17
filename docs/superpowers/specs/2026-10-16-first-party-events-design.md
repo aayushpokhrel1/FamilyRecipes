@@ -233,9 +233,17 @@ their sources are null, and the panel would report the marketing site as having 
 accounts that predate it.
 
 So the write is conditional on the account being new: `signup_source` is set only when the
-profile is still null **and** the profile was created within the last few minutes. The
-question the panel answers is "did this page produce an account", and an account that already
-existed cannot have been produced by it.
+profile is still null **and** the profile was created recently. The question the panel answers
+is "did this page produce an account", and an account that already existed cannot have been
+produced by it.
+
+**This section said "the last few minutes" when it was designed, and that was wrong.** A
+browser walk on 2026-10-16 found that the credit is written when the layout first mounts,
+which is after the email confirmation link is opened, and that happens whenever the person
+gets to it rather than within minutes. A ten-minute window passed for a Google signup and
+would silently never have fired for an email one, which is most of them. **What shipped is
+seven days**, and `0060`'s header carries the argument for why that still answers the
+question asked.
 
 ### Every panel shows the total and the non-moderator figure beside it
 
