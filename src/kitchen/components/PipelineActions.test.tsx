@@ -31,6 +31,36 @@ describe("sending a dish to trial", () => {
     expect(sendToTrial).toHaveBeenCalledWith("d1", "s2");
   });
 
+  // THE CASE THE TEST ABOVE CANNOT SEE, and the one that shipped broken. That test renders
+  // with `sites` already full AND changes the dropdown, which is the single path that worked.
+  // In the real app DishDetail starts `sites` as [] and fills it from a fetch, and an owner
+  // who accepts the site already shown never fires onChange.
+  it("sends to the site shown when sites arrive after the first render", async () => {
+    const { rerender } = render(
+      <PipelineActions dish={inDevelopment} newestVersionId="v1" sites={[]} role="chef" onDone={vi.fn()} />,
+    );
+    rerender(
+      <PipelineActions dish={inDevelopment} newestVersionId="v1" sites={sites} role="chef" onDone={vi.fn()} />,
+    );
+    const button = screen.getByRole("button", { name: /send to trial/i });
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(sendToTrial).toHaveBeenCalledWith("d1", "s1");
+  });
+
+  // The worst version of it: with ONE site there is nothing else to pick, so a dropdown that
+  // ignores what it displays leaves the dish stuck in development forever.
+  it("works for a group with a single site, which cannot change the dropdown", async () => {
+    const { rerender } = render(
+      <PipelineActions dish={inDevelopment} newestVersionId="v1" sites={[]} role="owner" onDone={vi.fn()} />,
+    );
+    rerender(
+      <PipelineActions dish={inDevelopment} newestVersionId="v1" sites={[sites[0]]} role="owner" onDone={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /send to trial/i }));
+    expect(sendToTrial).toHaveBeenCalledWith("d1", "s1");
+  });
+
   it("is not offered for a dish already on the menu", () => {
     render(
       <PipelineActions dish={onMenu} newestVersionId="v1" sites={sites} role="chef" onDone={vi.fn()} />,

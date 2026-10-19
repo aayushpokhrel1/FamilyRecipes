@@ -24,7 +24,17 @@ export default function PipelineActions({
   mySiteId?: string | null;
   onDone: () => void;
 }) {
-  const [siteId, setSiteId] = useState(sites[0]?.id ?? "");
+  // DELIBERATELY NOT `useState(sites[0]?.id ?? "")`. DishDetail starts `sites` as [] and fills
+  // it from a fetch, so this component's FIRST render has no sites and an initial value would
+  // capture "" and keep it forever. The select would still DISPLAY the first option as chosen,
+  // because a browser shows option one when the value matches nothing, so everything looks
+  // right while `disabled={!siteId}` keeps the button dead. Changing the dropdown was the only
+  // way to wake it up, and a group with ONE site has nothing to change it to, which left the
+  // whole pipeline unreachable on production until 2026-10-19.
+  //
+  // Derive the fallback on every render instead of storing it, so it tracks `sites` arriving.
+  const [siteId, setSiteId] = useState("");
+  const trialSite = siteId || sites[0]?.id || "";
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,7 +59,7 @@ export default function PipelineActions({
       {writes && dish.stage === "development" && (
         <div>
           <label htmlFor="trial-site">Trial at</label>
-          <select id="trial-site" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+          <select id="trial-site" value={trialSite} onChange={(e) => setSiteId(e.target.value)}>
             {sites.map((site) => (
               <option key={site.id} value={site.id}>
                 {site.name}
@@ -58,8 +68,8 @@ export default function PipelineActions({
           </select>
           <button
             type="button"
-            disabled={busy || !siteId}
-            onClick={() => run(() => sendToTrial(dish.id, siteId))}
+            disabled={busy || !trialSite}
+            onClick={() => run(() => sendToTrial(dish.id, trialSite))}
           >
             Send to trial
           </button>
@@ -82,7 +92,7 @@ export default function PipelineActions({
             type="button"
             disabled={busy || !note.trim()}
             onClick={() =>
-              run(() => recordDeviation(dish.id, mySiteId ?? siteId, note.trim())).then(() =>
+              run(() => recordDeviation(dish.id, mySiteId ?? trialSite, note.trim())).then(() =>
                 setNote(""),
               )
             }
