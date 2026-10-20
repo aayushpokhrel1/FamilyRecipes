@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import DishDetail from "./DishDetail";
 import {
-  getDish, listVersions, getVersion, menuVersionId, listDeviations, getSnapshot,
+  getDish, listVersions, getVersion, menuVersionId, listDeviations, getSnapshot, retireDish,
+  unretireDish,
 } from "../../lib/api/kitchen/dishes";
 import { listSites, listStaff, myRole } from "../../lib/api/kitchen/orgs";
 
@@ -11,6 +13,7 @@ vi.mock("../../lib/api/kitchen/dishes", () => ({
   getDish: vi.fn(), listVersions: vi.fn(), getVersion: vi.fn(), menuVersionId: vi.fn(),
   listDeviations: vi.fn(), getSnapshot: vi.fn(), reviseDish: vi.fn(), sendToTrial: vi.fn(),
   signOff: vi.fn(), recordDeviation: vi.fn(), publishDish: vi.fn(), unpublishDish: vi.fn(),
+  retireDish: vi.fn(), unretireDish: vi.fn(),
 }));
 vi.mock("../../lib/api/kitchen/orgs", () => ({
   listSites: vi.fn(), myRole: vi.fn(), listStaff: vi.fn(),
@@ -135,5 +138,64 @@ describe("the dish page", () => {
     renderPage();
     await screen.findByRole("heading", { name: "Smoked onion tart" });
     expect(screen.queryByRole("button", { name: /save a new version/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("retiring a dish", () => {
+  it("offers a chef Retire, and retiring calls the API with the dish id", async () => {
+    vi.mocked(retireDish).mockResolvedValue(undefined);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /^retire$/i }));
+    expect(retireDish).toHaveBeenCalledWith("d1");
+  });
+
+  it("marks a retired dish and offers to bring it back", async () => {
+    vi.mocked(getDish).mockResolvedValue({
+      id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "menu", trial_site_id: null,
+      retired_at: "2026-10-20T10:00:00Z",
+    });
+    vi.mocked(unretireDish).mockResolvedValue(undefined);
+    renderPage();
+    expect(await screen.findByText(/retired/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /bring it back/i }));
+    expect(unretireDish).toHaveBeenCalledWith("d1");
+  });
+
+  it("offers a cook neither button, because the database would refuse them", async () => {
+    vi.mocked(myRole).mockResolvedValue("cook");
+    renderPage();
+    await screen.findByRole("heading", { name: "Smoked onion tart" });
+    expect(screen.queryByRole("button", { name: /^retire$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /bring it back/i })).not.toBeInTheDocument();
+  });
+
+  it("still offers the publish panel on a retired dish", async () => {
+    // Retiring is about the group's own menu, not about the public: the database still
+    // allows publishing and taking down, so the panel must not be hidden.
+    vi.mocked(myRole).mockResolvedValue("owner");
+    vi.mocked(getDish).mockResolvedValue({
+      id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "menu", trial_site_id: null,
+      retired_at: "2026-10-20T10:00:00Z",
+    });
+    renderPage();
+    expect(await screen.findByRole("heading", { name: /publishing/i })).toBeInTheDocument();
+  });
+
+  it("does not offer the controls the database refuses for a retired dish", async () => {
+    vi.mocked(getDish).mockResolvedValue({
+      id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "development",
+      trial_site_id: null, retired_at: "2026-10-20T10:00:00Z",
+    });
+    renderPage();
+    await screen.findByRole("heading", { name: "Smoked onion tart" });
+    expect(screen.queryByRole("button", { name: /send to trial/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign off/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the database's refusal rather than swallowing it", async () => {
+    vi.mocked(retireDish).mockRejectedValue(new Error("only an owner or a chef may retire a dish"));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /^retire$/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("only an owner or a chef may retire a dish");
   });
 });

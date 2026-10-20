@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  getDish, getSnapshot, getVersion, listDeviations, listVersions, menuVersionId, reviseDish,
+  getDish, getSnapshot, getVersion, listDeviations, listVersions, menuVersionId, retireDish,
+  reviseDish, unretireDish,
 } from "../../lib/api/kitchen/dishes";
 import { listSites, listStaff } from "../../lib/api/kitchen/orgs";
 import type {
@@ -93,6 +94,19 @@ export default function DishDetail() {
     }
   }
 
+  async function retire(action: () => Promise<void>) {
+    setError(null);
+    setBusy(true);
+    try {
+      await action();
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!checked) return <div className="prose plate">Loading.</div>;
   // No row came back. Either it does not exist or this viewer's role may not read it at this
   // stage, and the page deliberately does not distinguish: a cook learning that a dish exists
@@ -102,11 +116,19 @@ export default function DishDetail() {
   const newest = versions[0];
   const live = versions.find((v) => v.id === liveId) ?? null;
   const shownVersion = versions.find((v) => v.id === shownId) ?? newest ?? null;
+  // Retiring is about the group's own menu, not about the public: the database refuses
+  // send_to_trial and sign_off for a retired dish and deliberately still allows publishing,
+  // so the publish panel below is untouched. Only an owner or a chef may retire or bring back.
+  const retired = dish.retired_at !== null;
+  const mayRetire = role === "owner" || role === "chef";
 
   return (
     <div className="prose plate">
       <h1>{dish.title}</h1>
-      <p>{STAGE_WORDS[dish.stage]}</p>
+      <p>
+        {STAGE_WORDS[dish.stage]}
+        {retired && " — Retired"}
+      </p>
 
       {live && (
         <p>
@@ -115,14 +137,33 @@ export default function DishDetail() {
         </p>
       )}
 
-      <PipelineActions
-        dish={dish}
-        newestVersionId={newest?.id ?? null}
-        sites={sites}
-        role={role}
-        mySiteId={mySiteId}
-        onDone={() => void load()}
-      />
+      {mayRetire && (
+        <p>
+          {retired ? (
+            <button type="button" disabled={busy} onClick={() => retire(() => unretireDish(dish.id))}>
+              Bring it back
+            </button>
+          ) : (
+            <button type="button" disabled={busy} onClick={() => retire(() => retireDish(dish.id))}>
+              Retire
+            </button>
+          )}
+        </p>
+      )}
+
+      {/* A retired dish is refused by send_to_trial and sign_off, so those two controls are
+          not offered at all: a page must never offer a control its viewer's policy refuses.
+          The deviation control is still allowed, so PipelineActions still renders. */}
+      {!retired && (
+        <PipelineActions
+          dish={dish}
+          newestVersionId={newest?.id ?? null}
+          sites={sites}
+          role={role}
+          mySiteId={mySiteId}
+          onDone={() => void load()}
+        />
+      )}
 
       {deviations.length > 0 && (
         <>

@@ -15,6 +15,9 @@ export default function Dishes() {
   const { role } = useMyRole(id);
   const [dishes, setDishes] = useState<Dish[] | null>(null);
   const [title, setTitle] = useState("");
+  // A plain toggle, NOT seeded from the fetched list: a useState initial value is captured on
+  // the first render only, and `dishes` is null then. See f1767ba.
+  const [showRetired, setShowRetired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
@@ -24,6 +27,11 @@ export default function Dishes() {
       .then(setDishes)
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load."));
   }, [id]);
+
+  // Derived during render, never stored: a retired dish is off the group's menu, so it is
+  // hidden by default and only revealed by the toggle.
+  const retiredCount = dishes?.filter((dish) => dish.retired_at !== null).length ?? 0;
+  const shown = dishes?.filter((dish) => showRetired || dish.retired_at === null) ?? [];
 
   async function start(e: React.FormEvent) {
     e.preventDefault();
@@ -51,14 +59,34 @@ export default function Dishes() {
         // broken one and this is the first thing most new staff will see.
         <p>Nothing on the menu yet.</p>
       ) : (
-        <ul>
-          {dishes.map((dish) => (
-            <li key={dish.id}>
-              <Link to={`/orgs/${id}/dishes/${dish.id}`}>{dish.title}</Link>{" "}
-              <span>{STAGE_WORDS[dish.stage]}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {retiredCount > 0 && (
+            <p>
+              <button
+                type="button"
+                aria-pressed={showRetired}
+                onClick={() => setShowRetired((on) => !on)}
+              >
+                Show retired
+              </button>
+            </p>
+          )}
+          {shown.length === 0 ? (
+            // Every dish this viewer can read is retired. Said in its own words, because
+            // "Nothing on the menu yet." would read as a group that has never written one.
+            <p>Every dish here has been retired. Show retired to see them.</p>
+          ) : (
+            <ul>
+              {shown.map((dish) => (
+                <li key={dish.id}>
+                  <Link to={`/orgs/${id}/dishes/${dish.id}`}>{dish.title}</Link>{" "}
+                  <span>{STAGE_WORDS[dish.stage]}</span>
+                  {dish.retired_at !== null && <span> — Retired</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {canWriteDishes(role) && (

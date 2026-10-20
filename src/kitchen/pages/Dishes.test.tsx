@@ -75,3 +75,37 @@ describe("the dish list", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("only an owner or a chef");
   });
 });
+
+describe("retired dishes", () => {
+  const retired = {
+    id: "d3", org_id: "o1", title: "Pickled walnuts", stage: "menu" as const,
+    trial_site_id: null, retired_at: "2026-10-20T10:00:00Z",
+  };
+  const onDevelopment = {
+    id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "development" as const,
+    trial_site_id: null, retired_at: null,
+  };
+
+  it("leaves a retired dish out of the list by default", async () => {
+    vi.mocked(listDishes).mockResolvedValue([onDevelopment, retired]);
+    renderPage();
+    await screen.findByText("Smoked onion tart");
+    expect(screen.queryByText("Pickled walnuts")).not.toBeInTheDocument();
+  });
+
+  it("shows it, marked retired, once the toggle is used", async () => {
+    vi.mocked(listDishes).mockResolvedValue([onDevelopment, retired]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /show retired/i }));
+    expect(screen.getByText("Pickled walnuts")).toBeInTheDocument();
+    expect(screen.getByText(/— retired/i)).toBeInTheDocument();
+  });
+
+  it("says every dish is retired rather than looking like an empty group", async () => {
+    // "Nothing on the menu yet." would read as a group that has never written a dish.
+    vi.mocked(listDishes).mockResolvedValue([retired]);
+    renderPage();
+    expect(await screen.findByText(/every dish here has been retired/i)).toBeInTheDocument();
+    expect(screen.queryByText(/nothing on the menu yet/i)).not.toBeInTheDocument();
+  });
+});
