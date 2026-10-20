@@ -9,7 +9,7 @@ const kitchen = () => supabase.schema("kitchen");
 export async function listDishes(orgId: string): Promise<Dish[]> {
   const { data, error } = await kitchen()
     .from("dishes")
-    .select("id,org_id,title,stage,trial_site_id")
+    .select("id,org_id,title,stage,trial_site_id,retired_at")
     .eq("org_id", orgId)
     .order("title");
   if (error) throw new Error(error.message);
@@ -21,7 +21,7 @@ export async function getDish(dishId: string): Promise<Dish | null> {
   // an error, and that is a "not found" page, not a crash. The read ladder is in the database.
   const { data, error } = await kitchen()
     .from("dishes")
-    .select("id,org_id,title,stage,trial_site_id")
+    .select("id,org_id,title,stage,trial_site_id,retired_at")
     .eq("id", dishId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -90,6 +90,16 @@ export async function sendToTrial(dishId: string, siteId: string): Promise<void>
 
 export async function signOff(versionId: string): Promise<void> {
   const { error } = await kitchen().rpc("sign_off", { p_version: versionId });
+  if (error) throw new Error(error.message);
+}
+
+export async function retireDish(dishId: string): Promise<void> {
+  const { error } = await kitchen().rpc("retire_dish", { p_dish: dishId });
+  if (error) throw new Error(error.message);
+}
+
+export async function unretireDish(dishId: string): Promise<void> {
+  const { error } = await kitchen().rpc("unretire_dish", { p_dish: dishId });
   if (error) throw new Error(error.message);
 }
 

@@ -4,7 +4,8 @@
 export type StaffRole = "owner" | "chef" | "site_manager" | "cook";
 
 export type Org = { id: string; name: string };
-export type Site = { id: string; org_id: string; name: string };
+// closed_at is set when the site was closed.
+export type Site = { id: string; org_id: string; name: string; closed_at: string | null };
 
 // site_id null means GROUP-WIDE. For an owner or a chef that is normal. For a site_manager or
 // a cook it means they belong to no site, and the database's read ladder then shows them
@@ -27,6 +28,9 @@ export type Dish = {
   stage: DishStage;
   // Set only while the dish is at trial, and the database has a constraint saying so.
   trial_site_id: string | null;
+  // Set when the dish was retired. A retired dish is refused by send_to_trial and sign_off;
+  // publishing stays available on purpose.
+  retired_at: string | null;
 };
 
 // `n` counts up from 1 per dish. A version is IMMUTABLE: revising writes a new one, which is

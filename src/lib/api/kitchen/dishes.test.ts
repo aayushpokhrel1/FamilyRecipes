@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { supabase } from "../../supabaseClient";
 import {
-  listDishes, createDish, listVersions, getVersion, reviseDish,
+  listDishes, getDish, createDish, listVersions, getVersion, reviseDish,
   sendToTrial, signOff, menuVersionId, publishDish, getSnapshot,
+  retireDish, unretireDish,
 } from "./dishes";
 
 const rpc = vi.fn();
@@ -27,10 +28,11 @@ function chain(result: unknown) {
 
 describe("listDishes", () => {
   it("reads one org's dishes through the kitchen schema", async () => {
-    const { eq } = chain({ data: [{ id: "d1", org_id: "o1", title: "Tart", stage: "menu", trial_site_id: null }], error: null });
+    const { eq, select } = chain({ data: [{ id: "d1", org_id: "o1", title: "Tart", stage: "menu", trial_site_id: null, retired_at: null }], error: null });
     const dishes = await listDishes("o1");
     expect(supabase.schema).toHaveBeenCalledWith("kitchen");
     expect(from).toHaveBeenCalledWith("dishes");
+    expect(select).toHaveBeenCalledWith("id,org_id,title,stage,trial_site_id,retired_at");
     expect(eq).toHaveBeenCalledWith("org_id", "o1");
     expect(dishes).toHaveLength(1);
   });
@@ -38,6 +40,19 @@ describe("listDishes", () => {
   it("returns an empty list rather than null", async () => {
     chain({ data: null, error: null });
     expect(await listDishes("o1")).toEqual([]);
+  });
+});
+
+describe("getDish", () => {
+  it("asks for the retirement stamp as well as the stage", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select });
+    expect(await getDish("d1")).toBeNull();
+    expect(from).toHaveBeenCalledWith("dishes");
+    expect(select).toHaveBeenCalledWith("id,org_id,title,stage,trial_site_id,retired_at");
+    expect(eq).toHaveBeenCalledWith("id", "d1");
   });
 });
 
@@ -115,6 +130,30 @@ describe("the pipeline calls", () => {
   it("reports no menu version as null rather than throwing", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
     expect(await menuVersionId("d1")).toBeNull();
+  });
+});
+
+describe("retiring", () => {
+  it("retires a dish by id", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await retireDish("d1");
+    expect(rpc).toHaveBeenCalledWith("retire_dish", { p_dish: "d1" });
+  });
+
+  it("surfaces the refusal rather than appearing to succeed", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "only an owner or a chef may retire a dish", code: "KIT01" } });
+    await expect(retireDish("d1")).rejects.toThrow("only an owner or a chef may retire a dish");
+  });
+
+  it("unretires a dish by id", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await unretireDish("d1");
+    expect(rpc).toHaveBeenCalledWith("unretire_dish", { p_dish: "d1" });
+  });
+
+  it("surfaces the refusal on unretire too", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "that dish is not retired", code: "KIT02" } });
+    await expect(unretireDish("d1")).rejects.toThrow("that dish is not retired");
   });
 });
 
