@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { addSite, listSites } from "../../lib/api/kitchen/orgs";
+import { addSite, closeSite, listSites, reopenSite, siteClosureImpact } from "../../lib/api/kitchen/orgs";
 import type { Site } from "../../lib/api/kitchen/types";
 import { useMyRole } from "../lib/useMyRole";
+
+// The warning has to read like a sentence a person would write, because the numbers are the
+// damage: "0 dishes and 0 people" is a confirmation that says nothing.
+function dishesWords(n: number): string {
+  if (n === 0) return "no dishes on trial";
+  return n === 1 ? "1 dish on trial" : `${n} dishes on trial`;
+}
+
+function peopleWords(n: number): string {
+  if (n === 0) return "nobody";
+  return n === 1 ? "1 person" : `${n} people`;
+}
 
 export default function Sites() {
   const { id = "" } = useParams();
@@ -11,6 +23,11 @@ export default function Sites() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The site whose warning is showing, and what closing it would cost. Both are set only by
+  // the click that asks to close, never seeded from the fetched list.
+  const [closing, setClosing] = useState<{ siteId: string; dishes: number; people: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     listSites(id)
@@ -36,6 +53,49 @@ export default function Sites() {
     }
   }
 
+  // Asking to close reads the cost first and shows it. Nothing moves until the person
+  // confirms, because the counts ARE the damage and a confirmation that does not name them
+  // is decoration.
+  async function askToClose(siteId: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      const impact = await siteClosureImpact(siteId);
+      setClosing({ siteId, ...impact });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function close(siteId: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      await closeSite(siteId);
+      setClosing(null);
+      setSites(await listSites(id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reopen(siteId: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      await reopenSite(siteId);
+      setSites(await listSites(id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="prose plate">
       <h1>Your sites</h1>
@@ -44,7 +104,47 @@ export default function Sites() {
       ) : (
         <ul>
           {sites.map((site) => (
-            <li key={site.id}>{site.name}</li>
+            <li key={site.id}>
+              {site.name}
+              {site.closed_at !== null && " — Closed"}
+              {/* `close_site` and `reopen_site` are the owner's alone and refuse everybody
+                  else, so the controls are the owner's too: a page must not render a control
+                  its viewer's policy will refuse. A closed site offers no second Close. */}
+              {role === "owner" &&
+                (site.closed_at !== null ? (
+                  <>
+                    {" "}
+                    <button type="button" disabled={busy} onClick={() => reopen(site.id)}>
+                      Reopen
+                    </button>{" "}
+                    <span>
+                      Reopening does not bring back the dishes or the people that closing moved.
+                    </span>
+                  </>
+                ) : closing?.siteId === site.id ? (
+                  <>
+                    {" "}
+                    <span>
+                      Closing this site sends {dishesWords(closing.dishes)} back to development
+                      and takes {peopleWords(closing.people)} off it. Chefs and owners are not
+                      touched.
+                    </span>{" "}
+                    <button type="button" disabled={busy} onClick={() => close(site.id)}>
+                      Close the site
+                    </button>{" "}
+                    <button type="button" disabled={busy} onClick={() => setClosing(null)}>
+                      Leave it open
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    <button type="button" disabled={busy} onClick={() => askToClose(site.id)}>
+                      Close
+                    </button>
+                  </>
+                ))}
+            </li>
           ))}
         </ul>
       )}
