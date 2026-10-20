@@ -70,8 +70,15 @@ describe("erasing a group", () => {
       .single();
     expect(recipe).toEqual({ id: recipeId, visibility: "family" });
 
+    // `org_id`, not `id`: kitchen.staff is keyed on (org_id, user_id) and has no id column,
+    // so selecting one errors and hands back a null `data` that reads as "no rows".
     for (const table of ["dishes", "sites", "staff"] as const) {
-      const { data } = await admin.schema("kitchen").from(table).select("id").eq("org_id", orgId);
+      const { data, error: readErr } = await admin
+        .schema("kitchen")
+        .from(table)
+        .select("org_id")
+        .eq("org_id", orgId);
+      expect(readErr).toBeNull();
       expect(data).toEqual([]);
     }
     expect(await orgStillThere(orgId)).toBe(false);
