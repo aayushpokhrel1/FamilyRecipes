@@ -8,7 +8,7 @@ import type { Dish } from "../../lib/api/kitchen/types";
 vi.mock("../../lib/api/kitchen/dishes", () => ({ publishDish: vi.fn(), unpublishDish: vi.fn() }));
 
 const onMenu: Dish = {
-  id: "d1", org_id: "o1", title: "Tart", stage: "menu", trial_site_id: null,
+  id: "d1", org_id: "o1", title: "Tart", stage: "menu", trial_site_id: null, retired_at: null,
 };
 
 beforeEach(() => vi.clearAllMocks());

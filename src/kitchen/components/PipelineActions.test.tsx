@@ -10,11 +10,11 @@ vi.mock("../../lib/api/kitchen/dishes", () => ({
 }));
 
 const sites: Site[] = [
-  { id: "s1", org_id: "o1", name: "Shoreditch" },
-  { id: "s2", org_id: "o1", name: "Peckham" },
+  { id: "s1", org_id: "o1", name: "Shoreditch", closed_at: null },
+  { id: "s2", org_id: "o1", name: "Peckham", closed_at: null },
 ];
 const inDevelopment: Dish = {
-  id: "d1", org_id: "o1", title: "Tart", stage: "development", trial_site_id: null,
+  id: "d1", org_id: "o1", title: "Tart", stage: "development", trial_site_id: null, retired_at: null,
 };
 const onTrial: Dish = { ...inDevelopment, stage: "trial", trial_site_id: "s1" };
 const onMenu: Dish = { ...inDevelopment, stage: "menu", trial_site_id: null };
