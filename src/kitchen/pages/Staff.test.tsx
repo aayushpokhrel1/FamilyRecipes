@@ -29,7 +29,7 @@ beforeEach(() => {
   // keep passing now that the form is the owner's alone.
   vi.mocked(myRole).mockResolvedValue("owner");
   vi.mocked(listSites).mockResolvedValue([
-    { id: "site-1", org_id: "org-1", name: "Shoreditch" },
+    { id: "site-1", org_id: "org-1", name: "Shoreditch", closed_at: null },
   ]);
   vi.mocked(listStaff).mockResolvedValue([
     { user_id: "u1", role: "owner", site_id: null, display_name: "Sam" },

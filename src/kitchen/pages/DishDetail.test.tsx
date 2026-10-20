@@ -29,7 +29,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(myRole).mockResolvedValue("chef");
-  vi.mocked(listSites).mockResolvedValue([{ id: "s1", org_id: "o1", name: "Shoreditch" }]);
+  vi.mocked(listSites).mockResolvedValue([{ id: "s1", org_id: "o1", name: "Shoreditch", closed_at: null }]);
   // The page reads the roster to find the VIEWER's own site, which is what decides
   // whether a site manager may record a deviation here.
   vi.mocked(listStaff).mockResolvedValue([
@@ -37,6 +37,7 @@ beforeEach(() => {
   ]);
   vi.mocked(getDish).mockResolvedValue({
     id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "menu", trial_site_id: null,
+    retired_at: null,
   });
   vi.mocked(listVersions).mockResolvedValue([
     { id: "v2", n: 2, note: "more salt", created_by: "u1", created_at: "2026-10-11T10:00:00Z" },

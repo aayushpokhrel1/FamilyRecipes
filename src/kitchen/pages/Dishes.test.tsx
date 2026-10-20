@@ -24,8 +24,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(myRole).mockResolvedValue("chef");
   vi.mocked(listDishes).mockResolvedValue([
-    { id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "development", trial_site_id: null },
-    { id: "d2", org_id: "o1", title: "House bread", stage: "menu", trial_site_id: null },
+    { id: "d1", org_id: "o1", title: "Smoked onion tart", stage: "development", trial_site_id: null, retired_at: null },
+    { id: "d2", org_id: "o1", title: "House bread", stage: "menu", trial_site_id: null, retired_at: null },
   ]);
 });
 

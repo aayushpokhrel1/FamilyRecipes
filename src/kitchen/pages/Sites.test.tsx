@@ -24,7 +24,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(myRole).mockResolvedValue("owner");
-  vi.mocked(listSites).mockResolvedValue([{ id: "site-1", org_id: "org-1", name: "Shoreditch" }]);
+  vi.mocked(listSites).mockResolvedValue([{ id: "site-1", org_id: "org-1", name: "Shoreditch", closed_at: null }]);
 });
 
 describe("the sites page", () => {
