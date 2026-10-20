@@ -239,6 +239,24 @@ export default function Privacy() {
         app if you have an account there under the same sign-in.
       </p>
 
+      {/* ADDED 2026-10-20, alongside the three removal verbs (migrations 0061 and 0062).
+          The paragraph above promises that your work SURVIVES your own deletion. That is
+          still true, and it is only half the picture now: the group can erase the whole
+          thing, including the sign-offs that paragraph says survive. A person who reads
+          "the work stays" and is never told who can remove it anyway has been told
+          something misleading by omission. If those migrations are ever revisited, this
+          paragraph is part of the change. */}
+      <p>
+        An owner can also erase the whole group, and that is a different thing from you
+        leaving. It removes the sites, the staff records, every dish, every version, every
+        sign-off and every deviation, and it cannot be undone. Anything the group had
+        published to the family app is taken down first, so it stops being public, though the
+        recipe itself is kept rather than destroyed. The group owns its content, as the top of
+        this page explains, so this is the business deciding about its own records rather than
+        us deciding about them. An owner can also retire a dish or close a site, which are
+        both reversible and remove nothing.
+      </p>
+
       <h2>Your rights</h2>
       <p>
         Wherever you live, you can ask for a copy of your data, ask for it corrected, ask for it
