@@ -1281,31 +1281,35 @@ secret. Backwards means the page is false for as long as it takes someone to not
 
 ### Cloudflare Web Analytics is ON, and the tests cannot see it
 
-Enabled at the ZONE level with auto-install since 2026-09-25, so Cloudflare injects the RUM
-beacon at the edge and it never appears in `index.html`. **`browserStorage.test.ts` therefore
-cannot detect it**, and did not: the pages claimed "no analytics at all" for a week while it was
-running. That claim was corrected on `/cookies` and `/privacy`.
+Enabled at the ZONE level since 2026-09-25, so Cloudflare injects the RUM beacon at the edge
+and it never appears in `index.html`. **`browserStorage.test.ts` therefore cannot detect it**,
+and did not: the pages claimed "no analytics at all" for a week while it was running.
 
-**IT DID COLLECT, for eight days, and then stopped on 2026-10-02.** The RUM API holds 800
-pageloads between 2026-09-25 and 2026-10-02 and nothing after, every one of them on
-`recipes.enamelvault.com`: **the apex has never recorded a single pageload**, before or since.
-This file claimed for a fortnight that the beacon "collected nothing" from 2026-09-25, and that
-was false. The claim rested on a probe that cannot tell (below).
+**IT COLLECTS, on all three hosts, since 2026-10-19.** `POST /cdn-cgi/rum` returns 204 and the
+RUM API returns rows. The apex collects for the first time ever, and unsampled: September's
+counts are all multiples of ten, the current ones are single figures.
 
-**The CSP window was 2026-10-02 to 2026-10-16, not 2026-09-25.** `92893ae` is the commit that
-added the security headers, and collection stops on its day, so `script-src 'self'` is a real
-suspect for the stop. It is NOT the whole story, because opening the CSP on 2026-10-16
-(`ANALYTICS_SCRIPT` and `ANALYTICS_BEACON` in `worker/meta.ts`) did not revive it: the beacon
-loads and runs, and the API has recorded nothing since, including deliberate visits in a real
-browser. `941f0e9` landed the same day and is the other candidate, but see below: it is ruled
-out.
+**The fix was one field, and NOT deleting anything.** This file used to recommend deleting the
+site record and letting Cloudflare recreate it, which was unnecessary and would have destroyed
+the history. The record had `auto_install: false` while its injection ruleset was
+`enabled: true`. That is a real state, not a contradiction: **keep injecting the beacon onto
+every page, and mount no collector to receive what it sends.** Repairing it in place restores
+collection and keeps the token:
 
-**MEASURE IT WITH THE GRAPHQL API, FROM HERE. The curl probe this file used to recommend is
-worthless.** An empty `POST /cdn-cgi/rum` returns 404 on `cloudflareinsights.com` itself, and so
-does a realistic beacon payload carrying the live site token, so a 404 from our hosts says
-nothing about our zone. The one measurement that distinguishes "collecting" from "dropping
-counts" is the account's own RUM data, which the Cloudflare API serves and which this repo's
-Cloudflare access can read:
+```
+PUT /accounts/<id>/rum/site_info/3146b01062d0453488f5cc9e53900f91
+{ "zone_tag": "534b45be9cc7ffdd92e4792900bbec9c", "auto_install": true,
+  "enabled": true, "lite": false }
+```
+
+`enabled` is only accepted when `auto_install` is true, which is the API saying they are not
+independent. **Injection and collection are two switches**, and a running beacon is not
+evidence that anything is being counted.
+
+**MEASURE IT WITH THE GRAPHQL API. A curl probe cannot tell.** An empty `POST /cdn-cgi/rum`
+returns 404 against `cloudflareinsights.com` itself, and so does a realistic beacon payload
+carrying the live token, so a 404 from our hosts says nothing about our zone. This file
+recommended exactly that probe for a fortnight and recorded a false conclusion from it.
 
 ```graphql
 query { viewer { accounts(filter: { accountTag: "<account>" }) {
@@ -1317,72 +1321,27 @@ query { viewer { accounts(filter: { accountTag: "<account>" }) {
 
 `POST /graphql`. Rows mean collection; an empty array means it is dropping counts. The site
 record itself is `GET /accounts/<id>/rum/site_info/list`, and its `site_token` must equal the
-one in the page's `data-cf-beacon` (currently `8dab991f...`; it does).
+one in the page's `data-cf-beacon` (currently `8dab991f...`).
 
-**What is already ruled out, re-confirmed 2026-10-16. Do not spend a session re-checking it.**
+**The history, so no number out of this beacon is read as an audience.** It collected 800
+pageloads between 2026-09-25 and 2026-10-02, stopped the day `92893ae` shipped the CSP, and
+recorded nothing again until the `auto_install` repair. Of those 800, 790 were from the US and
+630 self-referred, and the top paths are `/`, `/signin`, `/settings`, `/signup`,
+`/recipes/new` and `/recipes/:id/edit`. That is one person developing. It also means the pages
+denied analytics for eight days while 800 pageviews were in fact being counted.
 
-- **The CSP is not the problem NOW.** `script-src` allows `https://static.cloudflareinsights.com`
-  and `connect-src` allows `https://cloudflareinsights.com`, live on both hosts. Read them with
-  `curl -sI <host> | grep -i content-security-policy`.
-- **The beacon genuinely LOADS AND EXECUTES.** In a real browser `document.scripts` holds
-  `static.cloudflareinsights.com/beacon.min.js/v4bc70e2c...` carrying
-  `data-cf-beacon={"version":"2024.11.0","token":"8dab991f...","r":1,"spa":2}`, and it issues
-  two `POST /cdn-cgi/rum` requests per page load. A CSP-refused script never runs and never
-  posts. Finding the `<script>` element alone does NOT prove this, because a blocked script is
-  still in the DOM.
-- **`run_worker_first` is not the cause**, though it landed the same day. Cloudflare handles
-  `/cdn-cgi/*` ahead of the Worker regardless: `/cdn-cgi/trace` answers 200 with the edge's
-  own trace, while `/nonexistent-path` falls through to the Worker and gets the SPA shell.
-- **The collector is simply not mounted on this zone.** `/cdn-cgi/rum` 404s identically to
-  `/cdn-cgi/zzzznope`, with Cloudflare's own HTML 404 rather than this Worker's plain-text
-  `Not found`. The site record exists, its ruleset is `enabled: true` on zone
-  `enamelvault.com`, and `auto_install` reads `false` while injection is demonstrably
-  happening, which is the contradiction to take to the dashboard.
+**If it ever breaks again, dropping the page count is a reasonable answer.** The app's own
+first-party events already answer more than it ever did, and `/cookies` and `/privacy` describe
+it, so dropping it is a wording change as well as a dashboard one.
 
-**FIXED 2026-10-16, by one field, and NOT by deleting anything.** This file recommended
-deleting the site record and letting Cloudflare recreate it. That was unnecessary and would
-have destroyed the history for nothing. The record's `auto_install` was `false` while its
-ruleset was `enabled: true`, which is the state that injects a beacon onto every page and
-mounts no collector for it. Repairing it in place restores collection, keeps the token, and
-keeps the eight days of data:
-
-```
-PUT /accounts/<id>/rum/site_info/3146b01062d0453488f5cc9e53900f91
-{ "zone_tag": "534b45be9cc7ffdd92e4792900bbec9c", "auto_install": true,
-  "enabled": true, "lite": false }
-```
-
-`enabled` is only accepted when `auto_install` is true, which is the API telling you they are
-not independent. **Measured before and after in one browser session**: `POST /cdn-cgi/rum`
-returned 404 four times, then 204 on every page load after the PUT, on both hosts, and the
-GraphQL query above now returns rows for both. **Try the repair before the recreation on
-anything that holds history.**
-
-**The apex now collects for the first time ever**, and the counts arrive unsampled: the eight
-days of September are all multiples of ten, today's are ones.
-
-**If it ever breaks again, dropping the page count is still a reasonable answer.** The app's own
-first-party events already answer more than it ever did. `/cookies` and `/privacy` describe it,
-so dropping it is a wording change as well as a dashboard one.
-
-**What the eight days of history actually contain: Aayush developing.** 790 of 800 pageloads
-from the US, 630 of them self-referred, and the top paths are `/`, `/signin`, `/settings`,
-`/signup`, `/recipes/new` and `/recipes/:id/edit`. Nobody else was in it. Worth remembering
-before any number out of this beacon gets read as an audience.
-
-It is cookieless and sets no identifier, so the no-banner position is unaffected and remains
-correct. But the general lesson stands: **a source scan cannot see anything the edge injects.**
-Anything switched on in the Cloudflare dashboard is invisible to every test in this repo, so
-dashboard changes are a documentation obligation, not just a config change.
-
-Turn it off, or check what it collects:
-
-```bash
-npx wrangler@latest --version
-```
+It is cookieless and sets no identifier, so the no-banner position is unaffected. The general
+lesson stands: **a source scan cannot see anything the edge injects.** Anything switched on in
+the Cloudflare dashboard is invisible to every test in this repo, so dashboard changes are a
+documentation obligation, not just a config change.
 
 The toggle is in the Cloudflare dashboard under Web Analytics, or via
 `GET /accounts/<id>/rum/site_info/list` on the API.
+
 
 ### Security headers and the CSP
 

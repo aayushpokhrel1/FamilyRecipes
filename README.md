@@ -145,7 +145,9 @@ meal planning · v1 private multi-family vault.
 
 **Live and offered: the professional-kitchen app.** A dish goes development, trial at
 one site, group menu, with every revision kept, one version signed off, and an owner able to
-publish the approved version to Potluck under the venue's name. It runs on its own host,
+publish the approved version to Potluck under the venue's name. A dish can be retired and a
+site closed, both reversible, and an owner can erase the whole group, which takes its published
+dishes down first. It runs on its own host,
 `kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. It is
 offered from the apex through the sign-in chooser and its own page, `/professional`.
 
