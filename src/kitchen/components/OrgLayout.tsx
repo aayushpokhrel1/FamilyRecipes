@@ -57,6 +57,9 @@ export default function OrgLayout() {
           <NavLink to={`/orgs/${id}/dishes`} className={mark}>
             Dishes
           </NavLink>
+          <NavLink to={`/orgs/${id}/settings`} className={mark}>
+            Settings
+          </NavLink>
         </span>
       </nav>
       <Outlet />
