@@ -9,7 +9,7 @@ import { acceptKitchenTerms, getMyAcceptance } from "../../lib/api/kitchen/terms
 // KitchenTermsGate.version.test.ts holds this mechanically: it hashes the page and fails if the
 // wording moved without this constant moving with it. When it fails, bump BOTH this and
 // KITCHEN_TERMS_UPDATED in lib/legal.ts, then paste the new hash the failure prints.
-export const KITCHEN_TERMS_VERSION = "2026-10-11";
+export const KITCHEN_TERMS_VERSION = "2026-10-21";
 
 // A SEPARATE gate from the family app's, not a copy of it for its own sake: src/kitchen may
 // not import lib/api/profile.ts (supabase/kitchen_seal.test.ts), so it cannot reach the

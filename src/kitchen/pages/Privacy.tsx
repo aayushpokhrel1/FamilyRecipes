@@ -197,9 +197,21 @@ export default function Privacy() {
         rather than discover it.
       </p>
       <p>
-        What they cannot see through this app is your email address, your password, or anything
-        about your use of the sister family app, which shares your login and shares no data with
-        this one.
+        The owner of your group, and only the owner, can also see the days you opened this app
+        and which part of it you opened: the sites, staff, dishes, numbers or settings section.
+        It is shown to them against your name, next to how long you have been in the group, and
+        it says when you were last here or that you have not opened it yet. It is counted in
+        days rather than in visits, so opening four pages in a morning is one day.
+      </p>
+      <p>
+        That record is kept per group. If you work in two groups here, each owner sees the days
+        you opened theirs and has no way to see the other. It goes when your account goes, and
+        it goes when the group is erased.
+      </p>
+      <p>
+        What they cannot see through this app is your email address, your password, which pages
+        you looked at outside the group, the times of day you were here, or anything about your
+        use of the sister family app, which shares your login and shares no data with this one.
       </p>
 
       <h2>Who at our end can see it</h2>

@@ -107,10 +107,16 @@ export default function Terms() {
         approved what.
       </p>
       <p>
+        It also stores <strong>the days each person opened the app</strong> and which section
+        they opened, per group, and shows that to the group&apos;s owner against their name. The
+        owner alone sees it, it is counted in days rather than in visits, and an owner of one
+        group cannot see the days you opened another.
+      </p>
+      <p>
         It is worth saying plainly all the same, because the people whose names those are should
-        know. If you are rolling this out to a team, tell them. The{" "}
-        <Link to="/privacy">privacy page</Link> sets out what is stored about each person and who
-        can see it.
+        know. If you are rolling this out to a team, tell them, and tell them about that last
+        part in particular. The <Link to="/privacy">privacy page</Link> sets out what is stored
+        about each person and who can see it.
       </p>
 
       <h2>Deviations are a note, not a change</h2>

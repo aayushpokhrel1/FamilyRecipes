@@ -13,7 +13,7 @@ import { fingerprint, prose, sourceText } from "../../lib/termsFingerprint";
 //
 // Note the FULL paths passed to sourceText. Both apps have a pages/Terms.tsx, and a bare
 // suffix now throws rather than quietly guarding whichever file the glob sorted first.
-const EXPECTED = "8e969f78";
+const EXPECTED = "c49afd50";
 
 it("re-prompts every kitchen user when the wording changes", () => {
   const actual = fingerprint(prose(sourceText("src/kitchen/pages/Terms.tsx")));
@@ -22,6 +22,32 @@ it("re-prompts every kitchen user when the wording changes", () => {
     `The kitchen terms changed. Bump KITCHEN_TERMS_VERSION in KitchenTermsGate.tsx and ` +
       `KITCHEN_TERMS_UPDATED in lib/legal.ts, then set EXPECTED in this test to "${actual}".`,
   ).toBe(EXPECTED);
+});
+
+// THE PRIVACY PAGE NEEDS ITS OWN FINGERPRINT, and this test exists because on 2026-10-21 a
+// change to it alone left this file entirely green.
+//
+// The guard above watches pages/Terms.tsx, which is the document the gate records an acceptance
+// of. But what a person is told about surveillance of their own work lives on the privacy page,
+// and attendance per person, visible to their employer, went in there while nobody was
+// re-asked and the suite reported success. The terms page gained the clause too, which is what
+// actually re-prompted everyone, but that was a judgement somebody had to make rather than
+// something the tests required.
+//
+// So: a material change to the privacy page is also a reason to re-prompt. When this fails,
+// decide whether the change is material. If it is, bump both constants, update the hash above
+// as well, and paste the new hash here. If it is genuinely cosmetic, paste the new hash here
+// alone. The point is that the decision cannot be skipped by accident.
+const EXPECTED_PRIVACY = "e19e2a12";
+
+it("notices when the kitchen privacy page changes", () => {
+  const actual = fingerprint(prose(sourceText("src/kitchen/pages/Privacy.tsx")));
+  expect(
+    actual,
+    `The kitchen privacy page changed. If the change is material, bump ` +
+      `KITCHEN_TERMS_VERSION and KITCHEN_TERMS_UPDATED and re-prompt. Either way, set ` +
+      `EXPECTED_PRIVACY in this test to "${actual}".`,
+  ).toBe(EXPECTED_PRIVACY);
 });
 
 it("keeps the kitchen version and the date on the page in step", () => {
