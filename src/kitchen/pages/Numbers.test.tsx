@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Numbers from "./Numbers";
-import { groupNumbers } from "../../lib/api/kitchen/numbers";
-import type { GroupNumbers } from "../../lib/api/kitchen/types";
+import { groupNumbers, groupPeople } from "../../lib/api/kitchen/numbers";
+import type { GroupNumbers, GroupPeople } from "../../lib/api/kitchen/types";
 
-vi.mock("../../lib/api/kitchen/numbers", () => ({ groupNumbers: vi.fn() }));
+vi.mock("../../lib/api/kitchen/numbers", () => ({ groupNumbers: vi.fn(), groupPeople: vi.fn() }));
 
 function renderPage() {
   return render(
@@ -38,9 +38,28 @@ const full: GroupNumbers = {
   ],
 };
 
+const people: GroupPeople = {
+  staff: [
+    {
+      user_id: "user-1",
+      display_name: "Ada",
+      role: "chef",
+      site_name: "Shoreditch",
+      days_back: 5,
+      of_days: 7,
+      last_seen: "2026-10-01T00:00:00Z",
+      never: false,
+    },
+  ],
+  invites: { issued: 4, used: 2, open: 1, aged_out: 1 },
+  closed_sites: 1,
+  retired_dishes: 2,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(groupNumbers).mockResolvedValue(full);
+  vi.mocked(groupPeople).mockResolvedValue(people);
 });
 
 describe("the numbers page", () => {
@@ -99,11 +118,42 @@ describe("the numbers page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("KIT01: not yours");
   });
 
-  it("renders nothing from the people block", async () => {
-    // The design deliberately leaves out whether a person comes back: it needs storage this
-    // schema does not have yet, so the page must not imply it is being measured.
+  it("names somebody who has never opened it", async () => {
+    vi.mocked(groupPeople).mockResolvedValue({
+      ...people,
+      staff: [{ ...people.staff[0], never: true, last_seen: null, days_back: 0 }],
+    });
+    renderPage();
+    expect(await screen.findByText(/Ada/)).toBeInTheDocument();
+    expect(screen.getByText(/have not opened it yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/back 0 of/i)).toBeNull();
+  });
+
+  it("prints the denominator it was given, not seven", async () => {
+    vi.mocked(groupPeople).mockResolvedValue({
+      ...people,
+      staff: [{ ...people.staff[0], days_back: 2, of_days: 3 }],
+    });
+    renderPage();
+    expect(await screen.findByText(/back 2 of 3 days/i)).toBeInTheDocument();
+    expect(screen.queryByText(/of 7 days/i)).toBeNull();
+    expect(screen.getByText(/4 invites issued, 2 used, 1 open, 1 aged out unused/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 closed sites, 2 retired dishes/i)).toBeInTheDocument();
+  });
+
+  it("shows no people block when the reader is not the owner", async () => {
+    vi.mocked(groupPeople).mockResolvedValue(null);
     renderPage();
     await screen.findByText(/1 of 4 dishes signed off/i);
-    expect(screen.queryByText(/never opened/i)).toBeNull();
+    expect(screen.queryByText(/seen by the group's owner only/i)).toBeNull();
+    expect(screen.queryByText(/Ada/)).toBeNull();
+  });
+
+  it("still shows the figures when the people call fails", async () => {
+    vi.mocked(groupPeople).mockRejectedValue(new Error("KIT02: not yours"));
+    renderPage();
+    expect(await screen.findByText(/1 of 4 dishes signed off/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/seen by the group's owner only/i)).toBeNull();
   });
 });

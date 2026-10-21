@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import { myOrgs } from "../../lib/api/kitchen/orgs";
+import { recordKitchenVisit } from "../../lib/api/kitchen/visit";
 
 // The frame every page inside one kitchen group renders in, and the only way to get from
 // Sites to Staff to Dishes.
@@ -15,7 +16,15 @@ import { myOrgs } from "../../lib/api/kitchen/orgs";
 // than broken.
 export default function OrgLayout() {
   const { id } = useParams();
+  const location = useLocation();
   const [name, setName] = useState<string | null>(null);
+
+  // The only place in the kitchen app a visit is recorded, because this is the one layout
+  // every page inside a group renders in, which is the same reason the nav lives here.
+  useEffect(() => {
+    if (!id) return;
+    recordKitchenVisit(id, location.pathname);
+  }, [id, location.pathname]);
 
   useEffect(() => {
     if (!id) return;

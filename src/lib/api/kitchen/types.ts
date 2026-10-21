@@ -96,6 +96,28 @@ export type GroupNumbers = {
 // The three figures the dashboard strip shows, keyed by org id in my_group_numbers.
 export type StripNumbers = { started: number; landed: number; median_days: number | null };
 
+// One person as the owner-only people block sees them. `days_back` is out of `of_days`, and
+// the denominator is whatever the database sent: it is never assumed to be a week.
+// `never` is true when they have not opened the app at all, and `last_seen` is null then.
+export type StaffAttendance = {
+  user_id: string;
+  display_name: string;
+  role: string;
+  site_name: string | null;
+  days_back: number;
+  of_days: number;
+  last_seen: string | null;
+  never: boolean;
+};
+
+// The whole answer from kitchen.group_people, mirroring its jsonb keys exactly.
+export type GroupPeople = {
+  staff: StaffAttendance[];
+  invites: { issued: number; used: number; open: number; aged_out: number };
+  closed_sites: number;
+  retired_dishes: number;
+};
+
 // unpublished_at is what says whether the dish is public RIGHT NOW. The row survives a
 // takedown on purpose: it holds the recipe id, so re-publishing reuses the same public URL
 // and a link somebody already sent keeps working.

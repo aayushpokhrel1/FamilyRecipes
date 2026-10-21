@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { groupNumbers } from "../../lib/api/kitchen/numbers";
-import type { GroupNumbers } from "../../lib/api/kitchen/types";
+import { groupNumbers, groupPeople } from "../../lib/api/kitchen/numbers";
+import type { GroupNumbers, GroupPeople } from "../../lib/api/kitchen/types";
 
 // The figures are read as sentences rather than as bare numbers, because "1 of 4" answers a
 // question and "1" does not. The plural is spelled out for the same reason.
@@ -18,6 +18,10 @@ export default function Numbers() {
   // `undefined` is still loading and `null` is "not served this", so the two cannot be
   // confused: a group with nothing in it arrives as a full object with zeroes.
   const [numbers, setNumbers] = useState<GroupNumbers | null | undefined>(undefined);
+  // The people block is an extra on top of the page's job, so it has its own state and its
+  // own failure: `null` here means "not served it, or it could not be read", and either way
+  // the three blocks above still render.
+  const [people, setPeople] = useState<GroupPeople | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,6 +32,7 @@ export default function Numbers() {
     // tells an owner they are not the owner.
     let live = true;
     setNumbers(undefined);
+    setPeople(null);
     setError(null);
     groupNumbers(id)
       .then((n) => {
@@ -35,6 +40,16 @@ export default function Numbers() {
       })
       .catch((err) => {
         if (live) setError(err instanceof Error ? err.message : "Could not load.");
+      });
+    // Caught into null rather than into the page's error state: the first three blocks are
+    // the page's job and this one is an extra, so a failed people call must not take the
+    // page down with it.
+    groupPeople(id)
+      .then((p) => {
+        if (live) setPeople(p);
+      })
+      .catch(() => {
+        if (live) setPeople(null);
       });
     return () => {
       live = false;
@@ -106,6 +121,38 @@ export default function Numbers() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* The fourth block, and the only one the group's owner alone is served. It is
+              absent rather than empty when the database refuses the reader, so the page never
+              claims to be measuring people it cannot see. */}
+          {people !== null && (
+            <>
+              <h2>Who is here</h2>
+              <p>This part is seen by the group's owner only.</p>
+              {people.staff.length === 0 ? (
+                <p>Nobody has joined this group yet.</p>
+              ) : (
+                <ul>
+                  {people.staff.map((person) => (
+                    <li key={person.user_id}>
+                      {person.display_name}, {person.role},{" "}
+                      {person.site_name === null ? "group-wide" : person.site_name}.{" "}
+                      {person.never || person.last_seen === null
+                        ? "They have not opened it yet."
+                        : `Back ${person.days_back} of ${person.of_days} days, last seen on ${new Date(person.last_seen).toLocaleDateString()}.`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p>
+                {`${people.invites.issued} invites issued, ${people.invites.used} used, ` +
+                  `${people.invites.open} open, ${people.invites.aged_out} aged out unused.`}
+              </p>
+              <p>
+                {`${people.closed_sites} closed sites, ${people.retired_dishes} retired dishes.`}
+              </p>
+            </>
           )}
         </>
       )}

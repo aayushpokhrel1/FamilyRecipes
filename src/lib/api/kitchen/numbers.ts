@@ -1,5 +1,5 @@
 import { supabase } from "../../supabaseClient";
-import type { GroupNumbers, StripNumbers } from "./types";
+import type { GroupNumbers, GroupPeople, StripNumbers } from "./types";
 
 // EVERY call in this directory goes through .schema("kitchen"). These tables are not in the
 // public schema, and PostgREST answers "The schema must be one of the following" without it.
@@ -21,6 +21,21 @@ export async function groupNumbers(orgId: string): Promise<GroupNumbers | null> 
   if (error) throw new Error(error.message);
   if (data === null || typeof data !== "object" || Object.keys(data).length === 0) return null;
   return data as GroupNumbers;
+}
+
+/**
+ * The owner-only people block for one group, or null when the caller is not served it.
+ *
+ * NULL IS NOT AN EMPTY GROUP, exactly as in groupNumbers above. kitchen.group_people answers
+ * the group's owner with the figures and everybody else with `{}`, so an empty object here is
+ * the database refusing a reader who is not the owner, and has to stay distinguishable from a
+ * group that simply has nobody in it yet.
+ */
+export async function groupPeople(orgId: string): Promise<GroupPeople | null> {
+  const { data, error } = await kitchen().rpc("group_people", { p_org: orgId });
+  if (error) throw new Error(error.message);
+  if (data === null || typeof data !== "object" || Object.keys(data).length === 0) return null;
+  return data as GroupPeople;
 }
 
 export async function myGroupNumbers(): Promise<Record<string, StripNumbers>> {
