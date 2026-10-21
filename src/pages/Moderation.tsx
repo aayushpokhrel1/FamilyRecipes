@@ -506,11 +506,13 @@ function KitchenSection() {
   const busiest = Math.max(1, ...days.map((d) => d.count));
 
   const counts: [string, number][] = [
-    ["Throughput started", insights.throughput.started],
-    ["Throughput landed", insights.throughput.landed],
-    ["Throughput median days", insights.throughput.medianDays],
-    ["Throughput slow over a month", insights.throughput.slowOverAMonth],
-    ["Staff active in the last 7 days", insights.activeStaff],
+    // The throughput figures lead, because they are the only ones that say whether the product
+    // WORKS rather than how much of it exists. The median is not among them: it can be null,
+    // and a tile is a number or it is a blank space, so it gets a sentence below instead.
+    ["Dishes started", insights.throughput.started],
+    ["Dishes signed off", insights.throughput.landed],
+    ["In development over a month", insights.throughput.slowOverAMonth],
+    ["Staff active this week", insights.activeStaff],
     ["Kitchens", insights.counts.orgs],
     ["Venues", insights.counts.sites],
     ["Staff", insights.counts.staff],
@@ -530,10 +532,23 @@ function KitchenSection() {
     <>
       {/* THE MOST IMPORTANT LINE IN THE SECTION. A separate product that is not deployed
           yet reports zeros, and zeros with no explanation read as a broken page. */}
+      {/* THE MOST IMPORTANT LINE IN THE SECTION, and it said the wrong thing until 2026-10-21.
+          It claimed the app was not deployed, which stopped being true on 2026-10-12. The
+          numbers are still near zero, and the honest reason is that the app is noindex and
+          linked from nowhere, so it has no traffic by design. Both readings excuse a wall of
+          zeros; only one of them is true, and the false one would have been quoted back as
+          evidence the app was unfinished. */}
       <p className="vault-note">
         The professional kitchen app is a separate product from the family app and shares no
-        data with it. It is not deployed yet, so these numbers are expected to be zero: a zero
-        here means nobody has used it, not that anything is broken.
+        data with it. It is live, but it is not indexed and nothing links to it, so it has no
+        traffic by design: a zero here means nobody has used it, not that anything is broken.
+      </p>
+      <p className="vault-note">
+        {insights.throughput.landed === 0
+          ? "No dish has been signed off yet, so there is no median to give."
+          : `Across every kitchen, the median dish takes ${insights.throughput.medianDays} days from its first version to sign-off.`}{" "}
+        Staff active this week counts people and never names them: an owner sees their own staff
+        by name inside the kitchen app, and this console cannot.
       </p>
 
       <ul className="stat-row">

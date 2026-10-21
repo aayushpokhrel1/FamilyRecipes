@@ -474,9 +474,10 @@ test("it says nothing has been recorded when there is no history at all", async 
 });
 
 // The console now holds a SECOND product. The professional kitchen app is a separate schema
-// sharing no data with the family app, and it is not deployed yet, so its tab is a wall of
-// zeros by design. These tests pin the tab, the note that explains the zeros, and the fact
-// that its own failure cannot take the Recipes tab down with it.
+// sharing no data with the family app. It has been LIVE since 2026-10-12 and its tab is still
+// close to a wall of zeros, because it is noindex and linked from nowhere, so it has no traffic
+// by design. These tests pin the tab, the note that explains the zeros with the true reason,
+// the throughput figures, and the fact that its own failure cannot take the Recipes tab down.
 test("clicking Kitchen shows the counts, with a tile labelled Kitchens", async () => {
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
   getKitchenInsights.mockResolvedValue({
@@ -497,18 +498,93 @@ test("clicking Kitchen shows the counts, with a tile labelled Kitchens", async (
   expect(screen.getByText("Open invites").closest("li")).toHaveTextContent("6");
 });
 
-// THE NOTE IS THE POINT OF THE SECTION. Without it a wall of zeros reads as a bug rather
-// than as an unused product, so this asserts on the wording that says so.
-test("the Kitchen section says the app is not deployed, so zeros are expected", async () => {
+// THE NOTE IS THE POINT OF THE SECTION. Without it a wall of zeros reads as a bug rather than
+// as an unused product, so this asserts on the wording that says so.
+//
+// IT ALSO PINS WHICH REASON IS GIVEN, and that is not pedantry. Until 2026-10-21 both this
+// page and the edge function said the app was "not deployed yet", which stopped being true on
+// 2026-10-12. A false excuse for a zero is worse than none: it would have been read back as
+// evidence that the product was unfinished. The assertion below fails if that sentence returns.
+test("the Kitchen section says the app is live with no traffic, so zeros are expected", async () => {
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
   renderPage();
 
   await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
 
   expect(
-    await screen.findByText(/not deployed yet, so these numbers are expected to be zero/),
+    await screen.findByText(/not indexed and nothing links to it, so it has no traffic by design/),
   ).toBeInTheDocument();
   expect(screen.getByText(/nobody has used it, not that anything is broken/)).toBeInTheDocument();
+  expect(screen.queryByText(/not deployed yet/)).toBeNull();
+});
+
+test("shows kitchen throughput", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getKitchenInsights.mockResolvedValue({
+    throughput: { started: 7, landed: 4, medianDays: 9, slowOverAMonth: 2 },
+    activeStaff: 3,
+    counts: { orgs: 2, sites: 3, staff: 6, dishes: 7, published: 1, openInvites: 1 },
+    funnel: { created: 2, addedSite: 2, addedDish: 2, publishedDish: 1 },
+    orgsByDay: {},
+    newest: null,
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
+
+  expect((await screen.findByText("Dishes started")).closest("li")).toHaveTextContent("7");
+  expect(screen.getByText("Dishes signed off").closest("li")).toHaveTextContent("4");
+  expect(screen.getByText("In development over a month").closest("li")).toHaveTextContent("2");
+  expect(screen.getByText("Staff active this week").closest("li")).toHaveTextContent("3");
+  expect(screen.getByText(/median dish takes 9 days/)).toBeInTheDocument();
+});
+
+// A null median is the honest answer for a group that has landed nothing, and the tile layout
+// cannot say that: a stat tile is a number or it is a blank space. So the median lives in a
+// sentence, and this pins that the sentence explains itself rather than printing "null".
+test("says nothing has landed instead of printing a null median", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getKitchenInsights.mockResolvedValue({
+    throughput: { started: 3, landed: 0, medianDays: null, slowOverAMonth: 1 },
+    activeStaff: 0,
+    counts: { orgs: 1, sites: 1, staff: 1, dishes: 3, published: 0, openInvites: 0 },
+    funnel: { created: 1, addedSite: 1, addedDish: 1, publishedDish: 0 },
+    orgsByDay: {},
+    newest: null,
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
+
+  expect(
+    await screen.findByText(/No dish has been signed off yet, so there is no median to give/),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/null/)).toBeNull();
+});
+
+// THE SEAL, STATED AS AN ASSERTION. A named person's attendance is a kitchen row, and this
+// console must never hand one to a family moderator: the owner of a group sees their own staff
+// by name inside the kitchen app, and here it is a count and nothing else. The payload cannot
+// carry a name at all, so this asserts on the only thing the page could leak if somebody
+// widened the select list in the edge function: a staff member's name on screen.
+test("names no kitchen staff member", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  getKitchenInsights.mockResolvedValue({
+    throughput: { started: 2, landed: 1, medianDays: 5, slowOverAMonth: 0 },
+    activeStaff: 2,
+    counts: { orgs: 1, sites: 1, staff: 2, dishes: 2, published: 1, openInvites: 0 },
+    funnel: { created: 1, addedSite: 1, addedDish: 1, publishedDish: 1 },
+    orgsByDay: {},
+    newest: null,
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole("button", { name: "Kitchen" }));
+
+  expect(await screen.findByText("Staff active this week")).toBeInTheDocument();
+  expect(screen.getByText(/counts people and never names them/)).toBeInTheDocument();
+  // The shape of a leak: anything that reads as a person rather than as a figure.
+  expect(screen.queryByText(/Sam|Ruth|@/)).toBeNull();
 });
 
 // The Kitchen tab's load is its own, exactly like the two inside Recipes: a failure there

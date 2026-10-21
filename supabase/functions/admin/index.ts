@@ -21,6 +21,10 @@
 // Deployed by Supabase only; not typechecked by the app's tsc. See supabase/functions/
 // boots.test.ts, which parses this file so a syntax error cannot ship silently.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// A relative .ts specifier, which is how Deno imports a sibling and why `tsc -b` excludes this
+// directory. The arithmetic lives there rather than here because nothing in this file can be
+// imported by a test: supabase/functions/boots.test.ts can only parse it.
+import { activeStaffCount, kitchenThroughput } from "./kitchenNumbers.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -286,9 +290,12 @@ Deno.serve(async (req) => {
       // user. The seal exists to stop the family app serving kitchen users; an operator counting
       // both of their own products is not that.
       //
-      // The kitchen app is built but NOT deployed, so every number here is usually 0. That is a
-      // correct answer and not a bug: nothing below throws or returns null because a table is
-      // empty, and no placeholder is invented to fill the gap.
+      // THE KITCHEN APP HAS BEEN LIVE SINCE 2026-10-12, and the numbers here are still near
+      // zero. The reason is not that it is unbuilt or undeployed: it is live `noindex` and
+      // linked from nowhere, so it has no traffic BY DESIGN. That is a correct answer and not a
+      // bug, and nothing below throws, returns null or invents a placeholder because a table is
+      // empty. This comment claimed the app was not deployed until 2026-10-21, which is the
+      // same contradiction PRODUCT.md carried until 2026-10-18.
       //
       // Like `insights`, this fetches rows and aggregates in TypeScript rather than in SQL, so it
       // needs no migration. Every query result is guarded with `(rows ?? [])`.
@@ -316,6 +323,32 @@ Deno.serve(async (req) => {
         .schema("kitchen")
         .from("staff_invites")
         .select("used_at");
+      // The version id is in the select list because it is the only path from an approval to a
+      // dish: kitchen.approvals is keyed by version_id (0042).
+      const { data: versionRows } = await admin
+        .schema("kitchen")
+        .from("dish_versions")
+        .select("id, dish_id, created_at");
+      const { data: approvalRows } = await admin
+        .schema("kitchen")
+        .from("approvals")
+        .select("version_id, approved_at");
+      // ONLY user_id, AND IT IS ONLY EVER COUNTED. A named person's attendance is a kitchen
+      // row, and this function must never hand a kitchen row to a family user, which is the
+      // seal supabase/kitchen_seal.test.ts holds. An owner sees their own staff by name inside
+      // the kitchen app, through kitchen.group_people (0065); the console never does, and
+      // display_name must not appear in this select list.
+      //
+      // The last seven days, by LOCAL date, because kitchen.activity_days stores the client's
+      // local date and comparing it against a UTC day would shift the window by one in any
+      // UTC+ timezone.
+      const weekAgo = new Date(Date.now() - 6 * 86400000);
+      const activeSince = `${weekAgo.getFullYear()}-${String(weekAgo.getMonth() + 1).padStart(2, "0")}-${String(weekAgo.getDate()).padStart(2, "0")}`;
+      const { data: activeRows } = await admin
+        .schema("kitchen")
+        .from("activity_days")
+        .select("user_id")
+        .gte("day", activeSince);
 
       // Rows in kitchen.orgs. Every org, including one whose owner never came back.
       const orgs = (orgRows ?? []).length;
@@ -385,6 +418,16 @@ Deno.serve(async (req) => {
       return json(
         {
           counts: { orgs, sites, staff, dishes, published, openInvites },
+          // The same four questions a group's own owner is answered, over every group at once.
+          // Both implementations read 0063 for their definitions, so a change to one of them
+          // belongs in the other: a moderator and an owner looking at the same kitchen must
+          // not be told two different stories.
+          throughput: kitchenThroughput(
+            (dishRows ?? []) as { id: string }[],
+            (versionRows ?? []) as { id: string; dish_id: string; created_at: string }[],
+            (approvalRows ?? []) as { version_id: string; approved_at: string }[],
+          ),
+          activeStaff: activeStaffCount((activeRows ?? []) as { user_id: string }[]),
           funnel: {
             created: orgs,
             addedSite: orgIdsWithSite.size,
