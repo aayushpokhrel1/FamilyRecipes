@@ -19,15 +19,29 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // The same `live` cleanup OrgLayout uses, and for its reason: a result that arrives after
+    // the page is gone has nowhere to go.
+    let live = true;
     myOrgs()
-      .then(setOrgs)
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load."));
+      .then((o) => {
+        if (live) setOrgs(o);
+      })
+      .catch((err) => {
+        if (live) setError(err instanceof Error ? err.message : "Could not load.");
+      });
     // The links are the function and the figures are decoration, the same rule OrgLayout
     // states about the group's name: a failed or slow numbers call must never cost the
     // navigation, so it falls back to no strip rather than to the error state.
     myGroupNumbers()
-      .then(setNumbers)
-      .catch(() => setNumbers({}));
+      .then((n) => {
+        if (live) setNumbers(n);
+      })
+      .catch(() => {
+        if (live) setNumbers({});
+      });
+    return () => {
+      live = false;
+    };
   }, []);
 
   if (error) {

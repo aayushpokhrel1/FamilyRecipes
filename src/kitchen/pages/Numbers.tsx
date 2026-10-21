@@ -21,16 +21,33 @@ export default function Numbers() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Both pieces of state are cleared BEFORE the new call, and the result is dropped if the
+    // group changed while it was in flight. Without this, moving from one group to another
+    // shows the previous group's figures, or worse its "not served" note, for as long as the
+    // fetch takes: on this page that note is a claim about the viewer's role, so a stale one
+    // tells an owner they are not the owner.
+    let live = true;
+    setNumbers(undefined);
+    setError(null);
     groupNumbers(id)
-      .then(setNumbers)
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load."));
+      .then((n) => {
+        if (live) setNumbers(n);
+      })
+      .catch((err) => {
+        if (live) setError(err instanceof Error ? err.message : "Could not load.");
+      });
+    return () => {
+      live = false;
+    };
   }, [id]);
 
   return (
     <div className="prose plate">
       <h1>Numbers</h1>
       {error && <p role="alert">{error}</p>}
-      {numbers === null ? (
+      {/* A failed read is terminal, so the loading line below must not also render: a page
+          that says it failed AND that it is still loading has told the reader nothing. */}
+      {error ? null : numbers === null ? (
         // Not an error and not an empty page: the database answered, and the answer was that
         // this viewer is not served the group's numbers.
         <p>Only an owner or a chef sees a group's numbers.</p>
