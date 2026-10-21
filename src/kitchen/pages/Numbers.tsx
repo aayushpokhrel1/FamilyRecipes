@@ -13,6 +13,32 @@ function daysWords(n: number): string {
   return n === 1 ? "1 day" : `${n} days`;
 }
 
+function timesWords(n: number, one: string, many: string): string {
+  return n === 1 ? `1 ${one}` : `${n} ${many}`;
+}
+
+/**
+ * A DATE-ONLY STRING MUST NOT GO THROUGH `new Date(...)` AND THEN A LOCAL FORMATTER.
+ *
+ * `kitchen.activity_days.day` is a `date`, so it arrives as "2026-10-21" with no zone.
+ * `new Date("2026-10-21")` is parsed as UTC MIDNIGHT, and toLocaleDateString then renders it in
+ * the reader's zone, which is the previous day for every negative offset. A browser walk on
+ * 2026-10-21 in UTC-4 showed "last seen on 10/20/2026" for a visit recorded that same morning,
+ * which is the one thing this figure must never get wrong: it is evidence about a person shown
+ * to their employer.
+ *
+ * Building the Date from parts makes it local midnight instead, so the day the database recorded
+ * is the day the reader sees. This is the same UTC-versus-local trap 0060 and 0064 are written
+ * around, arriving here in the formatting layer rather than in the write.
+ *
+ * A timestamptz (`sites.added`, `sites.last_recorded`) carries its zone and is safe through
+ * `new Date`, so it deliberately does not use this.
+ */
+function localDay(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString();
+}
+
 export default function Numbers() {
   const { id = "" } = useParams();
   // `undefined` is still loading and `null` is "not served this", so the two cannot be
@@ -113,7 +139,8 @@ export default function Numbers() {
             <ul>
               {numbers.sites.map((site) => (
                 <li key={site.id}>
-                  {site.name}: {site.substitutions} substitutions, {site.trials} on trial.{" "}
+                  {site.name}: {timesWords(site.substitutions, "substitution", "substitutions")},{" "}
+                  {timesWords(site.trials, "dish", "dishes")} on trial.{" "}
                   {site.last_recorded === null
                     ? `Nothing recorded since it was added on ${new Date(site.added).toLocaleDateString()}.`
                     : `Last recorded on ${new Date(site.last_recorded).toLocaleDateString()}.`}
@@ -140,7 +167,7 @@ export default function Numbers() {
                       {person.site_name === null ? "group-wide" : person.site_name}.{" "}
                       {person.never || person.last_seen === null
                         ? "They have not opened it yet."
-                        : `Back ${person.days_back} of ${person.of_days} days, last seen on ${new Date(person.last_seen).toLocaleDateString()}.`}
+                        : `Back ${person.days_back} of ${daysWords(person.of_days)}, last seen on ${localDay(person.last_seen)}.`}
                     </li>
                   ))}
                 </ul>

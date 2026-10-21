@@ -156,4 +156,45 @@ describe("the numbers page", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText(/seen by the group's owner only/i)).toBeNull();
   });
+  // THE BUG A BROWSER WALK FOUND ON 2026-10-21, AND THE SUITE DID NOT.
+  //
+  // `last_seen` is a `date` column, so it arrives as "2026-10-21" with no zone. The page used
+  // `new Date(...)` on it, which parses a bare date as UTC MIDNIGHT, and then formatted it in
+  // the reader's zone: in UTC-4 a visit recorded that morning rendered as the day before. This
+  // figure is evidence about a person shown to their employer, so a day's drift is not cosmetic.
+  //
+  // The assertion is the day NUMBER, not a formatted string, so the test says nothing about the
+  // reader's locale and only pins the thing that was wrong.
+  it("shows the last seen day in the reader's own zone, not UTC", async () => {
+    vi.mocked(groupPeople).mockResolvedValue({
+      ...people,
+      staff: [{ ...people.staff[0], never: false, last_seen: "2026-10-21", days_back: 1, of_days: 1 }],
+    });
+    renderPage();
+    const line = await screen.findByText(/last seen on/i);
+    const shown = new Date(2026, 9, 21).toLocaleDateString();
+    expect(line).toHaveTextContent(shown);
+    // The previous day must not appear, which is what a UTC parse would have printed.
+    expect(line).not.toHaveTextContent(new Date(2026, 9, 20).toLocaleDateString());
+  });
+
+  it("counts one substitution in the singular", async () => {
+    vi.mocked(groupNumbers).mockResolvedValue({
+      ...full,
+      sites: [{ ...full.sites[0], substitutions: 1, trials: 1 }],
+    });
+    renderPage();
+    const line = await screen.findByText(/1 substitution,/i);
+    expect(line).toHaveTextContent("1 dish on trial");
+    expect(line).not.toHaveTextContent("1 substitutions");
+  });
+
+  it("says one day rather than 1 of 1 days", async () => {
+    vi.mocked(groupPeople).mockResolvedValue({
+      ...people,
+      staff: [{ ...people.staff[0], never: false, last_seen: "2026-10-21", days_back: 1, of_days: 1 }],
+    });
+    renderPage();
+    expect(await screen.findByText(/back 1 of 1 day,/i)).toBeInTheDocument();
+  });
 });
