@@ -15,6 +15,7 @@ import Sites from "./pages/Sites";
 import Staff from "./pages/Staff";
 import Dishes from "./pages/Dishes";
 import DishDetail from "./pages/DishDetail";
+import Numbers from "./pages/Numbers";
 import OrgSettings from "./pages/OrgSettings";
 import JoinByLink from "./pages/JoinByLink";
 import NotFound from "./pages/NotFound";
@@ -88,6 +89,7 @@ export default function KitchenRoutes() {
             <Route path="staff" element={<Staff />} />
             <Route path="dishes" element={<Dishes />} />
             <Route path="dishes/:dishId" element={<DishDetail />} />
+            <Route path="numbers" element={<Numbers />} />
             <Route path="settings" element={<OrgSettings />} />
           </Route>
         </Route>

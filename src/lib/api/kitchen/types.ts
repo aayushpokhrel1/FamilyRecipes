@@ -63,6 +63,39 @@ export type Deviation = {
   created_at: string;
 };
 
+// A dish that has been in development for over a month without being signed off. `days` is
+// counted from its FIRST version, because that is when the work started.
+export type SlowDish = { id: string; title: string; days: number };
+
+// One site as the numbers page sees it. `trials` is the dishes on trial there NOW, not ever,
+// and `last_recorded` is the newest deviation, which is the only history a site keeps.
+export type SiteNumbers = {
+  id: string;
+  name: string;
+  substitutions: number;
+  trials: number;
+  last_recorded: string | null;
+  added: string;
+  closed: boolean;
+};
+
+// The whole answer from kitchen.group_numbers, mirroring its jsonb keys exactly. Every figure
+// is all-time, so a quiet month cannot move the headline number.
+export type GroupNumbers = {
+  dishes: { started: number; landed: number; median_days: number | null; slow: SlowDish[] };
+  funnel: {
+    dishes: number;
+    with_version: number;
+    trialled: number;
+    landed: number;
+    on_menu: number;
+  };
+  sites: SiteNumbers[];
+};
+
+// The three figures the dashboard strip shows, keyed by org id in my_group_numbers.
+export type StripNumbers = { started: number; landed: number; median_days: number | null };
+
 // unpublished_at is what says whether the dish is public RIGHT NOW. The row survives a
 // takedown on purpose: it holds the recipe id, so re-publishing reuses the same public URL
 // and a link somebody already sent keeps working.

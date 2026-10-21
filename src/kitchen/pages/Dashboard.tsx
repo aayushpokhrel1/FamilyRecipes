@@ -1,16 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { myOrgs } from "../../lib/api/kitchen/orgs";
-import type { Org } from "../../lib/api/kitchen/types";
+import { myGroupNumbers } from "../../lib/api/kitchen/numbers";
+import type { Org, StripNumbers } from "../../lib/api/kitchen/types";
+
+// The strip is a sentence, not three numbers, for the same reason the numbers page is: "1 of
+// 4" answers a question and "1" does not.
+function stripWords(strip: StripNumbers): string {
+  if (strip.started === 0) return "No dishes yet.";
+  const landed = `${strip.landed} of ${strip.started === 1 ? "1 dish" : `${strip.started} dishes`} signed off`;
+  if (strip.median_days === null) return `${landed}.`;
+  return `${landed}, median ${strip.median_days} ${strip.median_days === 1 ? "day" : "days"}.`;
+}
 
 export default function Dashboard() {
   const [orgs, setOrgs] = useState<Org[] | null>(null);
+  const [numbers, setNumbers] = useState<Record<string, StripNumbers>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     myOrgs()
       .then(setOrgs)
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load."));
+    // The links are the function and the figures are decoration, the same rule OrgLayout
+    // states about the group's name: a failed or slow numbers call must never cost the
+    // navigation, so it falls back to no strip rather than to the error state.
+    myGroupNumbers()
+      .then(setNumbers)
+      .catch(() => setNumbers({}));
   }, []);
 
   if (error) {
@@ -41,6 +58,9 @@ export default function Dashboard() {
               {org.name} <Link to={`/orgs/${org.id}/sites`}>Sites</Link>{" "}
               <Link to={`/orgs/${org.id}/staff`}>Staff</Link>{" "}
               <Link to={`/orgs/${org.id}/dishes`}>Dishes</Link>{" "}
+              {/* Absent for a group the caller does not run, which is the database saying
+                  they are not served its numbers. Nothing is rendered rather than a zero. */}
+              {numbers[org.id] && <p>{stripWords(numbers[org.id])}</p>}
             </li>
           ))}
         </ul>
