@@ -26,6 +26,8 @@ export type AdminInsights = {
 // AdminInsights these numbers are NOT pairs: there is no moderator concept in the kitchen
 // schema, so there is nothing to exclude.
 export type KitchenInsights = {
+  throughput: { started: number; landed: number; medianDays: number | null; slowOverAMonth: number }
+  activeStaff: number // a count, and the console never names a kitchen staff member.
   counts: {
     orgs: number; sites: number; staff: number;
     dishes: number; published: number; openInvites: number;

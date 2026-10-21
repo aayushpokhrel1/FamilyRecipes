@@ -87,6 +87,8 @@ beforeEach(() => {
   // page renders the tab's button on every render, and any test that clicks it would
   // otherwise hit an unmocked function.
   getKitchenInsights.mockResolvedValue({
+    throughput: { started: 2, landed: 1, medianDays: 5, slowOverAMonth: 1 },
+    activeStaff: 3,
     counts: { orgs: 0, sites: 0, staff: 0, dishes: 0, published: 0, openInvites: 0 },
     funnel: { created: 0, addedSite: 0, addedDish: 0, publishedDish: 0 },
     orgsByDay: {},
@@ -478,6 +480,8 @@ test("it says nothing has been recorded when there is no history at all", async 
 test("clicking Kitchen shows the counts, with a tile labelled Kitchens", async () => {
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
   getKitchenInsights.mockResolvedValue({
+    throughput: { started: 2, landed: 1, medianDays: 5, slowOverAMonth: 1 },
+    activeStaff: 3,
     counts: { orgs: 2, sites: 3, staff: 4, dishes: 5, published: 1, openInvites: 6 },
     funnel: { created: 2, addedSite: 1, addedDish: 1, publishedDish: 0 },
     orgsByDay: {},

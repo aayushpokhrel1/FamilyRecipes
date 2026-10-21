@@ -506,6 +506,11 @@ function KitchenSection() {
   const busiest = Math.max(1, ...days.map((d) => d.count));
 
   const counts: [string, number][] = [
+    ["Throughput started", insights.throughput.started],
+    ["Throughput landed", insights.throughput.landed],
+    ["Throughput median days", insights.throughput.medianDays],
+    ["Throughput slow over a month", insights.throughput.slowOverAMonth],
+    ["Staff active in the last 7 days", insights.activeStaff],
     ["Kitchens", insights.counts.orgs],
     ["Venues", insights.counts.sites],
     ["Staff", insights.counts.staff],
