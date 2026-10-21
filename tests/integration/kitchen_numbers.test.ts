@@ -14,7 +14,7 @@
 //
 // The functions do not exist yet, so this file is expected to fail until they do.
 import { describe, it, expect } from "vitest";
-import { makeUser } from "./helpers";
+import { admin, makeUser } from "./helpers";
 
 const stamp = () => Date.now() + Math.floor(Math.random() * 1000);
 const kitchen = (c: Awaited<ReturnType<typeof makeUser>>["client"]) => c.schema("kitchen");
@@ -261,5 +261,210 @@ describe("the kitchen's own throughput", () => {
     const { data, error } = await kitchen(fresh.client).rpc("my_group_numbers");
     expect(error).toBeNull();
     expect(data).toEqual({});
+  });
+});
+
+// Today as a local YYYY-MM-DD string. Never toISOString(): that converts to UTC first, so for
+// anybody east or west of Greenwich it names the wrong day for part of every day.
+const now = new Date();
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+type PersonRow = {
+  user_id: string;
+  display_name: string;
+  role: string;
+  site_name: string | null;
+  days_back: number;
+  of_days: number;
+  last_seen: string | null;
+  never: boolean;
+};
+
+type People = {
+  staff: PersonRow[];
+  invites: { issued: number; used: number; open: number; aged_out: number };
+  closed_sites: number;
+  retired_dishes: number;
+};
+
+async function recordVisit(who: Client, orgId: string, surface: string) {
+  await kitchen(who).rpc("record_kitchen_visit", {
+    p_org: orgId,
+    p_day: today,
+    p_surface: surface,
+  });
+}
+
+async function people(owner: Client, orgId: string) {
+  const { data, error } = await kitchen(owner).rpc("group_people", { p_org: orgId });
+  expect(error).toBeNull();
+  return data as unknown as People;
+}
+
+describe("who comes back", () => {
+  it("an owner sees a row per current staff member", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "People Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+    await joinAs(owner.client, orgId, "cook", siteId);
+
+    const data = await people(owner.client, orgId);
+    expect(data.staff.length).toBe(2);
+    const names = data.staff.map((row) => row.display_name);
+    expect(names).toContain("Sam");
+    expect(names).toContain("Ruth");
+  });
+
+  it("a chef gets an empty object from group_people", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Chef People Group");
+    const chef = await joinAs(owner.client, orgId, "chef", null);
+
+    const { data, error } = await kitchen(chef.client).rpc("group_people", { p_org: orgId });
+    expect(error).toBeNull();
+    expect(data).toEqual({});
+  });
+
+  it("a cook gets an empty object from group_people", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Cook People Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+    const cook = await joinAs(owner.client, orgId, "cook", siteId);
+
+    const { data, error } = await kitchen(cook.client).rpc("group_people", { p_org: orgId });
+    expect(error).toBeNull();
+    expect(data).toEqual({});
+  });
+
+  it("a stranger gets an empty object from group_people", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Stranger People Group");
+    const stranger = await makeUser(`kit-num-stranger-${stamp()}@t.dev`);
+
+    const { data, error } = await kitchen(stranger.client).rpc("group_people", { p_org: orgId });
+    expect(error).toBeNull();
+    expect(data).toEqual({});
+  });
+
+  it("somebody who joined three days ago is counted out of three", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "New Hire Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+    const cook = await joinAs(owner.client, orgId, "cook", siteId);
+
+    await admin
+      .schema("kitchen")
+      .from("staff")
+      .update({ joined_at: new Date(Date.now() - 3 * 86400000).toISOString() })
+      .eq("org_id", orgId)
+      .eq("user_id", cook.id);
+
+    const data = await people(owner.client, orgId);
+    const row = data.staff.find((r) => r.user_id === cook.id)!;
+    // The denominator is days since joining rather than a flat seven, so a new hire does not
+    // read as four days absent.
+    expect(row.of_days).toBe(3);
+  });
+
+  it("somebody who never opened it is never, not zero of seven", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Never Opened Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+    const cook = await joinAs(owner.client, orgId, "cook", siteId);
+
+    const data = await people(owner.client, orgId);
+    const row = data.staff.find((r) => r.user_id === cook.id)!;
+    // "Never arrived" and "stopped coming" are different facts, so this is a flag and not a
+    // large number of days.
+    expect(row.never).toBe(true);
+    expect(row.days_back).toBe(0);
+    expect(row.last_seen).toBeNull();
+  });
+
+  it("a visit today counts once however many surfaces were opened", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Two Surface People Group");
+    await recordVisit(owner.client, orgId, "dishes");
+    await recordVisit(owner.client, orgId, "sites");
+
+    const data = await people(owner.client, orgId);
+    const row = data.staff.find((r) => r.user_id === owner.id)!;
+    // The figure counts DAYS and not visits, so two surfaces on one day is still one day back.
+    expect(row.days_back).toBe(1);
+  });
+
+  it("attendance in another group is not counted here", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const firstOrg = await newOrg(owner.client, "First People Group");
+    const secondOrg = await newOrg(owner.client, "Second People Group");
+    await recordVisit(owner.client, secondOrg, "dishes");
+
+    const data = await people(owner.client, firstOrg);
+    const row = data.staff.find((r) => r.user_id === owner.id)!;
+    // This is what org_id in the primary key buys: a day worked for one employer is not a day
+    // worked for another, so the other group's visit is invisible here.
+    expect(row.days_back).toBe(0);
+    expect(row.never).toBe(true);
+  });
+
+  it("a removed staff member is not listed", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Removed People Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+    const cook = await joinAs(owner.client, orgId, "cook", siteId);
+    await recordVisit(cook.client, orgId, "dishes");
+
+    await admin
+      .schema("kitchen")
+      .from("staff")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("user_id", cook.id);
+
+    const data = await people(owner.client, orgId);
+    expect(data.staff.some((r) => r.user_id === cook.id)).toBe(false);
+  });
+
+  it("an open invite and an aged-out one are counted apart", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Invite People Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+
+    const { data: firstCode } = await kitchen(owner.client).rpc("create_invite", {
+      p_org: orgId,
+      p_role: "cook",
+      p_site: siteId,
+    });
+    await kitchen(owner.client).rpc("create_invite", {
+      p_org: orgId,
+      p_role: "cook",
+      p_site: siteId,
+    });
+
+    await admin
+      .schema("kitchen")
+      .from("staff_invites")
+      .update({ expires_at: new Date(Date.now() - 86400000).toISOString() })
+      .eq("code", firstCode);
+
+    const data = await people(owner.client, orgId);
+    // An invite carries its own expires_at, so an aged-out invite is one with used_at null and
+    // expires_at in the past, and an open one is used_at null with expires_at still ahead.
+    expect(data.invites.open).toBe(1);
+    expect(data.invites.aged_out).toBe(1);
+  });
+
+  it("a closed site and a retired dish are counted", async () => {
+    const owner = await makeUser(`kit-num-owner-${stamp()}@t.dev`);
+    const orgId = await newOrg(owner.client, "Closed People Group");
+    const siteId = await newSite(owner.client, orgId, "Bridge Street");
+    const dishId = await newDish(owner.client, orgId, "Soup");
+
+    await kitchen(owner.client).rpc("close_site", { p_site: siteId });
+    await kitchen(owner.client).rpc("retire_dish", { p_dish: dishId });
+
+    const data = await people(owner.client, orgId);
+    expect(data.closed_sites).toBe(1);
+    expect(data.retired_dishes).toBe(1);
   });
 });
