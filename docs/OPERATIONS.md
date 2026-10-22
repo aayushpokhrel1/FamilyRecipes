@@ -732,6 +732,20 @@ client, so RLS is what proves the claim. The service-role client is created only
 check passes and never decides who the caller is. A non-moderator gets 404 rather than 403, so
 the endpoint cannot even be confirmed to exist.
 
+**The Kitchen section reads the `kitchen` schema, and counts only.** It is the one function
+allowed to touch both schemas, which `supabase/kitchen_seal.test.ts` holds. Since 2026-10-21 it
+also reports throughput (dishes started, signed off, the median days to sign-off, and how many
+have been in development over a month) and how many staff were active in the last seven days.
+That last one is a COUNT and must stay one: a named person's attendance is a kitchen row, and
+the owner of a group sees their own staff by name inside the kitchen app, never here. The select
+list takes `user_id` alone, and `src/pages/Moderation.test.tsx` fails if a name reaches the page.
+
+**The arithmetic lives in `kitchenNumbers.ts`, not in `index.ts`.** Vitest cannot import the
+entry point (it is Deno), so logic inside it cannot be tested at all; `boots.test.ts` can only
+parse it. `extract-recipe` is split the same way. Every definition there has to match
+`0063_the_kitchen_can_see_its_own_throughput.sql`, because a moderator and a group's own owner
+looking at the same kitchen must not be told two different stories.
+
 Report-driven actions deliberately stay in the `resolve_report` RPC, so a report changes state
 in one place and there is one audit trail rather than two.
 
