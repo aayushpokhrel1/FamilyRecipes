@@ -3,7 +3,7 @@ import AdminApp from "./App";
 import RequireAuth from "../components/RequireAuth";
 import RequireModerator from "./components/RequireModerator";
 import Moderation from "./pages/Moderation";
-import NotFound from "../pages/NotFound";
+import NotFound from "./pages/NotFound";
 
 // RequireAuth is the family app's, reused on purpose, exactly as the kitchen app reuses it: it
 // holds the rule that the destination travels in the URL through safeNext rather than in router
