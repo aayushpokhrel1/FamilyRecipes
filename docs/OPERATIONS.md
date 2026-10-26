@@ -116,8 +116,25 @@ The two that happened to fail were the whole-database ones, which is the tell:
 identity", and a `kitchen_invites.test.ts` case. Anything that scans rather than scopes is a
 candidate.
 
+**A browser walk is not the only way to poison it. THE SUITE POISONS ITSELF.** Measured on
+2026-10-26, with no browser walk involved at all: four full integration runs back to back, no
+reset between them, and the fourth failed `audit_2026_10_12_full.test.ts` with nineteen orphaned
+`public_cooks` rows, every one of them a random handle the tests had generated themselves. The
+deletion tests leave a profile whose login is gone, which is exactly the state that invariant
+exists to catch, so each run leaves a little more of what the next run scans. `db reset` and the
+same suite was 300/300.
+
+So the heading above is too narrow and the habit it asks for is the right one: **reset before a
+full integration run, not only after clicking around.**
+
 So a red integration run is three questions, in this order: are the three env vars exported,
-has this database been walked since its last reset, and only then is it the code.
+has this database been walked OR run against since its last reset, and only then is it the code.
+
+**One more that is NOT in that list, because it is not a poisoning:** on 2026-10-26 a full run
+reported `39 passed (39)` and `283 passed` when forty files exist, having silently not collected
+the slowest file. Nothing was red, so a grep for `FAIL` saw a clean run. **Check the file COUNT,
+not just the colour**: forty files and three hundred tests is the number, and anything less is a
+file that did not run even when everything reported passing.
 
 ## Walking production signed in
 
