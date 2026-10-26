@@ -87,6 +87,14 @@ Both of those used to have no mechanical guard. They do now:
   nobody is re-asked and the stored acceptance is a lie.
   `src/components/TermsGate.version.test.ts` fingerprints the page and fails if the wording
   moved without the version.
+- **A terms guard watches the TERMS page and nothing else.** The three dated pages with no gate
+  (`src/pages/Privacy.tsx`, `Cookies.tsx`, `src/kitchen/pages/Privacy.tsx`) are guarded
+  separately by `src/pages/legalDates.version.test.ts`, which fails when their wording moves
+  without their `*_UPDATED` constant in `src/lib/legal.ts`. **A change to a privacy page alone
+  therefore leaves every terms test green and re-prompts nobody**, which is correct for a
+  typo and wrong for a material change: on 2026-10-21 a clause saying an employer can see a
+  person's attendance went in that way, and the re-prompt happened only because the kitchen
+  TERMS page gained the clause too. Decide which it is; the mechanism will not decide for you.
 - **`Privacy.tsx` must name every third party the app sends data to.** Adding an outbound call
   anywhere makes that page part of the change. `docs/OPERATIONS.md` has the current list, and
   `supabase/processors.test.ts` fails the build if a provider the code can reach is unnamed.
@@ -157,11 +165,17 @@ wrong document, failing once and then passing forever while guarding nothing.
   negated test guarding a refusal fails OPEN. `coalesce` it, or use `is distinct from`.
   This was the SECOND instance of the class: `0047` nearly shipped `hidden_from_feed`
   returning NULL into a policy consumed behind `not`. `rls.test.ts` now fails both shapes.
-  **A new function in the `kitchen` schema also needs its EXECUTE revoked.** `0039`'s
-  `grant on all functions` covered only what existed then, so everything added in `0040`-`0046`
-  kept Postgres's default of EXECUTE to PUBLIC while anon held schema USAGE. That is what made
-  the NULL gate reachable rather than merely wrong. `0049` revokes blanket-wise, which is the
-  only form that covers the function nobody has written yet.
+  **A new function in the `kitchen` schema also needs its EXECUTE revoked, AND the re-grant
+  that follows it.** `0039`'s `grant on all functions` covered only what existed then, so
+  everything added in `0040`-`0046` kept Postgres's default of EXECUTE to PUBLIC while anon
+  held schema USAGE. That is what made the NULL gate reachable rather than merely wrong. The
+  trailer every migration since `0049` ends with is three lines and all three are load-bearing:
+  revoke from `public, anon`, re-grant to `authenticated, service_role`, then re-grant
+  `peek_invite` to `anon`. Blanket, because that is the only form covering the function nobody
+  has written yet. **Omit the re-grant and every signed-in caller gets `42501`**, because
+  `authenticated` reached the new function through the PUBLIC grant the revoke just removed:
+  `0063` shipped with two targeted revokes and its own integration tests caught it. Copy the
+  trailer from the previous migration rather than writing a narrower one.
   **The real proof lives in `tests/integration/`, not here.** Those run as an ordinary user or
   as anon against a real database, and they are the only thing that can tell a correct policy
   from a present one. `audit_2026_10_12.test.ts` attempts all six exploits. Set the policy up

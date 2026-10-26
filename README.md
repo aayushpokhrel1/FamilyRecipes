@@ -57,8 +57,10 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
 - **Moderator console** at `/moderation`, in five sections: the report queue, appeals, a
   **Recipes** section of counts and first-party numbers (who comes back, where people fall out
   of onboarding, which features are used, which marketing page produced an account), a roster
-  with suspend, take down, grant moderator and delete, and a **Kitchen** section counting the
-  other product. Visible only to a moderator, and the page re-checks that rather than relying
+  with suspend, take down, grant moderator and delete, and a **Kitchen** section that counts the
+  other product and reports its throughput (dishes started and signed off, the median days to
+  sign-off, how many have been in development over a month, and how many staff were active in
+  the last seven days, as a count that never names anybody). Visible only to a moderator, and the page re-checks that rather than relying
   on the nav hiding the link.
 - **Public documents**, readable without an account: terms, privacy policy, cookies, and help
   (`/terms`, `/privacy`, `/cookies`, `/help`). The kitchen app has its own `/terms` and
@@ -147,7 +149,10 @@ meal planning · v1 private multi-family vault.
 one site, group menu, with every revision kept, one version signed off, and an owner able to
 publish the approved version to Potluck under the venue's name. A dish can be retired and a
 site closed, both reversible, and an owner can erase the whole group, which takes its published
-dishes down first. It runs on its own host,
+dishes down first. **A group can also see how it is doing**: a Numbers page answers whether
+dishes land and how long they take, where the group stalls, and which of its sites record
+anything, for an owner or a chef; an owner alone also sees who has been back, which the kitchen
+privacy page and terms both disclose. It runs on its own host,
 `kitchen.enamelvault.com`, and its own Postgres schema, both live as of 2026-10-12. It is
 offered from the apex through the sign-in chooser and its own page, `/professional`.
 
