@@ -13,6 +13,8 @@ import Skeleton from "../components/Skeleton";
 import { findDurations } from "../lib/stepDuration";
 import { start as startTimer, findRunning, subscribe as subscribeTimers } from "../lib/cookTimers";
 import { armAlarm } from "../lib/cookAlarm";
+import { stepSpeech } from "../lib/stepSpeech";
+import { speak, speechAvailable, stopSpeaking } from "../lib/speech";
 
 
 
@@ -65,6 +67,12 @@ export default function CookMode() {
   }
 
   const [showIngredients, setShowIngredients] = useState(false);
+  // DELIBERATELY NOT PERSISTED, like `ticked` below. Reading aloud is a per-cook decision (a
+  // quiet house or a loud extractor fan), not a standing preference, and a new storage key
+  // would have to earn itself in src/lib/browserStorage.test.ts and be named on the Cookies
+  // page. It is not in the URL either: `?step` is there so a link lands on the right step,
+  // and nobody shares "read this to me".
+  const [aloud, setAloud] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [servings, setServings] = useState<number | null>(null);
@@ -137,6 +145,28 @@ export default function CookMode() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [steps.length, index]);
 
+  // Declared up here rather than beside the render: the read-aloud effect below depends on
+  // it, and every hook must sit above this component's early returns.
+  const step = steps[index];
+
+  // Speaks the step you have just arrived on, however you arrived: the big step target, Next,
+  // Back, a swipe, an arrow key, or a /cook?step=4 link opened cold. Turning the switch ON
+  // reads the current step straight away rather than waiting for the next one, because a
+  // switch that does nothing until later reads as broken.
+  //
+  // `factor` is in the dependencies ON PURPOSE: changing the portions changes the amounts,
+  // and the amounts are half the reason this speaks at all, so it says the step again with
+  // the new ones.
+  //
+  // The cleanup cancels, which covers all three exits: the step changing, the switch going
+  // off, and leaving the page mid-sentence. `speak` cancels first as well, so the two
+  // together mean one voice at a time rather than a queue the screen has run away from.
+  useEffect(() => {
+    if (!aloud || !step) return;
+    speak(stepSpeech(step.text, ingredients, factor));
+    return () => stopSpeaking();
+  }, [aloud, step, ingredients, factor]);
+
   useEffect(() => {
     let cancelled = false;
     let lock: WakeLockSentinel | null = null;
@@ -162,7 +192,6 @@ export default function CookMode() {
   if (loading) return <Skeleton shape="plate" count={4} />;
   if (error) return <p className="vault-note" role="alert">{error}</p>;
 
-  const step = steps[index];
 
   // The only write to the cook log: an explicit tap. Opening a recipe is
   // browsing, not cooking, so nothing here logs on mount or on the last step.
@@ -193,6 +222,19 @@ export default function CookMode() {
         <button type="button" onClick={() => setShowIngredients((v) => !v)}>
           {showIngredients ? "Hide ingredients" : "Show ingredients"}
         </button>
+        {/* Drawn only where there is an engine to speak with. A browser without
+            speechSynthesis would otherwise get a button that silently does nothing, which is
+            worse than no button. */}
+        {speechAvailable() && (
+          <button
+            type="button"
+            className={aloud ? "action" : undefined}
+            aria-pressed={aloud}
+            onClick={() => setAloud((v) => !v)}
+          >
+            {aloud ? "Reading aloud" : "Read aloud"}
+          </button>
+        )}
       </div>
       <div className={showIngredients ? "cook-body cook-body-split" : "cook-body"}>
         <div className="cook-main">

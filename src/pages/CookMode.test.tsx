@@ -282,3 +282,55 @@ test("keeps the chips outside the step button", async () => {
   const step = screen.getByRole("button", { name: /advance from step 1/i });
   expect(step).not.toContainElement(chip);
 });
+
+// READ ALOUD, AND THE PART WORTH TESTING IS THE WIRING, not the wording: stepSpeech and the
+// speech wrapper have their own tests next door. What can only break here is the switch being
+// drawn when there is no engine, or the step changing without the voice following it.
+//
+// jsdom has no speechSynthesis, which is also the real "browser without it" case, so the
+// absence is the default and the engine is the thing that has to be stubbed in.
+function stubEngine() {
+  const engine = { cancel: vi.fn(), speak: vi.fn() };
+  vi.stubGlobal("speechSynthesis", engine);
+  vi.stubGlobal("SpeechSynthesisUtterance", class {
+    text: string;
+    constructor(text: string) { this.text = text; }
+  });
+  return engine;
+}
+
+function spokenTexts(engine: { speak: ReturnType<typeof vi.fn> }): string[] {
+  return engine.speak.mock.calls.map((c) => (c[0] as { text: string }).text);
+}
+
+test("offers no read-aloud switch in a browser with no speech engine", async () => {
+  vi.unstubAllGlobals();
+  renderCookMode();
+  expect(await screen.findByText("mix well")).toBeInTheDocument();
+  // A button that silently does nothing is worse than no button.
+  expect(screen.queryByRole("button", { name: /read aloud/i })).not.toBeInTheDocument();
+});
+
+test("reads the step and its scaled ingredients aloud, and follows the step you move to", async () => {
+  const engine = stubEngine();
+  renderCookMode();
+  await screen.findByText("mix well");
+  // Silent until asked.
+  expect(engine.speak).not.toHaveBeenCalled();
+
+  await userEvent.click(screen.getByRole("button", { name: /read aloud/i }));
+  // Turning it on reads the step you are ALREADY on, rather than waiting for the next one.
+  expect(spokenTexts(engine)).toEqual(["mix well."]);
+
+  await userEvent.click(screen.getByRole("button", { name: /next/i }));
+  await screen.findByText("bake it");
+  expect(spokenTexts(engine)[1]).toBe("bake it.");
+
+  await userEvent.click(screen.getByRole("button", { name: /reading aloud/i }));
+  // Switching off stops it mid-sentence rather than letting the step finish.
+  expect(engine.cancel).toHaveBeenCalled();
+  const after = engine.speak.mock.calls.length;
+  await userEvent.click(screen.getByRole("button", { name: /previous/i }));
+  expect(engine.speak.mock.calls.length).toBe(after);
+  vi.unstubAllGlobals();
+});
