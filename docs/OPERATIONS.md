@@ -312,7 +312,19 @@ Three targets that are deployed **separately**. Confusing them wastes time.
 | --- | --- | --- |
 | Frontend | Cloudflare Workers Builds, Git-connected to master | usually, on push, but **verify** |
 | Database | `npx supabase db push` | no |
-| Edge function | `npx supabase functions deploy <name>`, one at a time | **no, never** |
+| Edge function | `npx supabase functions deploy <name> --use-api`, one at a time | **no, never** |
+
+**Pass `--use-api`.** Without it the CLI bundles in a local Docker container, and when the Docker
+daemon is unhealthy that step HANGS rather than failing: on 2026-10-26 two attempts sat at
+"Bundling Function: admin" for ten minutes each, leaving `edge-runtime` containers in state
+`Created` that never started, while `docker inspect` itself timed out. The function stayed on its
+previous version with nothing printed to say so. `--use-api` bundles server-side, needs no Docker,
+and took about fifteen seconds for the same function.
+
+**That hang does not touch the local database**, because its container was already running. The
+thing to expect instead is that anything needing a NEW container, `supabase db reset` included,
+hangs until Docker Desktop is restarted. A `docker inspect` that does not return within a few
+seconds is the quickest confirmation.
 
 A commit touching only `supabase/functions/` leaves Cloudflare's last build untouched, and that
 is correct rather than stale.
