@@ -365,6 +365,14 @@ fired: the build list's newest entry was the PREVIOUS push, no failed build, no 
 **The failure is silent in the worst way: the old Worker keeps serving 200s.** Nothing is
 broken, nothing alerts, and the only symptom is that the change is missing.
 
+**It recurred on 2026-10-26**, on `53efa9a`, which sat undeployed for three hours until the next
+push built and carried both commits. **A tempting wrong explanation, now ruled out:** that commit
+touched only `CLAUDE.md` and `README.md`, so "Cloudflare skips a docs-only push by design" reads
+as the obvious answer. It is false. The very next commit was also docs-only
+(`docs/OPERATIONS.md` alone) and built within a minute, measured. There are no build watch paths
+doing this; the trigger simply misses sometimes, and a docs-only commit is not exempt from the
+alarm going red when it does.
+
 **`ci.yml` does NOT deploy.** It runs `build-and-test` and `integration` only. A green tick on
 GitHub says the code is sound, never that it is live. Do not read it as a deploy signal.
 
