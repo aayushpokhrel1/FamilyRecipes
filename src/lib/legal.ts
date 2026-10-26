@@ -11,7 +11,7 @@ export const CONTACT_EMAIL = "moderation@enamelvault.com";
 
 // Shown on each policy page. BUMP THE DATE WHEN YOU CHANGE THAT PAGE'S WORDING, and if you
 // change Terms.tsx, bump TERMS_VERSION in TermsGate.tsx as well so people are re-asked.
-export const PRIVACY_UPDATED = "16 October 2026";
+export const PRIVACY_UPDATED = "26 October 2026";
 export const COOKIES_UPDATED = "16 October 2026";
 export const TERMS_UPDATED = "11 October 2026";
 

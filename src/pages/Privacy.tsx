@@ -276,9 +276,11 @@ export default function Privacy() {
           have their vault emptied by someone else making a decision.
         </li>
         <li>
-          Moderation records: a report you filed, an appeal you wrote, and the record of a
-          removal, kept so a repeated pattern can be acted on. These hold the decision, not
-          your recipes.
+          Moderation records: a report you filed, an appeal you wrote, the record of a removal,
+          and a dated note of each moderation decision about your account, naming the moderator
+          who made it and why. These are kept so a repeated pattern can be acted on, and so that
+          a decision taken about you can be accounted for. They hold the decision, not your
+          recipes.
         </li>
       </ul>
       <p>Error reports are operational data and are deleted after 90 days.</p>

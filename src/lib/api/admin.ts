@@ -49,11 +49,25 @@ export type AdminUser = {
   recipes: number;
 };
 
+// One row of the moderation trail (migration 0066). Names are resolved by the edge function,
+// because profiles_self_read hides every other profile row from a moderator's client too.
+// `actorName` is null only for an event whose actor's profile row is gone.
+export type ModerationEvent = {
+  id: string; at: string; action: string; via: "direct" | "report" | "appeal";
+  actorName: string | null; subjectName: string | null;
+  subjectRecipe: string | null; reason: string | null;
+};
+
 // Every call goes through the one `admin` function, which is also the only place the
 // moderator check lives. The browser deliberately does NOT re-check the caller's role, nor
 // whether they are acting on themselves, nor whether they are demoting the last moderator:
 // the function already refuses all three, and a second copy here would be a copy that can
 // drift out of step with the one that actually enforces anything.
+//
+// ONE EXCEPTION, added with the owner gate in 0066, and the distinction is worth keeping
+// straight: `callerIsOwner` below is not a re-check, it is the answer to "should this control
+// be drawn at all". The rule it serves is the other one in CLAUDE.md, that a page must not
+// render a control its viewer's policy will refuse. The enforcement stays in the function.
 async function call<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("admin", { body });
   if (error) throw new Error(error.message);
@@ -73,8 +87,15 @@ export function getAdminInsights(): Promise<AdminInsights> {
 }
 
 // Pages are 1-based, the same as the edge function, which clamps anything below 1 to 1.
-export function listAdminUsers(page = 1): Promise<{ users: AdminUser[]; hasMore: boolean }> {
-  return call<{ users: AdminUser[]; hasMore: boolean }>({ action: "users", page });
+// `callerIsOwner` is what lets the page hide the moderator controls rather than drawing a
+// button the function will refuse. It is not the enforcement: set_moderator checks it itself.
+export function listAdminUsers(
+  page = 1,
+): Promise<{ users: AdminUser[]; hasMore: boolean; callerIsOwner: boolean }> {
+  return call<{ users: AdminUser[]; hasMore: boolean; callerIsOwner: boolean }>({
+    action: "users",
+    page,
+  });
 }
 
 export async function suspendUser(userId: string, reason: string): Promise<void> {
@@ -99,4 +120,10 @@ export async function takedownRecipe(recipeId: string, reason: string): Promise<
 
 export async function restoreRecipe(recipeId: string): Promise<void> {
   await call({ action: "restore_recipe", recipeId });
+}
+
+export function listModerationEvents(
+  page = 1,
+): Promise<{ events: ModerationEvent[]; hasMore: boolean }> {
+  return call<{ events: ModerationEvent[]; hasMore: boolean }>({ action: "events", page });
 }

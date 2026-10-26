@@ -749,9 +749,25 @@ looking at the same kitchen must not be told two different stories.
 Report-driven actions deliberately stay in the `resolve_report` RPC, so a report changes state
 in one place and there is one audit trail rather than two.
 
-**There is no audit log.** A suspension or a deletion leaves no record of who did it or when.
-With one moderator that is tolerable; with two it is not, and it is the first thing to add if
-anyone else ever gets the flag.
+**There IS an audit log, since `0066`.** Every moderator action writes one row to
+`moderation_events` naming the actor, the action, the subject, the reason, and which door it came
+through (`direct`, `report` or `appeal`). The console reads it under its Trail tab. It starts
+empty: nothing before `0066` deployed could be reconstructed, so the first row is the first
+action after it.
+
+Three things about that table are easy to undo by accident:
+
+- **It has one SELECT policy and no insert, update or delete policy.** That is the strictest
+  setting, not a gap. Only the two definer functions and the service-role client write to it.
+- **The insert refusal is held by the REVOKE, not by the absent policy.** Measured on 2026-10-26
+  by breaking each lock in turn: adding a permissive insert policy left the test green, because
+  `authenticated` has no insert privilege to exercise it with, and granting that privilege is
+  what turned it red. `tests/integration/moderation_trail.test.ts` records the measurement.
+- **Granting a moderator flag is the OWNER's alone** (`profiles.is_owner`). It is set by
+  migration and by no code anywhere, and it is deliberately absent from `0047`'s column-level
+  update grant, which is what stops any client setting it. A second owner is a SQL console job.
+  **If `is_owner` is true for nobody, `set_moderator` refuses every caller**: the migration
+  prints the row count it set, and the console's refusal names the reason.
 
 If the console is unreachable, every action it performs can be done directly in SQL. The
 runbook for that is kept outside the repo, in the Artifact linked from the session notes, and

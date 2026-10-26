@@ -72,11 +72,15 @@ Deno.serve(async (req) => {
   // quietly stops depending on RLS being correct. Keep it here.
   const { data: me } = await caller
     .from("profiles")
-    .select("is_moderator")
+    .select("is_moderator, is_owner")
     .eq("id", user.id)
     .single();
   // 404, not 403: a non-moderator should not be able to confirm this endpoint exists.
   if (!me?.is_moderator) return json({ error: "not found" }, 404);
+  // is_owner (0066) narrows ONE action, set_moderator, and is read here rather than in that
+  // branch so it comes from the same RLS-authorised select as the flag it qualifies. It is not a
+  // third role: nothing else in this function or the app reads it.
+  const isOwner = me.is_owner === true;
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL"),
@@ -93,6 +97,24 @@ Deno.serve(async (req) => {
   const action = typeof body.action === "string" ? body.action : "";
   const targetId = typeof body.userId === "string" ? body.userId : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+
+  // THE TRAIL (0066). Every mutating action below ends with one of these, and the actor is
+  // `user.id` from the VERIFIED JWT rather than anything in the body, which is the same rule the
+  // header states for the moderator check itself.
+  //
+  // `via: 'direct'` always: a report-driven action never reaches this function, because
+  // resolve_report is still the only place a report changes state. That is why the trail has a
+  // `via` column at all.
+  //
+  // DELIBERATELY NOT FATAL, and this is the one judgement call in here. A suspension that
+  // succeeded and then failed to log is worse than unlogged: returning an error would tell the
+  // moderator it did not happen, and they would do it again. The write is a service-role insert
+  // into a table with no insert policy to refuse it, so the realistic failure is the database
+  // being gone, in which case the action above did not land either.
+  const logEvent = async (fields: Record<string, unknown>) => {
+    const { error } = await admin.from("moderation_events").insert({ actor_id: user.id, via: "direct", ...fields });
+    if (error) console.error("moderation_events insert failed", error.message, fields);
+  };
 
   const count = async (table: string, filter?: (q: unknown) => unknown) => {
     let q = admin.from(table).select("id", { count: "exact", head: true });
@@ -485,7 +507,54 @@ Deno.serve(async (req) => {
           recipes: recipeCount.get(u.id) ?? 0,
         };
       });
-      return json({ users, page, hasMore: list.users.length === 100 }, 200);
+      // callerIsOwner rides along so the page can hide the promote and demote controls rather
+      // than drawing a button the function will refuse (0066). It is a courtesy, not the
+      // enforcement: set_moderator checks isOwner itself and refuses whatever the browser drew.
+      return json({ users, page, hasMore: list.users.length === 100, callerIsOwner: isOwner }, 200);
+    }
+
+    // THE TRAIL, read back (0066). It lives here rather than in a browser query for the same
+    // reason the user list does: profiles_self_read hides every other profile row from a
+    // moderator's client too, so the actor and subject names can only be resolved with the
+    // service key. moderation_events itself a moderator CAN read, which is why the policy exists.
+    if (action === "events") {
+      const page = Math.max(1, typeof body.page === "number" ? body.page : 1);
+      const from = (page - 1) * 100;
+      const { data: rows, error } = await admin
+        .from("moderation_events")
+        .select("id, at, action, via, actor_id, subject_cook, subject_recipe, report_id, appeal_id, reason")
+        .order("at", { ascending: false })
+        .range(from, from + 99);
+      if (error) return json({ error: error.message }, 500);
+
+      // ONE call for every name in the page, never one per row, which is the rule the reports
+      // queue already follows. Both columns point at profiles, so they resolve together.
+      const ids = [...new Set((rows ?? [])
+        .flatMap((r: Record<string, unknown>) => [r.actor_id, r.subject_cook])
+        .filter((id: unknown): id is string => typeof id === "string"))];
+      const names = new Map<string, string>();
+      if (ids.length) {
+        const { data: profiles } = await admin
+          .from("profiles")
+          .select("id, display_name")
+          .in("id", ids);
+        for (const p of profiles ?? []) names.set(p.id, p.display_name ?? "A cook");
+      }
+
+      // Recipe TITLES are deliberately not resolved. A takedown's subject may since have been
+      // deleted, and the trail's job is to record that an action happened, not to keep a copy of
+      // what it was about. The id is enough to find the row if it is still there.
+      const events = (rows ?? []).map((r: Record<string, unknown>) => ({
+        id: r.id,
+        at: r.at,
+        action: r.action,
+        via: r.via,
+        actorName: typeof r.actor_id === "string" ? names.get(r.actor_id) ?? "A former moderator" : null,
+        subjectName: typeof r.subject_cook === "string" ? names.get(r.subject_cook) ?? "A cook" : null,
+        subjectRecipe: r.subject_recipe ?? null,
+        reason: r.reason ?? null,
+      }));
+      return json({ events, page, hasMore: (rows ?? []).length === 100 }, 200);
     }
 
     // Everything below acts on another account, so they share the same two guards.
@@ -515,6 +584,7 @@ Deno.serve(async (req) => {
           .eq("author_id", targetId)
           .eq("visibility", "public");
         if (e2) return json({ error: e2.message }, 500);
+        await logEvent({ action: "suspend", subject_cook: targetId, reason });
         return json({ ok: true }, 200);
       }
 
@@ -527,10 +597,21 @@ Deno.serve(async (req) => {
           .update({ suspended_at: null, suspended_reason: null })
           .eq("id", targetId);
         if (error) return json({ error: error.message }, 500);
+        await logEvent({ action: "unsuspend", subject_cook: targetId });
         return json({ ok: true }, 200);
       }
 
       if (action === "set_moderator") {
+        // THE OWNER GATE (0066). Handing out the moderator flag is the action with the widest
+        // consequence here, so it is the owner's alone: a second moderator must not be able to
+        // quietly make a third. is_owner is set by migration and by no code anywhere, so this
+        // cannot be granted through the app at all.
+        //
+        // 400 with a reason, not the 404 above: the caller IS a moderator and has every right to
+        // know this endpoint exists. They simply may not do this one thing.
+        if (!isOwner) {
+          return json({ error: "only the owner can change who moderates" }, 400);
+        }
         const value = body.value === true;
         if (!value && (await countModerators(admin)) <= 1) {
           return json({ error: "that is the last moderator" }, 400);
@@ -540,6 +621,10 @@ Deno.serve(async (req) => {
           .update({ is_moderator: value })
           .eq("id", targetId);
         if (error) return json({ error: error.message }, 500);
+        await logEvent({
+          action: value ? "set_moderator" : "unset_moderator",
+          subject_cook: targetId,
+        });
         return json({ ok: true }, 200);
       }
 
@@ -621,6 +706,10 @@ Deno.serve(async (req) => {
 
       const { error: deleteError } = await admin.auth.admin.deleteUser(targetId);
       if (deleteError) return json({ error: deleteError.message }, 500);
+      // AFTER the login is gone, not before: subject_cook references profiles, and the profile
+      // row is what survives this (0014), so the reference holds. Logging a deletion that then
+      // failed would be a record of something that did not happen.
+      await logEvent({ action: "delete_user", subject_cook: targetId });
       return json({ ok: true }, 200);
     }
 
@@ -635,6 +724,7 @@ Deno.serve(async (req) => {
           .update({ visibility: "family", removed_at: new Date().toISOString(), removed_reason: reason })
           .eq("id", recipeId);
         if (error) return json({ error: error.message }, 500);
+        await logEvent({ action: "takedown_recipe", subject_recipe: recipeId, reason });
         return json({ ok: true }, 200);
       }
 
@@ -646,6 +736,7 @@ Deno.serve(async (req) => {
         .update({ removed_at: null, removed_reason: null })
         .eq("id", recipeId);
       if (error) return json({ error: error.message }, 500);
+      await logEvent({ action: "restore_recipe", subject_recipe: recipeId });
       return json({ ok: true }, 200);
     }
 

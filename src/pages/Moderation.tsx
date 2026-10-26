@@ -9,6 +9,7 @@ import {
   getAdminStats,
   getKitchenInsights,
   listAdminUsers,
+  listModerationEvents,
   setModerator,
   suspendUser,
   unsuspendUser,
@@ -16,11 +17,12 @@ import {
   type AdminStats,
   type AdminUser,
   type KitchenInsights,
+  type ModerationEvent,
 } from "../lib/api/admin";
 import { REASON_LABELS, type AppealRow, type PublicCook, type ReportRow } from "../lib/api/types";
 import Skeleton from "../components/Skeleton";
 
-type View = "reports" | "appeals" | "recipes" | "people" | "kitchen";
+type View = "reports" | "appeals" | "recipes" | "people" | "kitchen" | "trail";
 
 // A short date for the roster. A timestamptz is a real instant, so toLocaleDateString is
 // right here, and a null last sign-in is a real answer (never signed in) rather than a
@@ -122,8 +124,8 @@ export default function Moderation() {
     <div>
       <h1>Moderation</h1>
 
-      {/* Five views, not five routes: the console is one page, and a URL per tab would be
-          five more router entries for no navigational gain. */}
+      {/* Six views, not six routes: the console is one page, and a URL per tab would be
+          six more router entries for no navigational gain. */}
       <div className="group-toggle">
         <button type="button" aria-pressed={view === "reports"} onClick={() => setView("reports")}>
           Reports
@@ -139,6 +141,9 @@ export default function Moderation() {
         </button>
         <button type="button" aria-pressed={view === "kitchen"} onClick={() => setView("kitchen")}>
           Kitchen
+        </button>
+        <button type="button" aria-pressed={view === "trail"} onClick={() => setView("trail")}>
+          Trail
         </button>
       </div>
 
@@ -195,6 +200,7 @@ export default function Moderation() {
       {view === "recipes" && <Overview />}
       {view === "people" && <People />}
       {view === "kitchen" && <KitchenSection />}
+      {view === "trail" && <Trail />}
     </div>
   );
 }
@@ -697,9 +703,120 @@ function InsightTile({ label, pair }: { label: string; pair: { all: number; othe
   );
 }
 
+// What each action was, in words rather than the raw key. ONE place, because the same mapping
+// read inline in a JSX branch is a copy that drifts. The keys are migration 0066's allowlist and
+// this record must gain an entry whenever that constraint does.
+const ACTION_LABELS: Record<string, string> = {
+  suspend: "Suspended a cook",
+  unsuspend: "Lifted a suspension",
+  set_moderator: "Made someone a moderator",
+  unset_moderator: "Removed a moderator",
+  delete_user: "Deleted an account",
+  takedown_recipe: "Took a recipe down",
+  restore_recipe: "Put a recipe back",
+  clear_name: "Cleared a public name",
+  restore_name: "Restored a public name",
+  dismiss_report: "Dismissed a report",
+  grant_appeal: "Granted an appeal",
+  decline_appeal: "Declined an appeal",
+};
+
+// Which door the action came through. A suspension arrives both ways, and "was this a judgement
+// call or a report queue decision" is the first question anyone reviewing the work will ask.
+const VIA_LABELS: Record<string, string> = {
+  direct: "Directly",
+  report: "From a report",
+  appeal: "From an appeal",
+};
+
+function Trail() {
+  const [events, setEvents] = useState<ModerationEvent[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    listModerationEvents(1)
+      .then((r) => {
+        if (ignore) return;
+        setEvents(r.events);
+        setHasMore(r.hasMore);
+        setLoading(false);
+      })
+      .catch((e: Error) => {
+        if (ignore) return;
+        setError(e.message);
+        setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  async function loadMore() {
+    const next = page + 1;
+    const r = await listModerationEvents(next);
+    setEvents((prev) => [...prev, ...r.events]);
+    setHasMore(r.hasMore);
+    setPage(next);
+  }
+
+  if (loading) return <Skeleton shape="plate" count={3} />;
+  if (error) return <p className="form-error">{error}</p>;
+
+  return (
+    <>
+      {/* An empty trail and a quiet month look identical, so the note says which this is. There
+          is nothing to backfill from: the first row is the first action after 0066 deployed. */}
+      <p className="vault-note">
+        Every moderator action since this record began. Nothing before that was kept.
+      </p>
+      {events.length === 0 ? (
+        <p className="vault-note">No moderator action has been taken yet.</p>
+      ) : (
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">Who</th>
+              <th scope="col">What</th>
+              <th scope="col">To whom</th>
+              <th scope="col">Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((e) => (
+              <tr key={e.id}>
+                <td>{shortDate(e.at)}</td>
+                <td>{e.actorName ?? "A former moderator"}</td>
+                <td>
+                  {ACTION_LABELS[e.action] ?? e.action}
+                  <span className="vault-note"> {VIA_LABELS[e.via] ?? e.via}</span>
+                </td>
+                <td>{e.subjectName ?? (e.subjectRecipe ? "A recipe" : "")}</td>
+                <td>{e.reason ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {hasMore && (
+        <button type="button" onClick={loadMore}>
+          Load more
+        </button>
+      )}
+    </>
+  );
+}
+
 function People() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [hasMore, setHasMore] = useState(false);
+
+  // Comes from the roster call, because only the edge function knows it.
+  const [callerIsOwner, setCallerIsOwner] = useState(false);
   // 1-based, because the admin function's `users` action is: it clamps anything below 1
   // to page 1. Starting at 0 made the first Load more re-request page 1 and append a
   // duplicate of everyone already on screen.
@@ -724,6 +841,7 @@ function People() {
     const first = await listAdminUsers(1);
     setUsers(first.users);
     setHasMore(first.hasMore);
+    setCallerIsOwner(first.callerIsOwner);
     setPage(1);
   }
 
@@ -734,6 +852,7 @@ function People() {
         if (ignore) return;
         setUsers(r.users);
         setHasMore(r.hasMore);
+        setCallerIsOwner(r.callerIsOwner);
         setLoading(false);
       })
       .catch((e: Error) => {
@@ -859,13 +978,18 @@ function People() {
                       Suspend
                     </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={busyId === u.id}
-                    onClick={() => run(u.id, () => setModerator(u.id, !u.isModerator))}
-                  >
-                    {u.isModerator ? "Remove moderator" : "Make moderator"}
-                  </button>
+                  {/* Only the owner may change who moderates (0066), so a plain moderator is
+                      not shown a button the function would refuse. The refusal is still in the
+                      function: this is about not drawing a dead control. */}
+                  {callerIsOwner && (
+                    <button
+                      type="button"
+                      disabled={busyId === u.id}
+                      onClick={() => run(u.id, () => setModerator(u.id, !u.isModerator))}
+                    >
+                      {u.isModerator ? "Remove moderator" : "Make moderator"}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={busyId === u.id}

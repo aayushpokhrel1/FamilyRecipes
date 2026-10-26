@@ -31,11 +31,14 @@ const getAdminStats = vi.fn();
 const getAdminInsights = vi.fn();
 // The Kitchen tab's own load, independent of both of the above.
 const getKitchenInsights = vi.fn();
+const listAdminUsers = vi.fn();
+const listModerationEvents = vi.fn();
 vi.mock("../lib/api/admin", () => ({
   getAdminStats: (...a: any[]) => getAdminStats(...a),
   getAdminInsights: (...a: any[]) => getAdminInsights(...a),
   getKitchenInsights: (...a: any[]) => getKitchenInsights(...a),
-  listAdminUsers: vi.fn().mockResolvedValue({ users: [], hasMore: false }),
+  listAdminUsers: (...a: any[]) => listAdminUsers(...a),
+  listModerationEvents: (...a: any[]) => listModerationEvents(...a),
   setModerator: vi.fn(),
   suspendUser: vi.fn(),
   unsuspendUser: vi.fn(),
@@ -47,6 +50,9 @@ beforeEach(() => {
   getMyProfile.mockResolvedValue({ id: "u1", is_moderator: false });
   listOpenReports.mockResolvedValue([]);
   listOpenAppeals.mockResolvedValue([]);
+  // The roster call now also reports whether the caller may change who moderates.
+  listAdminUsers.mockResolvedValue({ users: [], hasMore: false, callerIsOwner: false });
+  listModerationEvents.mockResolvedValue({ events: [], hasMore: false });
   // public_cooks is how the queue turns a reported cook id into a name: profiles itself is
   // readable only to its owner, so a PostgREST embed would be null for every cook report.
   getPublicCooks.mockResolvedValue(new Map([
@@ -627,4 +633,76 @@ test("the features table labels the kitchen surface as Meal plans", async () => 
 
   expect(await screen.findByText("Meal plans")).toBeInTheDocument();
   expect(screen.queryByText("kitchen")).not.toBeInTheDocument();
+});
+
+// THE TRAIL (0066). These are about the console's reading of it; the writing is proved in
+// tests/integration/moderation_trail.test.ts against a real database, which is the only thing
+// that can tell a correct policy from a present one.
+test("the Trail names who acted, what they did and which door it came through", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listModerationEvents.mockResolvedValue({
+    events: [{
+      id: "e1", at: "2026-10-26T10:00:00Z", action: "suspend", via: "report",
+      actorName: "Aayush", subjectName: "Nana Rose", subjectRecipe: null, reason: "spam",
+    }],
+    hasMore: false,
+  });
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+  await userEvent.click(await screen.findByRole("button", { name: "Trail" }));
+
+  expect(await screen.findByText("Aayush")).toBeInTheDocument();
+  // The WORDS, not the raw keys. A raw 'suspend' sitting in a table is the same failure the
+  // SURFACE_LABELS comment in Moderation.tsx describes.
+  expect(screen.getByText(/Suspended a cook/)).toBeInTheDocument();
+  expect(screen.getByText(/From a report/)).toBeInTheDocument();
+  expect(screen.getByText("Nana Rose")).toBeInTheDocument();
+  expect(screen.getByText("spam")).toBeInTheDocument();
+});
+
+test("the Trail says nothing has been taken rather than showing an empty table", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+  await userEvent.click(await screen.findByRole("button", { name: "Trail" }));
+
+  expect(await screen.findByText("No moderator action has been taken yet.")).toBeInTheDocument();
+  expect(screen.queryByRole("table")).toBeNull();
+});
+
+test("a failed Trail load shows its message", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listModerationEvents.mockRejectedValue(new Error("the trail is unavailable"));
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+  await userEvent.click(await screen.findByRole("button", { name: "Trail" }));
+
+  expect(await screen.findByText("the trail is unavailable")).toBeInTheDocument();
+});
+
+const rosterUser = {
+  id: "u9", email: "a@b.dev", emailConfirmed: true, lastSignInAt: null,
+  createdAt: "2026-10-01T00:00:00Z", provider: "email", displayName: "Someone",
+  handle: null, isModerator: false, suspendedAt: null, suspendedReason: null, recipes: 0,
+};
+
+// Two tests rather than one with a re-render, because the thing being asserted is an ABSENCE in
+// the first case: a second render in the same test leaves the first one's DOM in place, and a
+// query that finds nothing cannot tell which render it failed to find it in.
+test("a plain moderator is not offered the moderator control", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listAdminUsers.mockResolvedValue({ users: [rosterUser], hasMore: false, callerIsOwner: false });
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+  await userEvent.click(await screen.findByRole("button", { name: "People" }));
+
+  expect(await screen.findByText("Someone")).toBeInTheDocument();
+  // Not a cosmetic choice: set_moderator refuses a non-owner, and CLAUDE.md's rule is that a
+  // page must not render a control its viewer's policy will refuse.
+  expect(screen.queryByRole("button", { name: "Make moderator" })).toBeNull();
+});
+
+test("the owner is offered the moderator control", async () => {
+  getMyProfile.mockResolvedValue({ id: "u1", is_moderator: true });
+  listAdminUsers.mockResolvedValue({ users: [rosterUser], hasMore: false, callerIsOwner: true });
+  render(<MemoryRouter><Moderation /></MemoryRouter>);
+  await userEvent.click(await screen.findByRole("button", { name: "People" }));
+
+  expect(await screen.findByRole("button", { name: "Make moderator" })).toBeInTheDocument();
 });
