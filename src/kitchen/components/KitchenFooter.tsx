@@ -31,7 +31,7 @@ export default function KitchenFooter() {
       </nav>
       <p>
         Enamel Vault for kitchens is run by {OPERATOR}, one person, not a company. Free while it
-        is in development, no adverts, no cookies.
+        is in development, no adverts, and the only cookie is the one that keeps you signed in.
       </p>
       <p>Your dishes belong to your business. Nothing here is public unless you publish it.</p>
     </footer>

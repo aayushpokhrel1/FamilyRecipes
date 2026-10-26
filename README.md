@@ -64,9 +64,10 @@ vault (`Projects/FamilyRecipes/`), which spans every project. See `CLAUDE.md`.
   on the nav hiding the link.
 - **Public documents**, readable without an account: terms, privacy policy, cookies, and help
   (`/terms`, `/privacy`, `/cookies`, `/help`). The kitchen app has its own `/terms` and
-  `/privacy`, a different product with different parties, and its own acceptance gate. There is no cookie banner because the app sets
-  no cookies and stores nothing on your device, which `src/lib/browserStorage.test.ts`
-  enforces rather than a promise. **Things ARE counted**, and saying otherwise here was wrong
+  `/privacy`, a different product with different parties, and its own acceptance gate. There is no cookie banner because the only cookie the app sets is the one that keeps you
+  signed in across its three hosts, which is strictly necessary and therefore exempt from
+  consent. `src/lib/browserStorage.test.ts` allows that one file by name and fails the build on
+  any other cookie, which enforces it rather than promising it. **Things ARE counted**, and saying otherwise here was wrong
   until 2026-10-16: Cloudflare counts page views cookielessly, and a signed-in account's use
   is recorded as one dated row per section per day so the project can tell whether anyone
   comes back. Both are described on `/privacy` and `/cookies`, neither touches the device, and

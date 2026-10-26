@@ -62,17 +62,18 @@ it("wraps every route that is not the catch-all in RequireModerator", () => {
   }
 });
 
-it("wraps every route that is not the catch-all in RequireAuth too", () => {
+it("wraps every route that is not the catch-all in RequireSession too", () => {
   // RequireModerator reads the profile and fails closed, so it would refuse a signed-out
-  // visitor anyway. RequireAuth is still required, because it is what sends them to sign in
-  // WITH the destination in the URL rather than showing them "Not found" and stopping.
+  // visitor anyway. RequireSession is still required, because it is what sends them to the
+  // family app's sign-in WITH the destination in the URL rather than stopping here. This host
+  // has no sign-in page of its own, so without it a signed-out visitor simply dead-ends.
   for (const path of routePaths()) {
     if (UNGATED.includes(path)) continue;
     const start = routes.indexOf(`path="${path}"`);
     const rest = routes.slice(start);
     const end = rest.indexOf('path="', 1);
     const element = end === -1 ? rest : rest.slice(0, end);
-    expect(element, `the route "${path}" is not behind RequireAuth`).toContain("RequireAuth");
+    expect(element, `the route "${path}" is not behind RequireSession`).toContain("RequireSession");
   }
 });
 

@@ -1,25 +1,23 @@
 import { Route, Routes } from "react-router-dom";
 import AdminApp from "./App";
-import RequireAuth from "../components/RequireAuth";
+import RequireSession from "./components/RequireSession";
 import RequireModerator from "./components/RequireModerator";
 import Moderation from "./pages/Moderation";
 import NotFound from "./pages/NotFound";
 
-// RequireAuth is the family app's, reused on purpose, exactly as the kitchen app reuses it: it
-// holds the rule that the destination travels in the URL through safeNext rather than in router
-// state, and that rule was learned twice in one week. A second copy would be a second place to
-// get it wrong.
+// RequireSession, NOT the family app's RequireAuth, and the difference is the whole reason it
+// exists: there is no /signin on this host, so RequireAuth's redirect landed on the catch-all.
+// RequireSession sends a signed-out visitor to the family app's sign-in carrying the full URL
+// they wanted, and safeReturnUrl there is what refuses anything that is not one of our origins.
 //
-// THERE IS NO SIGN-IN PAGE IN THIS APP. RequireAuth sends a signed-out visitor to /signin, which
-// on this host does not exist, so until the shared session lands (stage 3 of the design) you
-// sign in on the family app and come back. That is a known gap for one commit and not an
-// oversight; the design's stage 3 is what closes it.
+// Most visitors never reach it. The session cookie is scoped to .enamelvault.com, so anyone
+// signed in on either other app arrives here already signed in.
 //
 // TWO BANDS, and the band a route is in IS the security decision:
 //
 //   1. The catch-all. Telling someone a page does not exist is not an action, and gating it
 //      would be pointless here: this whole host is one gate.
-//   2. Everything else: inside RequireAuth AND RequireModerator. There is no third band,
+//   2. Everything else: inside RequireSession AND RequireModerator. There is no third band,
 //      because there is no public document on this host and nothing here that does not need a
 //      moderator.
 //
@@ -35,11 +33,11 @@ export default function AdminRoutes() {
         <Route
           path="/"
           element={
-            <RequireAuth>
+            <RequireSession>
               <RequireModerator>
                 <Moderation />
               </RequireModerator>
-            </RequireAuth>
+            </RequireSession>
           }
         />
       </Route>

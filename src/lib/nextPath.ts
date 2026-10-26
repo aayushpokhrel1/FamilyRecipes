@@ -1,3 +1,4 @@
+import { ADMIN_ORIGIN, FAMILY_ORIGIN, KITCHEN_ORIGIN } from "./hosts";
 // Where to send someone once they are signed in.
 //
 // This used to ride in React Router's `state`, which lives in memory and dies the moment the
@@ -16,6 +17,11 @@
 //
 // Hence: one leading slash, and nothing that a browser would read as a host. `//evil.example`
 // and `/\evil.example` are both protocol-relative URLs, not paths.
+// Our own three origins, and nothing else, ever. Built from the same constants the cross-app
+// links use, so a host rename cannot leave this list pointing at a name we no longer own, which
+// would be a redirect to whatever the registrar parks there.
+const ALLOWED_RETURN_ORIGINS = [FAMILY_ORIGIN, KITCHEN_ORIGIN, ADMIN_ORIGIN];
+
 export function safeNext(raw: string | null | undefined): string | null {
   if (!raw) return null;
   if (!raw.startsWith("/")) return null;
@@ -24,6 +30,41 @@ export function safeNext(raw: string | null | undefined): string | null {
   // legitimate route in this app contains one.
   if (/[\u0000-\u001f\u007f]/.test(raw)) return null;
   return raw;
+}
+
+/**
+ * A destination on ANOTHER of our own hosts, which `safeNext` deliberately refuses.
+ *
+ * `safeNext` allows paths and nothing else, and that stays true: it is what stops
+ * `?next=https://evil.example/login` turning the sign-in page into an open redirector, and it
+ * must not learn to accept absolute URLs. This is a SEPARATE, DELIBERATELY NARROWER function
+ * for the one case that genuinely crosses an origin: a signed-out visitor arriving at the
+ * console, who has to sign in on the family app and come back.
+ *
+ * THE ALLOWLIST IS EXACT ORIGINS, never a suffix. `https://admin.enamelvault.com.evil.example`
+ * ends with nothing useful but `startsWith`/`endsWith` checks on hostnames are exactly how this
+ * class of bug ships, which is why `isAdminHost` in the Worker is written the same way. An
+ * origin comparison on a parsed URL cannot be fooled by a prefix or a suffix.
+ *
+ * The PATH is still validated by safeNext, so everything that function refuses is still
+ * refused: a protocol-relative path, a control character, anything not starting with a slash.
+ */
+export function safeReturnUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    // Not an absolute URL at all. This function is only for cross-origin returns; a plain path
+    // belongs to safeNext, and silently accepting one here would give two functions that both
+    // half-handle the same input.
+    return null;
+  }
+  if (!ALLOWED_RETURN_ORIGINS.includes(parsed.origin)) return null;
+  // The path gets the same treatment it would get anywhere else.
+  const path = safeNext(parsed.pathname + parsed.search);
+  if (!path) return null;
+  return `${parsed.origin}${path}`;
 }
 
 // Adds ?next= to an auth URL, and leaves it alone when there is nowhere in particular to go,

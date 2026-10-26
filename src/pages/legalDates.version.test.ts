@@ -27,9 +27,9 @@ import { fingerprint, prose, sourceText } from "../lib/termsFingerprint";
 // `sourceText` throws on an ambiguous suffix for exactly that reason, and the last test here
 // proves it still does.
 const PAGES: { path: string; constant: string; hash: string }[] = [
-  { path: "src/pages/Privacy.tsx", constant: "PRIVACY_UPDATED", hash: "af11094c" },
-  { path: "src/pages/Cookies.tsx", constant: "COOKIES_UPDATED", hash: "8ec55e4a" },
-  { path: "src/kitchen/pages/Privacy.tsx", constant: "KITCHEN_PRIVACY_UPDATED", hash: "e19e2a12" },
+  { path: "src/pages/Privacy.tsx", constant: "PRIVACY_UPDATED", hash: "fb19466e" },
+  { path: "src/pages/Cookies.tsx", constant: "COOKIES_UPDATED", hash: "f5fd507c" },
+  { path: "src/kitchen/pages/Privacy.tsx", constant: "KITCHEN_PRIVACY_UPDATED", hash: "2541da70" },
 ];
 
 for (const page of PAGES) {

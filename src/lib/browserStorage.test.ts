@@ -57,11 +57,36 @@ it("states a stored-item count that matches the table", () => {
   expect(COUNT_WORDS[rows]).toBe(stated![1]);
 });
 
-it("never writes a cookie, so no consent banner is required", () => {
+// ONE FILE MAY WRITE A COOKIE, BY NAME, AND NOTHING ELSE MAY.
+//
+// This test used to assert that nothing anywhere wrote a cookie at all, and that was correct
+// until 2026-10-26, when the session moved out of localStorage so that one sign-in could cover
+// three hosts. The session cookie is strictly necessary under PECR, so it needs no banner, and
+// src/pages/Cookies.tsx now says so in public.
+//
+// DO NOT SOFTEN THIS TO A BLANKET ALLOWANCE. The allowlist is one path, not a pattern, because
+// the whole value of this test is that the NEXT cookie, which will not be strictly necessary,
+// fails the build and forces whoever adds it to go and change the public page first. An
+// analytics or preference cookie added anywhere else still turns this red, which is the
+// behaviour being preserved rather than removed.
+const COOKIE_WRITERS = ["sessionCookie.ts"];
+
+it("writes a cookie from one named file only, so no consent banner is required", () => {
   const offenders = sources
     .filter(({ text }) => /document\s*\.\s*cookie\s*=/.test(text))
-    .map(({ path }) => path);
+    .map(({ path }) => path)
+    .filter((path) => !COOKIE_WRITERS.some((allowed) => path.endsWith(allowed)));
   expect(offenders).toEqual([]);
+});
+
+it("still has the one allowed cookie writer, so this test cannot pass by it vanishing", () => {
+  // Without this, deleting sessionCookie.ts (or renaming it) would leave the test above green
+  // while the allowlist silently guarded nothing, which is the failure mode every source-reading
+  // guard in this repo has to answer for.
+  const writers = sources
+    .filter(({ text }) => /document\s*\.\s*cookie\s*=/.test(text))
+    .map(({ path }) => path);
+  expect(writers.some((p) => p.endsWith("sessionCookie.ts"))).toBe(true);
 });
 
 it("stores only the keys that Cookies.tsx declares as strictly necessary", () => {

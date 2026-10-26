@@ -15,19 +15,28 @@ export default function Cookies() {
       <h1>Cookies and local storage</h1>
       <p className="updated">Last updated {COOKIES_UPDATED}</p>
 
-      <h2>This site sets no cookies</h2>
+      <h2>This site sets one cookie, and it is the one that signs you in</h2>
       <p>
-        Not one. There are no advertising cookies, no analytics cookies, and no third-party
-        tracking cookies. That is why you were not shown a cookie banner: under UK and EU law a
-        banner is required in order to ask consent for non-essential storage, and there is none
-        to ask about.
+        There are no advertising cookies, no analytics cookies, and no third-party tracking
+        cookies. The single cookie this site sets holds your sign-in session, so that signing in
+        once covers Enamel Vault, Enamel Vault for kitchens, and the moderation console, which
+        are three separate addresses.
+      </p>
+      <p>
+        That is why you were still not shown a cookie banner. Under UK and EU law a banner is
+        required in order to ask consent for storage that is <em>not</em> strictly necessary, and
+        a cookie that exists purely to keep you signed in to the thing you just signed in to is
+        strictly necessary. You cannot refuse it and stay signed in, which is precisely why no
+        consent is asked for it.
       </p>
 
       <h2>What it does store, in your own browser</h2>
       <p>
-        A few things are kept in your browser local storage. These never leave your device, they
-        are not sent to us, and they cannot be read by another site. All five exist to make a
-        feature you asked for work, which is what the law calls strictly necessary:
+        A few things are kept in your browser, one as a cookie and the rest in local storage.
+        Apart from the sign-in cookie, which is sent to us because that is how you stay signed
+        in, these never leave your device and they cannot be read by another site.
+        All six exist to make a feature you asked for work, which the law calls strictly
+        necessary:
       </p>
       <table>
         <thead>
@@ -69,6 +78,19 @@ export default function Cookies() {
               every page.
             </td>
             <td>Minutes, then discarded</td>
+          </tr>
+          <tr>
+            <td>
+              <code>sb-…-auth-token</code> (a cookie)
+            </td>
+            <td>
+              Keeps you signed in. It is set for <code>enamelvault.com</code> and its
+              subdomains, so one sign-in covers the recipe app, the kitchen app and the
+              moderation console rather than asking you three times. It holds the session token
+              your browser exchanges with our database provider, and nothing else. Clearing it
+              signs you out, everywhere.
+            </td>
+            <td>Until you sign out, or a year</td>
           </tr>
           <tr>
             <td>

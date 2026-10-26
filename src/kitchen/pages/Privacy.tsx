@@ -178,15 +178,16 @@ export default function Privacy() {
 
       <h2>Cookies and local storage</h2>
       <p>
-        <strong>This app sets no cookies.</strong> It keeps one thing in your browser's local
-        storage, a sign-in token, so that you stay signed in between visits, and it is removed
-        when you sign out. There is no embed, no advertising script and nothing that can
+        <strong>This app sets one cookie, and it is the one that signs you in.</strong> It holds
+        your sign-in token so that you stay signed in between visits, and it is removed when you
+        sign out. It is set for enamelvault.com and its subdomains, so signing in once covers
+        this app and the recipe app rather than asking you twice. There is no embed, no advertising script and nothing that can
         recognise you between visits, which is why you have not been asked to consent to
         anything: consent is required to store or read something on your device, and the only
         thing stored is the sign-in token you asked for. Our host counts page views, described
-        under Cloudflare above, without cookies and without any identifier. A test fails the
-        build the moment a cookie or a new storage key appears, which is the exact moment a
-        consent banner would become mandatory.
+        under Cloudflare above, without cookies and without any identifier. A test allows that one cookie by name and fails the
+        build the moment any other cookie or a new storage key appears, which is the exact
+        moment a consent banner would become mandatory.
       </p>
 
       <h2>What your employer can see about you</h2>

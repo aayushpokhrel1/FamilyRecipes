@@ -21,7 +21,13 @@ import { sources, type SourceFile } from "./sourceFiles";
 // drives a page can only cover the call sites somebody remembered to write a test for, which
 // is the same forgetting, one level up. The same reasoning as src/routes.terms.test.ts.
 const READS_NEXT = /\.get\(\s*["']next["']\s*\)/;
-const NAMES_THE_GUARD = /safeNext\(|withNext\(/;
+// safeReturnUrl is the THIRD name, added 2026-10-26, and it belongs here rather than as an
+// exception: it is a validator too, a deliberately narrower one for the single case that
+// crosses an origin, and it calls safeNext on the path itself. The rule this file enforces is
+// "every read is validated where it is read", not "every read calls one particular function",
+// so a second validator is learned rather than excused. Anything NOT in this list is still a
+// raw read and still fails.
+const NAMES_THE_GUARD = /safeNext\(|withNext\(|safeReturnUrl\(/;
 
 /**
  * Lines that read the `next` parameter without naming safeNext or withNext.

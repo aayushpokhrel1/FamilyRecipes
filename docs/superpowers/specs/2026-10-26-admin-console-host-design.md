@@ -25,11 +25,20 @@ kitchen host cannot reach the family session. A shared cookie removes that isola
 any `*.enamelvault.com` host yields a session valid on all of them, including this console, whose
 whole job is privileged.
 
-**What makes this acceptable rather than reckless is the CSP**, `script-src 'self'`, which the
-Worker already sends and `worker/meta.test.ts` already pins. That header stops being a
-defence-in-depth nicety and becomes the control this design leans on. **The new host must send
-the same CSP, and its test must pin it**, before the cookie is switched on. A console host
-served without that CSP is the one combination this design must never ship.
+**What makes this acceptable rather than reckless is the CSP**, which the Worker already sends
+and `worker/meta.test.ts` already pins. That header stops being a defence-in-depth nicety and
+becomes the control this design leans on.
+
+**Corrected 2026-10-26, measured on the live response.** The first version of this paragraph said
+the policy was `script-src 'self'` and that no third-party script could run. It is
+`script-src 'self' https://static.cloudflareinsights.com`. No INLINE script can run, which is
+the attack this mostly closes, but one third-party origin is trusted to serve script to all
+three hosts. That is a small and deliberate hole rather than none, and widening `script-src`
+further spends a budget this design has already borrowed against.
+
+It also turned out the new host needs no work to get the CSP: `withSecurityHeaders` wraps every
+exit from `fetch()`, so it arrives by construction rather than by anyone remembering. Verified
+on `admin.enamelvault.com` once its Custom Domain was live.
 
 Cookie attributes, all of them load-bearing: `Domain=.enamelvault.com`, `Secure`, `SameSite=Lax`,
 `Path=/`, and NOT `HttpOnly` for the reason above. `SameSite=Strict` is wrong here because the
