@@ -7,6 +7,7 @@ import { forgetPhotoUrls } from "../lib/api/photos";
 import { getMyProfile } from "../lib/api/profile";
 import { creditSignupSource, recordVisit } from "../lib/api/activity";
 import { safeFrom } from "../lib/nextPath";
+import { ADMIN_ORIGIN, KITCHEN_ORIGIN } from "../lib/hosts";
 import { reasonLabel, type Profile } from "../lib/api/types";
 import { useAuth } from "../context/AuthContext";
 
@@ -109,7 +110,15 @@ export default function AppLayout() {
               <NavLink to="/me">My Profile</NavLink>
               <NavLink to="/families">Families</NavLink>
               <NavLink to="/settings">Settings</NavLink>
-              {profile?.is_moderator && <NavLink to="/moderation">Moderation</NavLink>}
+              {/* The kitchen app, for everyone. It is a product of the same operator and is
+                  already marketed on enamelvault.com, so it leaks nothing, and it is the hop
+                  that makes the two products feel like one account. An <a>, not a NavLink:
+                  another ORIGIN is a page load, and react-router would try to route it here. */}
+              <a href={KITCHEN_ORIGIN}>For kitchens</a>
+              {/* The console now lives on its own host, so this is a cross-origin link too.
+                  Still a convenience and still not a permission: the console re-checks the
+                  flag, and so does every call it makes. */}
+              {profile?.is_moderator && <a href={ADMIN_ORIGIN}>Console</a>}
             </nav>
             <FamilySwitcher />
             <button type="button" onClick={handleSignOut}>

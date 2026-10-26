@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enamel Vault console</title>
+    <meta
+      name="description"
+      content="Moderation for the Enamel Vault."
+    />
+    <!-- noindex. Every page here needs a moderator session, so the only thing a crawler could
+       ever reach is a sign-in form, and this is a moderation console besides. The Worker sends
+       a matching robots.txt and X-Robots-Tag, because a meta tag alone does nothing for a
+       crawler that never runs the page. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- No OpenGraph card, deliberately. The kitchen app has one because a link pasted to a chef
+       is how it gets shown before it is announced. Nobody pastes a link to a moderation
+       console, and an unfurl would be a picture of an internal tool. -->
+    <link
+      rel="preload"
+      href="/fonts/zilla-slab-700-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <!-- A file, not inline: the Worker's Content-Security-Policy is script-src 'self', and a
+         blocked inline script does not warn, it just never runs. -->
+    <script src="/theme-init.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/admin/main.tsx"></script>
+  </body>
+</html>

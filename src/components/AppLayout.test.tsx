@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppLayout from "./AppLayout";
+// The constants, never the literal strings: import.meta.env.DEV is TRUE under Vitest, so these
+// are the localhost origins here and the production ones in a build. Asserting on a hardcoded
+// string would pin whichever of the two the author happened to be thinking of.
+import { ADMIN_ORIGIN, KITCHEN_ORIGIN } from "../lib/hosts";
 
 vi.mock("../context/FamilyContext", () => ({
   useFamily: () => ({
@@ -80,31 +84,42 @@ describe("AppLayout", () => {
     expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
   });
 
-  // /moderation has no entry point anywhere else, so without this link a moderator has to
-  // remember the URL to find their own queue.
-  it("offers Moderation in the nav to a moderator", async () => {
+  // The console lives on admin.enamelvault.com now, so this is a cross-origin link and must
+  // stay a plain <a>: a NavLink would be routed inside this app and land on nothing. The link
+  // is still a CONVENIENCE and not a permission, which the two tests below pin.
+  it("offers the console to a moderator, on its own host", async () => {
     mockProfile = { is_moderator: true };
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
-    expect(await screen.findByRole("link", { name: /moderation/i }))
-      .toHaveAttribute("href", "/moderation");
+    expect(await screen.findByRole("link", { name: /console/i }))
+      .toHaveAttribute("href", ADMIN_ORIGIN);
   });
 
   // Hiding the link is a convenience and NOT the guard: the page re-checks is_moderator and
   // RLS hides the reports regardless. This test pins the convenience; the guard is pinned in
   // the moderation tests, and both have to hold.
-  it("hides Moderation from an ordinary cook", async () => {
+  it("hides the console from an ordinary cook", async () => {
     mockProfile = { is_moderator: false };
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     expect(await screen.findByRole("link", { name: "My Profile" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /moderation/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /console/i })).not.toBeInTheDocument();
   });
 
-  it("hides Moderation from a signed-out visitor", async () => {
+  it("hides the console from a signed-out visitor", async () => {
     mockAuth = { userId: null, loading: false };
     mockProfile = { is_moderator: true };
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     expect(await screen.findByRole("link", { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /moderation/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /console/i })).not.toBeInTheDocument();
+  });
+
+  // Shown to everyone on purpose: it is a product of the same operator, already marketed on
+  // enamelvault.com, so it leaks nothing, and it is the hop that makes the two products feel
+  // like one account.
+  it("offers the kitchen app to every signed-in cook, moderator or not", async () => {
+    mockProfile = { is_moderator: false };
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: /for kitchens/i }))
+      .toHaveAttribute("href", KITCHEN_ORIGIN);
   });
 
   // The notice used to live only in Settings, the one page a cook has no reason to visit.
@@ -142,11 +157,14 @@ describe("AppLayout", () => {
 });
 
 describe("signing out", () => {
-  // Leaving the guarded page BEFORE the session goes is the whole fix. Sign out from
-  // /moderation and RequireAuth saw a signed-out visitor still standing on a guarded route,
-  // so it redirected to /signin?next=%2Fmoderation and the NEXT person to sign in on that
-  // browser landed on the previous person's page. The page itself refused them, so this was
-  // a papercut rather than a hole, but a shared machine should not hand over a destination.
+  // Leaving the guarded page BEFORE the session goes is the whole fix. Sign out from a guarded
+  // page such as /settings and RequireAuth saw a signed-out visitor still standing on it, so it
+  // redirected to /signin?next=%2Fsettings and the NEXT person to sign in on that browser
+  // landed on the previous person's page. The page itself refused them, so this was a papercut
+  // rather than a hole, but a shared machine should not hand over a destination.
+  //
+  // The original report was about /moderation, which has since moved to its own host. The bug
+  // was never specific to that route: any route inside RequireAuth shows it.
   it("leaves the guarded page before the session is dropped", async () => {
     const order: string[] = [];
     const { signOut } = await import("../lib/api/auth");

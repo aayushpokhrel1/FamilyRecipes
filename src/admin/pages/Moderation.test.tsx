@@ -6,21 +6,21 @@ import Moderation from "./Moderation";
 
 const getMyProfile = vi.fn();
 const getPublicCooks = vi.fn();
-vi.mock("../lib/api/profile", () => ({
+vi.mock("../../lib/api/profile", () => ({
   getMyProfile: (...a: any[]) => getMyProfile(...a),
   getPublicCooks: (...a: any[]) => getPublicCooks(...a),
 }));
 
 const listOpenReports = vi.fn();
 const resolveReport = vi.fn();
-vi.mock("../lib/api/moderation", () => ({
+vi.mock("../../lib/api/moderation", () => ({
   listOpenReports: (...a: any[]) => listOpenReports(...a),
   resolveReport: (...a: any[]) => resolveReport(...a),
 }));
 
 const listOpenAppeals = vi.fn();
 const resolveAppeal = vi.fn();
-vi.mock("../lib/api/appeals", () => ({
+vi.mock("../../lib/api/appeals", () => ({
   listOpenAppeals: (...a: any[]) => listOpenAppeals(...a),
   resolveAppeal: (...a: any[]) => resolveAppeal(...a),
 }));
@@ -33,7 +33,7 @@ const getAdminInsights = vi.fn();
 const getKitchenInsights = vi.fn();
 const listAdminUsers = vi.fn();
 const listModerationEvents = vi.fn();
-vi.mock("../lib/api/admin", () => ({
+vi.mock("../../lib/api/admin", () => ({
   getAdminStats: (...a: any[]) => getAdminStats(...a),
   getAdminInsights: (...a: any[]) => getAdminInsights(...a),
   getKitchenInsights: (...a: any[]) => getKitchenInsights(...a),

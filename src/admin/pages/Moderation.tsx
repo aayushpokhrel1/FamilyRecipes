@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getMyProfile, getPublicCooks } from "../lib/api/profile";
-import { listOpenReports, resolveReport } from "../lib/api/moderation";
-import { listOpenAppeals, resolveAppeal } from "../lib/api/appeals";
+import { getMyProfile, getPublicCooks } from "../../lib/api/profile";
+import { listOpenReports, resolveReport } from "../../lib/api/moderation";
+import { listOpenAppeals, resolveAppeal } from "../../lib/api/appeals";
 import {
   deleteUserAccount,
   getAdminInsights,
@@ -18,9 +18,9 @@ import {
   type AdminUser,
   type KitchenInsights,
   type ModerationEvent,
-} from "../lib/api/admin";
-import { REASON_LABELS, type AppealRow, type PublicCook, type ReportRow } from "../lib/api/types";
-import Skeleton from "../components/Skeleton";
+} from "../../lib/api/admin";
+import { REASON_LABELS, type AppealRow, type PublicCook, type ReportRow } from "../../lib/api/types";
+import Skeleton from "../../components/Skeleton";
 
 type View = "reports" | "appeals" | "recipes" | "people" | "kitchen" | "trail";
 

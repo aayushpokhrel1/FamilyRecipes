@@ -2,9 +2,10 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { resolve } from 'node:path'
 
-// TWO apps, one build, one Worker. index.html is the family app on
+// THREE apps, one build, one Worker. index.html is the family app on
 // recipes.enamelvault.com; kitchen.html is the professional-kitchen app on
-// kitchen.enamelvault.com, and the Worker serves it by hostname.
+// kitchen.enamelvault.com; admin.html is the moderation console on admin.enamelvault.com.
+// The Worker serves each by hostname.
 //
 // kitchen.html lives at the repo root because it must be BUILT. In public/ it would be
 // copied verbatim and would ship an entry pointing at /src/kitchen/main.tsx, which exists
@@ -26,9 +27,15 @@ import { resolve } from 'node:path'
  * are identical in both. Open http://kitchen.localhost:5174/ for the kitchen app and
  * http://localhost:5174/ for the family one.
  */
-function kitchenDevHost(): Plugin {
+function appDevHosts(): Plugin {
+  // Hostname -> the shell that hostname serves, which mirrors what the Worker does in
+  // production. A table rather than a branch per app: there are three now.
+  const SHELLS: Record<string, string> = {
+    'kitchen.localhost': '/kitchen.html',
+    'admin.localhost': '/admin.html',
+  }
   return {
-    name: 'kitchen-dev-host',
+    name: 'app-dev-hosts',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
@@ -40,7 +47,8 @@ function kitchenDevHost(): Plugin {
         const isModuleOrFile =
           url.startsWith('/@') || url.startsWith('/src/') || url.startsWith('/node_modules/') ||
           /\.[a-z0-9]+(\?|$)/i.test(url)
-        if (host === 'kitchen.localhost' && !isModuleOrFile) req.url = '/kitchen.html'
+        const shell = SHELLS[host]
+        if (shell && !isModuleOrFile) req.url = shell
         next()
       })
     },
@@ -48,16 +56,17 @@ function kitchenDevHost(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), kitchenDevHost()],
+  plugins: [react(), appDevHosts()],
   server: {
     // kitchen.localhost has to be allowed explicitly: Vite refuses unknown Host headers.
-    allowedHosts: ['localhost', 'kitchen.localhost', '127.0.0.1'],
+    allowedHosts: ['localhost', 'kitchen.localhost', 'admin.localhost', '127.0.0.1'],
   },
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         kitchen: resolve(__dirname, 'kitchen.html'),
+        admin: resolve(__dirname, 'admin.html'),
       },
     },
   },

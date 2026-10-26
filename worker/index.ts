@@ -7,6 +7,10 @@
 // fail to load because a preview could not be built.
 import { checkExtract, checkVersion, HEALTH_PATH, VERSION_PATH } from "./health";
 import { isKitchenHost, isSharedAsset, kitchenRobots, KITCHEN_ENTRY } from "./kitchen";
+// isSharedAsset is the kitchen's and is reused rather than copied: it lists the files that are
+// real files in dist/ (the bundle, the mark, the fonts, the theme bootstrap), and all three
+// app hosts serve the same ones. A second copy would be a second list to forget to update.
+import { isAdminHost, adminRobots, ADMIN_ENTRY } from "./admin";
 import {
   avatarHandleFromPath,
   buildCookTags,
@@ -717,6 +721,32 @@ async function route(request: Request, env: Env): Promise<Response> {
       const shell = await env.ASSETS.fetch(new Request(`${url.origin}${KITCHEN_ENTRY}`));
       // noindex as a HEADER too. A meta tag only reaches a crawler that renders the page,
       // and the ones that matter here do not.
+      const headers = new Headers(shell.headers);
+      headers.set("X-Robots-Tag", "noindex, nofollow");
+      return new Response(shell.body, { status: shell.status, headers });
+    }
+
+    // The moderation console, on its own hostname. Same shape as the kitchen branch above and
+    // for the same reason: the asset layer's single-page-application fallback would otherwise
+    // hand a deep link here the FAMILY app's index.html.
+    //
+    // The Content-Security-Policy is NOT set here. withSecurityHeaders wraps every exit from
+    // fetch(), so this host gets it by construction rather than by anyone remembering, which
+    // is the whole reason that wrapper exists.
+    if (isAdminHost(url.hostname)) {
+      if (url.pathname === "/robots.txt") {
+        return new Response(adminRobots(), {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      }
+      // No sitemap on this host, ever. See adminRobots.
+      if (url.pathname === "/sitemap.xml") return notFound();
+      if (isSharedAsset(url.pathname)) return env.ASSETS.fetch(request);
+
+      const shell = await env.ASSETS.fetch(new Request(`${url.origin}${ADMIN_ENTRY}`));
       const headers = new Headers(shell.headers);
       headers.set("X-Robots-Tag", "noindex, nofollow");
       return new Response(shell.body, { status: shell.status, headers });

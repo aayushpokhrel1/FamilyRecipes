@@ -20,7 +20,6 @@ import MealPlanDetail from "./pages/MealPlanDetail";
 import MyProfile from "./pages/MyProfile";
 import Settings from "./pages/Settings";
 import Potluck from "./pages/Potluck";
-import Moderation from "./pages/Moderation";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Cookies from "./pages/Cookies";
@@ -100,10 +99,6 @@ export default function AppRoutes() {
             can still read public rows through the API, which is what makes the public recipe
             pages and the OpenGraph previews work. */}
         <Route path="potluck" element={<Potluck />} />
-        {/* Deliberately absent from the nav. The page checks is_moderator itself, so the
-            route is safe to exist for everyone; hiding the link is a courtesy, not the
-            permission. */}
-        <Route path="moderation" element={<Moderation />} />
         <Route path="kitchen" element={<MyKitchen />} />
         {/* Above kitchen/:id deliberately. React Router ranks a static segment
             over a dynamic one, so this wins, but the ordering says so out loud
