@@ -892,6 +892,15 @@ the queries are reconstructible from the tables listed above.
   parameter through. There is no error anywhere: a rejected redirect looks exactly like a
   person who was always going to the home page.
 
+  **You cannot prove an allow-list entry from `/auth/v1/authorize`.** The tempting shortcut is
+  to request that endpoint with a `redirect_to` and read the `Location` it returns. GoTrue
+  ECHOES whatever you send at that step: measured on 2026-10-26 against the production project,
+  `https://evil.example/x` came back in the `redirect_to` exactly as
+  `https://admin.enamelvault.com/auth/callback?next=%2F` did. The allow list is applied when the
+  provider returns, not when the round trip starts, so that probe says nothing and would report
+  a pass for an entry that does not exist. **Only a completed sign-in through the real provider
+  tells you**, which means a real account on the host in question.
+
   **Both the hosted project and `supabase/config.toml` therefore need a globstar entry.**
   Hosted: Authentication -> URL Configuration -> Redirect URLs must contain
   `https://recipes.enamelvault.com/auth/callback**`. Without it the destination plumbing is
