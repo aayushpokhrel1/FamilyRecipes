@@ -496,6 +496,29 @@ Live at <https://recipes.enamelvault.com>, with the landing page at
 and `recipes.` is attached to the `familyrecipes` worker as a **Custom Domain**, so Cloudflare
 provisioned the proxied `AAAA` and the certificate itself.
 
+### The console host, added 2026-10-26
+
+`admin.enamelvault.com` is the FOURTH hostname on the same `familyrecipes` Worker and the third
+app: the moderation console, which left the family app so that moderating does not require
+opening a product the job is not about. Design:
+`docs/superpowers/specs/2026-10-26-admin-console-host-design.md`.
+
+**It needs a Custom Domain in the Cloudflare dashboard before it resolves at all**, exactly as
+`recipes.` and `kitchen.` did, and that step is MANUAL and deploys with nothing:
+
+1. Cloudflare dashboard, Workers & Pages, the `familyrecipes` Worker, Settings, Domains & Routes.
+2. Add a Custom Domain for `admin.enamelvault.com`.
+3. Cloudflare provisions the proxied `AAAA` and the certificate itself. Do not hand-create a DNS
+   record for it: a Custom Domain and a hand-made record for the same name fight, and the Worker
+   is reached through the Custom Domain.
+
+Nothing goes in `wrangler.jsonc`. The custom domains are deliberately not there: a `routes` block
+would be a second source of truth for something Cloudflare already holds.
+
+**Until that Custom Domain exists the push is harmless**, which is why the code may ship first.
+The Worker's `isAdminHost` never matches, so no branch of it runs and the other three hosts are
+untouched. The symptom of forgetting is simply that the hostname does not resolve.
+
 `https://familyrecipes.aayus-pok.workers.dev` was **retired on 2026-10-15** by
 `"workers_dev": false` in `wrangler.jsonc`. It had been serving the entire family app as a
 second crawlable copy that canonicalised every page to itself and published its own sitemap,
