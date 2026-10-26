@@ -28,8 +28,9 @@ export default function Privacy() {
 
       <p>
         The short version: this app keeps your group's dishes so that every site cooks them the
-        same way, and it records who approved what. It has no advertising, no third-party
-        tracking pixels and no cookies. <strong>There is no AI import on this app</strong>, so nothing you type
+        same way, and it records who approved what. It has no advertising and no
+        third-party tracking pixels. The only cookie it sets is the one that keeps you signed
+        in, which also signs you in to Enamel Vault for families and the moderation console. <strong>There is no AI import on this app</strong>, so nothing you type
         here is sent to an AI company. Nothing is sold or shared for marketing, ever. What
         follows is the detail, because the people whose names end up on a sign-off are entitled
         to it.

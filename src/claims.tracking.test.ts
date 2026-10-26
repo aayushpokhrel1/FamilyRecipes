@@ -57,3 +57,55 @@ it("still allows the precise claims, which are true and are the point", () => {
   expect(BLANKET_CLAIM.test("You are not tracked here.")).toBe(true);
   expect(BLANKET_CLAIM.test("We do not track you.")).toBe(true);
 });
+
+// NEITHER APP MAY CLAIM "NO COOKIES" EITHER, AND THIS IS THE SECOND HALF OF THE SAME LESSON.
+//
+// On 2026-10-26 the session moved out of localStorage into a cookie on `.enamelvault.com`, so
+// that one sign-in covers all three apps. That made "no cookies" false everywhere it was
+// written, and the design said in advance that every such claim had to move in the SAME commit
+// or not at all. Seven were corrected. These two were not, and they shipped to production:
+//
+//   - `src/components/SiteFooter.tsx`, which renders on EVERY page of the family app
+//   - `src/kitchen/pages/Privacy.tsx`, the kitchen's privacy policy
+//
+// Both were missed for the same reason the metadata description was missed a day earlier: the
+// guards that existed read the three MARKETING pages (`worker/meta.test.ts`,
+// `src/site.claims.test.ts`), and neither could see a file in `src/`. A set of guards is not
+// coverage; the union of what they read is. This one reads every source file, like the tracking
+// rule above it, so there is no directory left for the next one to hide in.
+//
+// WHAT IS STILL ALLOWED, because each names a KIND of cookie that genuinely is absent:
+// "no advertising cookies", "no analytics cookies", "no third-party tracking cookies". The
+// rule is only against the unqualified denial, which is now simply untrue.
+const NO_COOKIES_CLAIM = /\bno cookies\b|\bsets no cookies\b|\bcookie[- ]free\b/i;
+
+it("anchors on the cookies page still saying the app sets one", () => {
+  // If that page ever goes back to denying cookies, this rule is enforcing the wrong thing and
+  // should fail rather than quietly guard a claim nobody makes any more.
+  // Paths here are relative to this file, so match the tail and exclude the kitchen app,
+  // which has no cookies page of its own.
+  const cookiesPage = pages.find(
+    (f) => f.path.endsWith("pages/Cookies.tsx") && !f.path.includes("kitchen"),
+  );
+  expect(cookiesPage, "src/pages/Cookies.tsx is no longer being read").toBeDefined();
+  expect(prose(cookiesPage!.text)).toContain("sets one cookie");
+});
+
+it("makes no blanket claim that either app sets no cookies", () => {
+  const offenders = pages
+    .filter((f) => NO_COOKIES_CLAIM.test(prose(f.text)))
+    .map((f) => f.path);
+  expect(
+    offenders,
+    "these say the app sets no cookies, which stopped being true when the session moved into one",
+  ).toEqual([]);
+});
+
+it("still allows naming a kind of cookie that really is absent", () => {
+  expect(NO_COOKIES_CLAIM.test("no advertising cookies, no analytics cookies")).toBe(false);
+  expect(NO_COOKIES_CLAIM.test("no third-party tracking cookies")).toBe(false);
+  // And catches both wordings that actually shipped.
+  expect(NO_COOKIES_CLAIM.test("Free to use, no adverts, no cookies.")).toBe(true);
+  expect(NO_COOKIES_CLAIM.test("no third-party tracking pixels and no cookies.")).toBe(true);
+  expect(NO_COOKIES_CLAIM.test("This app sets no cookies")).toBe(true);
+});

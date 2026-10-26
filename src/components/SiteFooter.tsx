@@ -17,7 +17,7 @@ export default function SiteFooter() {
       </nav>
       <p>
         Family Recipes is run by {OPERATOR}, one person, not a company. Free to use, no adverts,
-        no cookies.
+        and one cookie: the one that signs you in.
       </p>
       <p>Recipes and photos belong to the cooks who added them.</p>
     </footer>
