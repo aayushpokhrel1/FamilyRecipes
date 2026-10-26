@@ -30,8 +30,14 @@ import routes from "./routes.tsx?raw";
  */
 const UNGATED = [
   // Telling someone a page does not exist is not an action. Gating it would send a signed-out
-  // visitor through a sign-in that does not exist on this host to be told their link is dead.
+  // visitor through sign-in to be told their link is dead.
   "*",
+  // The console's own door, added 2026-10-26. A route that asks for a session cannot sit
+  // behind a check for one, and these two are the whole of that exception: the form, and the
+  // page Google comes back to. Neither reads anything and neither does anything a signed-out
+  // stranger cannot already do on the family app's sign-in.
+  "/signin",
+  "/auth/callback",
 ];
 
 // Every `path="..."` in the file, in source order, with the string that follows it, so a route's
@@ -62,19 +68,31 @@ it("wraps every route that is not the catch-all in RequireModerator", () => {
   }
 });
 
-it("wraps every route that is not the catch-all in RequireSession too", () => {
+it("wraps every route that is not the catch-all in RequireAuth too", () => {
   // RequireModerator reads the profile and fails closed, so it would refuse a signed-out
-  // visitor anyway. RequireSession is still required, because it is what sends them to the
-  // family app's sign-in WITH the destination in the URL rather than stopping here. This host
-  // has no sign-in page of its own, so without it a signed-out visitor simply dead-ends.
+  // visitor anyway. RequireAuth is still required, because it is what sends them to /signin
+  // WITH the destination in the URL rather than rendering "Not found" at someone who only
+  // needs to sign in. It replaced this app's own RequireSession when the console got its own
+  // sign-in page, and the name is the only thing that changed here.
   for (const path of routePaths()) {
     if (UNGATED.includes(path)) continue;
     const start = routes.indexOf(`path="${path}"`);
     const rest = routes.slice(start);
     const end = rest.indexOf('path="', 1);
     const element = end === -1 ? rest : rest.slice(0, end);
-    expect(element, `the route "${path}" is not behind RequireSession`).toContain("RequireSession");
+    expect(element, `the route "${path}" is not behind RequireAuth`).toContain("RequireAuth");
   }
+});
+
+it("has no ungated route beyond the three named above", () => {
+  // The list is the deliberate part, and this is what makes adding to it a decision rather
+  // than a reflex. Without this, a new route named in UNGATED by whoever added it would pass
+  // the two checks above by definition, which is the guard agreeing with itself.
+  expect(routePaths().filter((p) => UNGATED.includes(p)).sort()).toEqual([
+    "*",
+    "/auth/callback",
+    "/signin",
+  ]);
 });
 
 it("imports no terms gate, so nobody adds one here by reflex", () => {

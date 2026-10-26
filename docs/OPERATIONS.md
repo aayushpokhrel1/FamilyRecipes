@@ -866,6 +866,22 @@ the queries are reconstructible from the tables listed above.
 
 ## Environment gotchas
 
+- **A dev sign-in does NOT cross the three localhost hosts, and for one day it did not persist
+  at all.** The shared session lives in a cookie (`src/lib/sessionCookie.ts`), and the first
+  version of that file wrote `Domain=localhost` so the cookie would reach `admin.localhost` and
+  `kitchen.localhost` too. **Chrome refuses that cookie, silently**, exactly as it refuses an
+  oversized one; `Domain=.localhost` is refused as well. Measured in the browser on
+  `admin.localhost:5174` on 2026-10-26 by setting `probe=a; Domain=localhost` and reading
+  `document.cookie` back: nothing. So every dev sign-in was in memory only, and the symptom was
+  the console answering **"Not found" to an account whose `is_moderator` was true**, because the
+  profile read asked for a user storage could no longer produce. The unit suite was green
+  throughout: jsdom's cookie jar accepts `Domain` values a real browser rejects.
+
+  The cookie is **host-only in dev** now, so it persists per host and does not hop between them.
+  **One sign-in covering three hosts is therefore a PRODUCTION behaviour and can only be walked
+  there.** Signing in on `localhost:5174` and expecting `admin.localhost:5174` to follow is the
+  trap; sign in on each dev host separately.
+
 - **Supabase's redirect allow list does NOT match a URL that carries a query string, unless
   the entry ends in a globstar.** An invite now travels to the confirmation email and through
   Google as `/auth/callback?next=%2Fjoin%2F<code>`. With the entry spelled exactly

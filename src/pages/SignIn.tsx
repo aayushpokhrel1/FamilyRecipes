@@ -4,7 +4,7 @@ import { signIn, requestPasswordReset } from "../lib/api/auth";
 import { reportError } from "../lib/api/errorLog";
 import GoogleButton from "../components/GoogleButton";
 import AuthMark from "../components/AuthMark";
-import { nextWithFrom, safeFrom, safeNext, safeReturnUrl, withNext } from "../lib/nextPath";
+import { nextWithFrom, safeFrom, safeNext, withNext } from "../lib/nextPath";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -15,11 +15,6 @@ export default function SignIn() {
   // the destination here is what saves threading a second parameter through signUp(),
   // signInWithGoogle() and both redirect URLs. See lib/nextPath.ts.
   const next = nextWithFrom(safeNext(params.get("next")), safeFrom(params.get("from")));
-  // A return to ANOTHER of our own hosts, which safeNext refuses by design because it only ever
-  // allows paths. The console has no sign-in page, so it sends people here carrying its full
-  // URL; safeReturnUrl is the narrow, exact-origin allowlist that lets exactly that back
-  // through and nothing else. Null for every ordinary sign-in, which is the common case.
-  const returnTo = safeReturnUrl(params.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,11 +25,11 @@ export default function SignIn() {
     setError(null);
     try {
       await signIn(email, password);
-      // A full page load, not navigate(): the destination is another origin, and react-router
-      // would try to resolve it as a route inside this app. The session cookie is scoped to
-      // .enamelvault.com, so it is already valid there by the time the page loads.
-      if (returnTo) window.location.assign(returnTo);
-      else navigate(next ?? "/");
+      // A PATH INSIDE THIS APP, always. This page briefly accepted an absolute URL on one of
+      // our own hosts, so the console could send a signed-out visitor here and get them back;
+      // the console has its own sign-in now, so that door is closed and safeNext's
+      // paths-only rule is the whole rule again.
+      navigate(next ?? "/");
     } catch (err) {
       reportError("auth:sign-in", err);
       setError(err instanceof Error ? err.message : String(err));

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { FAMILY_ORIGIN } from "../../lib/hosts";
 
 /**
@@ -5,28 +6,28 @@ import { FAMILY_ORIGIN } from "../../lib/hosts";
  * no test could see.
  *
  * The family NotFound offers "Back to the recipes" pointing at `/` and a link to `/help`.
- * Neither means anything here: `/` on this host bounces a signed-out visitor straight back to
- * this page, and `/help` is not a route in this app at all. Found by opening the page, which is
- * the only thing that has ever found this class of defect in this project.
+ * Neither means anything here: `/help` is not a route in this app at all. Found by opening the
+ * page, which is the only thing that has ever found this class of defect in this project.
  *
- * IT ALSO HANDLES THE SIGNED-OUT CASE, which is the common way to arrive. RequireAuth sends a
- * visitor with no session to `/signin`, and this host has no such route, so they land here. Until
- * the shared session lands (stage 3 of the design) signing in happens on the family app, and
- * saying so is better than letting them read "that page is not here" and conclude the console is
- * broken.
+ * IT NO LONGER HANDLES THE SIGNED-OUT CASE, and that is the change of 2026-10-26 rather than
+ * an omission. It used to say "sign in on the main app first", because RequireAuth sent a
+ * visitor with no session to `/signin` and this host had no such route, so they landed here.
+ * The console has its own sign-in now, so a signed-out visitor goes to the form instead and
+ * never reaches this page. If that paragraph comes back, the routing has regressed.
  *
- * A redirect to `/` would be the tempting shorter answer and it is a trap: `/` sends a
- * signed-out visitor to `/signin`, which lands here, which would redirect to `/`. That is an
- * infinite loop, not a tidy-up.
+ * A redirect to `/` would be the tempting shorter answer and it is still a trap: `/` sends a
+ * signed-out visitor to `/signin`, and a dead link looping through sign-in to land back here
+ * is a loop, not a tidy-up.
  */
 export default function NotFound() {
   return (
     <div className="plate panel">
       <h1>That page is not here</h1>
+      <p>This is the moderation console, and it has one page.</p>
       <p>
-        This is the moderation console, and it has one page. If you were signing in, do that on
-        the main app first and then come back.
+        <Link to="/">Back to the console</Link>
       </p>
+      {/* A plain anchor, NOT a Link: the destination is another host. */}
       <p>
         <a href={FAMILY_ORIGIN}>Go to Enamel Vault</a>
       </p>

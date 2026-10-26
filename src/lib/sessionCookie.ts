@@ -35,18 +35,44 @@
 // @supabase/ssr uses, for the same reason.
 const CHUNK_SIZE = 3180;
 
-// In dev the apps are on localhost, admin.localhost and kitchen.localhost. A cookie with
-// Domain=localhost is sent to its subdomains too, which is what makes the hop walkable locally,
-// and `Secure` is omitted because dev is plain http. In production both are set.
+// NO DOMAIN AT ALL IN DEV, AND THIS IS MEASURED RATHER THAN REASONED. The first version of
+// this file wrote `Domain=localhost`, on the belief that it would then be sent to
+// admin.localhost and kitchen.localhost and make the three-host hop walkable locally. Chrome
+// REFUSES that cookie, silently, exactly as it refuses an oversized one: setting
+// `probe=a; Domain=localhost` and reading document.cookie back in the browser on
+// admin.localhost:5174 returns nothing. `Domain=.localhost` is refused too.
+//
+// So for one day every dev sign-in was in memory only: supabase-js wrote the session, the
+// write vanished, and the next read found no session. It presented as the console answering
+// "Not found" to an account whose is_moderator was true, because RequireModerator's profile
+// read asked for a user that storage could no longer produce. Found by walking the console in
+// a browser, 2026-10-26, with the unit suite green: jsdom's cookie jar accepts `Domain` values
+// a real browser rejects, so no test here could have seen it.
+//
+// Omitting Domain gives a HOST-ONLY cookie, which persists correctly on each dev host and does
+// not cross between them. That is the same isolation localStorage had, so the cost is that the
+// one-sign-in-covers-three-hosts behaviour is a PRODUCTION behaviour and has to be walked
+// there. `Secure` is omitted in dev for the same kind of reason: dev is plain http.
 const DEV = import.meta.env.DEV;
-const DOMAIN = DEV ? "localhost" : ".enamelvault.com";
+
+// A function taking `dev` rather than a constant, so a test can state what PRODUCTION does.
+// import.meta.env.DEV is true under Vitest, so a test reading the constant would only ever
+// assert the dev value against itself: the same trap src/lib/hosts.ts names in its own header.
+export function cookieDomain(dev: boolean): string | null {
+  return dev ? null : ".enamelvault.com";
+}
+
+const DOMAIN = cookieDomain(DEV);
 
 // SameSite=Lax, NOT Strict, and this is load-bearing. The OAuth round trip returns from
 // accounts.google.com, which is a cross-site navigation: under Strict the cookie would not be
 // sent on that arrival and the session would appear to vanish at exactly the moment it was
 // created. Lax sends it on a top-level navigation, which is what a redirect back is.
 function attributes(maxAgeSeconds: number): string {
-  const parts = [`Domain=${DOMAIN}`, "Path=/", "SameSite=Lax", `Max-Age=${maxAgeSeconds}`];
+  const parts = ["Path=/", "SameSite=Lax", `Max-Age=${maxAgeSeconds}`];
+  // A cookie written WITH a Domain and erased without one is a different cookie to the
+  // browser, and the original survives, so both forms are built here and nowhere else.
+  if (DOMAIN) parts.unshift(`Domain=${DOMAIN}`);
   if (!DEV) parts.push("Secure");
   return parts.join("; ");
 }

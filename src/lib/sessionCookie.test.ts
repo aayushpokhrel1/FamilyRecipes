@@ -6,7 +6,7 @@
 // short value and then presents in production as a random sign-out. These tests use values
 // either side of the limit on purpose.
 import { beforeEach, describe, expect, it } from "vitest";
-import { cookieStorage } from "./sessionCookie";
+import { cookieDomain, cookieStorage } from "./sessionCookie";
 
 // jsdom implements document.cookie as a real cookie jar for set and get, but it does NOT
 // implement Max-Age expiry on write-then-read within a tick, so erase() leaves the name behind
@@ -106,5 +106,22 @@ describe("removeItem", () => {
     cookieStorage.removeItem(KEY);
     // The worst outcome this file could have: signing out and leaving the session behind.
     expect(cookieStorage.getItem(KEY)).toBeNull();
+  });
+});
+
+// THE DOMAIN, which is the one attribute that decides whether the cookie exists at all.
+//
+// Chrome refuses `Domain=localhost` and `Domain=.localhost` silently, so the dev answer has to
+// be no Domain at all: measured in a browser on admin.localhost:5174 on 2026-10-26, after a
+// day in which every dev sign-in was in memory only and the console answered "Not found" to a
+// real moderator. jsdom's jar accepts what a browser rejects, so this test pins the DECISION
+// rather than the browser's behaviour, which is the most a unit test can do here.
+describe("the cookie's domain", () => {
+  it("is the shared parent domain in production, which is what makes one sign-in cover three hosts", () => {
+    expect(cookieDomain(false)).toBe(".enamelvault.com");
+  });
+
+  it("is absent in dev, because a browser refuses Domain=localhost", () => {
+    expect(cookieDomain(true)).toBeNull();
   });
 });
