@@ -533,3 +533,37 @@ describe("the image proxies never hand back storage's own content type", () => {
     expect(workerSource.match(/"Content-Type": imageContentType\(/g)?.length).toBe(2);
   });
 });
+
+// NO PAGE DESCRIPTION MAY DENY THE COOKIE THE APP NOW SETS.
+//
+// THIS IS WHERE THE CLAIM SURVIVED A FULL SWEEP. On 2026-10-26 the session moved into a cookie
+// and seven public "no cookies" statements were corrected in the same commit: both privacy
+// pages, the cookies page, three marketing footers and the README. The live /cookies page STILL
+// said "sets no cookies" afterwards, because the sentence search engines and link previews
+// actually show is the META DESCRIPTION in worker/meta.ts, and nothing read that file.
+//
+// It is the same shape as the two routers and the two apps: a guard covering several places
+// reports success for the place it cannot see. src/site.claims.test.ts reads the marketing
+// pages and the README; src/lib/browserStorage.test.ts reads src/**; neither glob reaches
+// worker/. This is that gap closed.
+//
+// Found by curling the live page rather than by trusting a green suite, which is the only
+// reason it was found at all.
+describe("the page descriptions do not deny the sign-in cookie", () => {
+  const descriptions = Object.entries(PUBLIC_PAGE_COPY).map(
+    ([path, meta]) => [path, (meta as { description: string }).description] as const,
+  );
+
+  it("has descriptions to read, since an empty list would guard nothing", () => {
+    expect(descriptions.length).toBeGreaterThan(0);
+  });
+
+  for (const [path, description] of descriptions) {
+    it(`${path} does not claim the app sets no cookies`, () => {
+      expect(
+        /\bno cookies\b|\bsets no cookie\b|\bwithout cookies\b/i.test(description),
+        `${path}'s description denies cookies, which src/pages/Cookies.tsx says in public that we set`,
+      ).toBe(false);
+    });
+  }
+});

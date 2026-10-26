@@ -111,7 +111,7 @@ export const PUBLIC_PAGE_COPY: Record<string, { title: string; description: stri
   "/cookies": {
     title: "Cookies and local storage",
     description:
-      "The Enamel Vault sets no cookies and runs no trackers. What it does keep in your browser, and why that needs no consent banner.",
+      "The Enamel Vault runs no trackers and sets one cookie, which keeps you signed in. What else it keeps in your browser, and why none of it needs a consent banner.",
   },
   "/help": {
     title: "Help",
