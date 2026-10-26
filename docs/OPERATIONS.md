@@ -1592,6 +1592,34 @@ it does, nothing has changed, whatever the ticket says.
 **Independently of all of it:** the address was public from 2026-09-25 to 2026-09-30. The person
 it belongs to should be told, and no garbage collection undoes that.
 
+### A white kitchen page with 403s on every asset is Cloudflare, not this code (seen once)
+
+Observed once, 2026-10-26 at about 21:26 UTC, in an automated browser: `kitchen.enamelvault.com`
+returned its HTML with **200** and then **403 on every subresource** (`theme-init.js`, both JS
+bundles, the CSS, a preloaded font) plus Cloudflare's own `/cdn-cgi/rum` beacon. The page
+rendered white. A reload a minute later was perfectly normal and the asset hashes were the same
+ones, so it was not a stale build.
+
+**What is ruled out, measured rather than assumed:**
+
+- **This repo's code.** The Worker returns no 403 anywhere; `grep -n "403" worker/*.ts` finds
+  nothing outside tests, and it never sees `/cdn-cgi/rum` at all, which is Cloudflare's own
+  endpoint.
+- **A broken deploy.** `curl` fetched every one of those URLs with 200 from the shell at the
+  same moment, including with the blocked client's own user agent and `Sec-Fetch-*` headers.
+- **Something host-specific about `/cdn-cgi/rum`.** A GET returns 405 on all three hosts; it is
+  POST-only. Its 403 was part of the burst, not a standing condition.
+- **The other two hosts.** `admin` and `recipes` were being driven by the same client minutes
+  either side and never saw it.
+
+So it was an edge-side block against that client for a window: Bot Fight Mode, a WAF rule or a
+burst limit. **The answer lives in Cloudflare's Security Events for the zone**, filtered to the
+minute, which is the one place that names the rule. Nothing in this repo can tell you.
+
+**If it recurs, that 403 pattern is the fingerprint**, and the thing worth knowing is whether a
+real visitor can hit it or only an automated one. A human reporting a blank kitchen page is a
+different incident from a bot being blocked, and the Security Events log distinguishes them.
+
 ### Known standing risks
 
 - **A FAMILY INVITE CODE CANNOT BE REVOKED FROM THE APP, and it never expires.** Every member
