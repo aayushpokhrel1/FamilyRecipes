@@ -1592,33 +1592,29 @@ it does, nothing has changed, whatever the ticket says.
 **Independently of all of it:** the address was public from 2026-09-25 to 2026-09-30. The person
 it belongs to should be told, and no garbage collection undoes that.
 
-### A white kitchen page with 403s on every asset is Cloudflare, not this code (seen once)
+### A white page with 403s on every asset is the automated browser, not this site (seen once)
 
-Observed once, 2026-10-26 at about 21:26 UTC, in an automated browser: `kitchen.enamelvault.com`
-returned its HTML with **200** and then **403 on every subresource** (`theme-init.js`, both JS
-bundles, the CSS, a preloaded font) plus Cloudflare's own `/cdn-cgi/rum` beacon. The page
-rendered white. A reload a minute later was perfectly normal and the asset hashes were the same
-ones, so it was not a stale build.
+Seen 2026-10-26 while walking production in an automated browser: `kitchen.enamelvault.com`
+returned its HTML with **200** and **403 on every subresource** (`theme-init.js`, both JS
+bundles, the CSS, a preloaded font) plus Cloudflare's own `/cdn-cgi/rum`. The page rendered
+white. A reload a minute later was normal, with the same asset hashes.
 
-**What is ruled out, measured rather than assumed:**
+**It was not this code and not Cloudflare, and the second half is measured.** The Worker returns
+no 403 anywhere (`grep -n "403" worker/*.ts` finds nothing outside tests) and never sees
+`/cdn-cgi/rum`. `curl` fetched every blocked URL with 200 at the same moment, including with the
+blocked client's own user agent. And `firewallEventsAdaptive` over the whole zone for
+21:20-21:35 UTC returns **zero events**, so no WAF rule, Bot Fight Mode or rate limit fired.
 
-- **This repo's code.** The Worker returns no 403 anywhere; `grep -n "403" worker/*.ts` finds
-  nothing outside tests, and it never sees `/cdn-cgi/rum` at all, which is Cloudflare's own
-  endpoint.
-- **A broken deploy.** `curl` fetched every one of those URLs with 200 from the shell at the
-  same moment, including with the blocked client's own user agent and `Sec-Fetch-*` headers.
-- **Something host-specific about `/cdn-cgi/rum`.** A GET returns 405 on all three hosts; it is
-  POST-only. Its 403 was part of the burst, not a standing condition.
-- **The other two hosts.** `admin` and `recipes` were being driven by the same client minutes
-  either side and never saw it.
+What remains is the browser itself: each 403 carried `net::ERR_ABORTED`, the host was one that
+browser had not visited before in that session, and the two hosts it had been driving for an
+hour were unaffected. That is an automation site-permission gate refusing subresources after
+allowing the navigation, not a property of this site. **A human visitor cannot hit it.**
 
-So it was an edge-side block against that client for a window: Bot Fight Mode, a WAF rule or a
-burst limit. **The answer lives in Cloudflare's Security Events for the zone**, filtered to the
-minute, which is the one place that names the rule. Nothing in this repo can tell you.
-
-**If it recurs, that 403 pattern is the fingerprint**, and the thing worth knowing is whether a
-real visitor can hit it or only an automated one. A human reporting a blank kitchen page is a
-different incident from a bot being blocked, and the Security Events log distinguishes them.
+**Why this entry still exists, having turned out to be nothing:** the next session to walk
+production in a browser will see the same white page and start debugging the kitchen app. The
+useful fingerprint is `ERR_ABORTED` beside each 403 and a clean `curl` for the same URL. If
+those two do NOT hold, it is a different incident and Security Events is then worth reading,
+with the query in this repo's history (`6c73667`).
 
 ### Known standing risks
 
