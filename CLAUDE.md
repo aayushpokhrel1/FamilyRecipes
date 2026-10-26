@@ -246,9 +246,12 @@ wrong document, failing once and then passing forever while guarding nothing.
   public documents are outside it on purpose, because a notice you can only read after
   consenting is not a notice; `join/:code` is public but gated, because joining a family is an
   action. `src/routes.terms.test.ts` reads `routes.tsx` and fails if an action route escapes.
-  **There are TWO routers and each needs its own guard**: that test read only the family's,
+  **There are THREE routers and each needs its own guard**: that test read only the family's,
   and the kitchen app shipped its entire surface ungated with the suite green, because a guard
-  covering one of two apps reports success for the app it cannot see.
+  covering one of several apps reports success for the app it cannot see. The console
+  (`src/admin/routes.guard.test.tsx`) is the third, and what it asserts is deliberately NOT
+  terms: that app has no terms gate because it is an operator tool, so its guard holds the
+  analogue, that no route escapes the gate it DOES have, which is the moderator check.
   `src/kitchen/routes.terms.test.tsx` now reads the kitchen's, which is structured as three
   bands (auth pages, the two documents, then everything inside one `GatedLayout`).
 - **Anything that must survive signing in goes in the URL, never in router state.** Three of
@@ -258,9 +261,14 @@ wrong document, failing once and then passing forever while guarding nothing.
   tidy-up: without it the sign-in page is an open redirector. The hosted Supabase redirect
   allow list needs a GLOBSTAR entry for `/auth/callback**`, or it silently substitutes the
   Site URL and the whole mechanism is inert; `docs/OPERATIONS.md` has the measurement.
-- **This repo holds TWO apps and they share no data.** The family app is `index.html` plus
-  `src/`; the professional-kitchen app is `kitchen.html` plus `src/kitchen/` and
-  `src/lib/api/kitchen/`, on its own host and in its own Postgres schema. The kitchen app may
+- **This repo holds THREE apps.** The family app is `index.html` plus `src/`; the
+  professional-kitchen app is `kitchen.html` plus `src/kitchen/` and `src/lib/api/kitchen/`,
+  on its own host and in its own Postgres schema; the moderation console is `admin.html` plus
+  `src/admin/` on `admin.enamelvault.com`. **The family and kitchen apps share no data**; the
+  console reads the family's and reaches the kitchen's only counts-only through the `admin`
+  edge function, which stays the single sanctioned crossing.
+  **All three share ONE SESSION** since 2026-10-26: it lives in a cookie on `.enamelvault.com`
+  (`src/lib/sessionCookie.ts`), not in `localStorage`, so one sign-in covers all of them. The kitchen app may
   import `auth.ts` and `kitchen/*` from `src/lib/api/` and nothing else, and `auth.ts` must
   stay free of family imports; `supabase/kitchen_seal.test.ts` fails on either, and on any
   migration outside its named bridge inventory that reaches across. **It follows transitive

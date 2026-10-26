@@ -603,7 +603,13 @@ async function enrichRecipePage(request: Request, env: Env, id: string): Promise
 
 // Security headers, added to every response this Worker returns.
 //
-// The one that does real work is the Content-Security-Policy. Session tokens live in
+// The one that does real work is the Content-Security-Policy, and since 2026-10-26 it does MORE
+// of it. The session moved from localStorage into a cookie on `.enamelvault.com` so that one
+// sign-in covers all three apps, and that cookie cannot be HttpOnly because supabase-js reads
+// it. So an injected script no longer reads one origin's session, it reads the session for
+// every host under that domain, the moderation console included. This header is what stands
+// between that and an attacker; src/lib/sessionCookie.ts states the trade in full. Session
+// tokens used to live in
 // localStorage, so an injected script could read a session and act as that person, and since
 // a moderator account can list every email and delete accounts, that is the worst case in this
 // app. React escapes by default and nothing here uses dangerouslySetInnerHTML, so there is no

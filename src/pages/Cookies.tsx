@@ -2,13 +2,21 @@ import { Link } from "react-router-dom";
 import { CONTACT_EMAIL, COOKIES_UPDATED } from "../lib/legal";
 
 // There is no cookie banner in this app, and that is a deliberate consequence of this page
-// being TRUE: the app sets no cookies, and the only browser storage it uses is strictly
-// necessary, which UK/EU law exempts from consent. The banner is not skipped, it is unnecessary.
+// being TRUE: everything the app stores, the one cookie included, is STRICTLY NECESSARY, which
+// UK/EU law exempts from consent. The banner is not skipped, it is unnecessary.
+//
+// UPDATED 2026-10-26, when the session moved out of localStorage into a cookie on
+// `.enamelvault.com` so that one sign-in covers all three apps. A cookie whose only job is to
+// keep you signed in to the thing you just signed in to is strictly necessary, so the exemption
+// still applies and no banner appeared. What changed is that "this app sets no cookies", which
+// this comment and seven public statements used to say, is now false and has been corrected
+// everywhere. src/lib/sessionCookie.ts holds the security trade that cookie makes.
 //
 // THE DAY THAT STOPS BEING TRUE, A BANNER BECOMES MANDATORY. It stops being true the moment
-// anyone adds analytics, an ad script, an embedded video, a social widget, or any storage that
-// is not required for a feature the user asked for. The keys listed below are the whole set;
-// they are asserted by src/lib/browserStorage.test.ts, which fails when a new one appears.
+// anyone adds analytics, an ad script, an embedded video, a social widget, a SECOND cookie, or
+// any storage that is not required for a feature the user asked for. The keys and the one
+// cookie listed below are the whole set; src/lib/browserStorage.test.ts allows exactly one
+// named file to write a cookie and fails when anything else appears.
 export default function Cookies() {
   return (
     <div className="prose plate">

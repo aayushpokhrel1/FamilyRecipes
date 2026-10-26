@@ -91,10 +91,12 @@ Designed for portability: **all data access is isolated in `src/lib/api/`**, and
 it imports the Supabase client, so moving to a self-owned Node/Express + Postgres backend later
 is a bounded swap.
 
-This repo builds **two apps from one Worker**: the family app (`index.html`, `src/`) on
-`recipes.enamelvault.com`, and the professional-kitchen app (`kitchen.html`, `src/kitchen/`,
-`src/lib/api/kitchen/`) on `kitchen.enamelvault.com`, plus three static marketing pages on
-the bare domain (see below). The two apps share tokens, presentational components
+This repo builds **three apps from one Worker**: the family app (`index.html`, `src/`) on
+`recipes.enamelvault.com`, the professional-kitchen app (`kitchen.html`, `src/kitchen/`,
+`src/lib/api/kitchen/`) on `kitchen.enamelvault.com`, and the moderation console
+(`admin.html`, `src/admin/`) on `admin.enamelvault.com`, plus three static marketing pages on
+the bare domain (see below). They share one sign-in, through a cookie on `.enamelvault.com`.
+The family and kitchen apps share tokens, presentational components
 and the auth plumbing, and share NO data: the kitchen's tables live in their own Postgres
 schema and `supabase/kitchen_seal.test.ts` fails if either side reaches into the other.
 
