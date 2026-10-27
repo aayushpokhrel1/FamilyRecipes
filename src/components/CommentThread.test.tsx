@@ -65,3 +65,19 @@ test("offers no Delete at all to a signed-out reader", async () => {
     viewer.userId = "me";
   }
 });
+
+// THE RAW TIMESTAMP SHIPPED, and it shipped because every test here asked about buttons.
+// "2026-10-27T02:34:18.858908+00:00" sat under every comment in the app until a browser walk
+// on 2026-10-26 looked at one. created_at is a string whether it is formatted or not, so
+// nothing could fail.
+test("shows a readable date rather than the database's timestamp", async () => {
+  listComments.mockResolvedValue([
+    { ...comment("c1", "me", "Lovely"), created_at: "2026-10-27T02:34:18.858908+00:00" },
+  ]);
+  render(<CommentThread recipeId="r1" />);
+  expect(await screen.findByText("Lovely")).toBeInTheDocument();
+  expect(screen.queryByText(/2026-10-27T02:34/)).not.toBeInTheDocument();
+  // The year is the stable part of any locale's rendering of that instant; the month and day
+  // move with the reader's timezone, which is correct and is why they are not asserted.
+  expect(screen.getByText(/2026/)).toBeInTheDocument();
+});
