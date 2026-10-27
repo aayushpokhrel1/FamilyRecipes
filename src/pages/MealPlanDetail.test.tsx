@@ -205,3 +205,60 @@ test("offers a relative viewing a shared plan nothing it cannot carry out", asyn
     viewer.userId = "me";
   }
 });
+
+// AN ITEM WITH NO DAY IS INVISIBLE IN THE WEEK GRID, and the grocery list below it is not.
+//
+// "Add to plan" on a recipe page creates exactly that item: day and meal_slot null, so you can
+// gather recipes before deciding when to cook them. In the calendar view it appeared nowhere,
+// while the plan's own grocery list already listed its ingredients, and My Kitchen said there
+// was nothing to buy because it filters by day. Three surfaces, three different answers about
+// the same week. Found by walking a fresh account in a browser on 2026-10-26.
+test("the calendar view says when a recipe is not on a day yet", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  const rp = await import("../lib/api/recipes");
+  (mp.listPlans as any).mockResolvedValue([
+    { id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "calendar",
+      is_shared: false, checked_items: [], start_date: "2026-09-28", length_days: 3,
+      created_at: "", updated_at: "" },
+  ]);
+  (rp.listRecipes as any).mockResolvedValue([{ id: "r1", title: "Dal", servings: 4 }]);
+  (mp.listItems as any).mockResolvedValue([
+    { id: "i1", plan_id: "p1", recipe_id: "r1", day: null, meal_slot: null,
+      position: 0, servings: null, leftover_of: null },
+  ]);
+
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText(/1 recipe is not on a day yet/i)).toBeInTheDocument();
+  // And the way out is one tap, not a hunt: the same control that switches to the list view,
+  // which is where a day can actually be set.
+  expect(screen.getByRole("button", { name: /put it on a day/i })).toBeInTheDocument();
+});
+
+test("the calendar view says nothing when every recipe has a day", async () => {
+  const mp = await import("../lib/api/mealPlans");
+  const rp = await import("../lib/api/recipes");
+  (mp.listPlans as any).mockResolvedValue([
+    { id: "p1", owner_id: "me", family_id: "f1", name: "This week", view_mode: "calendar",
+      is_shared: false, checked_items: [], start_date: "2026-09-28", length_days: 3,
+      created_at: "", updated_at: "" },
+  ]);
+  (rp.listRecipes as any).mockResolvedValue([{ id: "r1", title: "Dal", servings: 4 }]);
+  (mp.listItems as any).mockResolvedValue([
+    { id: "i1", plan_id: "p1", recipe_id: "r1", day: "2026-09-28", meal_slot: "dinner",
+      position: 0, servings: null, leftover_of: null },
+  ]);
+
+  render(
+    <MemoryRouter initialEntries={["/kitchen/p1"]}>
+      <Routes><Route path="/kitchen/:id" element={<MealPlanDetail />} /></Routes>
+    </MemoryRouter>,
+  );
+
+  await screen.findByRole("button", { name: /move dal/i });
+  expect(screen.queryByText(/not on a day yet/i)).not.toBeInTheDocument();
+});

@@ -47,8 +47,15 @@ function appDevHosts(): Plugin {
         const isModuleOrFile =
           url.startsWith('/@') || url.startsWith('/src/') || url.startsWith('/node_modules/') ||
           /\.[a-z0-9]+(\?|$)/i.test(url)
-        const shell = SHELLS[host]
-        if (shell && !isModuleOrFile) req.url = shell
+        // A HOST WITH NO SHELL OF ITS OWN IS THE FAMILY APP, AND IT GETS index.html FOR
+        // EVERY PAGE PATH. Without the fallback, Vite resolves /kitchen to the kitchen.html
+        // sitting at the repo root, so the family app's own "My Kitchen" route served the
+        // professional kitchen app in dev. Production had the identical bug through
+        // Cloudflare's html_handling (fixed in wrangler.jsonc on 2026-10-26, measured on
+        // the live site), and dev would otherwise keep it: this file exists precisely so
+        // that dev and production route the same way.
+        const shell = SHELLS[host] ?? '/index.html'
+        if (!isModuleOrFile) req.url = shell
         next()
       })
     },

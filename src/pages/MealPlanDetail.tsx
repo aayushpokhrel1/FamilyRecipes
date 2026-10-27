@@ -312,6 +312,9 @@ export default function MealPlanDetail() {
   }
 
   const showGrid = plan.view_mode === "calendar" && days.length > 0;
+  // Items the week grid has nowhere to draw. The list view shows them under "Unscheduled";
+  // the calendar view used to show nothing at all, which is the bug the note below fixes.
+  const unscheduled = items.filter((it) => !it.day);
 
   return (
     <div>
@@ -379,6 +382,28 @@ export default function MealPlanDetail() {
               </Fragment>
             ))}
           </div>
+          {/* THE GRID CANNOT DRAW AN ITEM WITH NO DAY, so it has to say that one exists.
+              "Add to plan" on a recipe page creates exactly that: an item with day and
+              meal_slot null, on purpose, so you can gather recipes before deciding when to
+              cook them. In the calendar view that item was simply invisible, while the
+              grocery list below it already counted the ingredients, so the plan asked you to
+              buy tomatoes for a recipe that appeared nowhere on the week. Found walking a
+              fresh account on 2026-10-26. */}
+          {unscheduled.length > 0 && (
+            <p className="vault-note" role="status">
+              {unscheduled.length === 1
+                ? "1 recipe is not on a day yet"
+                : `${unscheduled.length} recipes are not on a day yet`}
+              {canEdit && (
+                <>
+                  {" "}
+                  <button type="button" onClick={handleToggleView}>
+                    Put {unscheduled.length === 1 ? "it" : "them"} on a day
+                  </button>
+                </>
+              )}
+            </p>
+          )}
         </DndContext>
       ) : plan.view_mode === "list" ? (
         <ul className="stack">
