@@ -67,7 +67,17 @@ export default function TagPicker({
             {t.name}
           </button>
         ))}
-        {shown.length === 0 && <p className="vault-note">No tag matches that.</p>}
+        {/* TWO DIFFERENT EMPTY STATES, and the wrong one shipped to every new cook. With no
+            tags at all, "No tag matches that" answers a question nobody asked: the filter box
+            above only renders past twelve tags, so a first-time cook was being told their
+            search had failed while no search box existed on the page. Found on a fresh account
+            in a browser, 2026-10-26, which is the only way this one was ever going to show up:
+            with any tags in the account it is unreachable. */}
+        {shown.length === 0 && (
+          <p className="vault-note">
+            {needle ? "No tag matches that." : "No tags yet. Add one below."}
+          </p>
+        )}
       </div>
       <input
         value={name}

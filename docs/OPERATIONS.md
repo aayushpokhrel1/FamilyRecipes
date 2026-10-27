@@ -1592,6 +1592,27 @@ it does, nothing has changed, whatever the ticket says.
 **Independently of all of it:** the address was public from 2026-09-25 to 2026-09-30. The person
 it belongs to should be told, and no garbage collection undoes that.
 
+### After a deploy, check that each host still serves ITS OWN app
+
+Three HTML entries live at the repo root (`index.html`, `kitchen.html`, `admin.html`), and
+Cloudflare's asset layer will serve `kitchen.html` for the path `/kitchen` unless told not to.
+It was telling it not to from 2026-10-26 (`"html_handling": "none"` in `wrangler.jsonc`, pinned
+by `worker/assets.config.test.ts`), after this shipped and ran unnoticed:
+
+```bash
+for p in /kitchen /admin /site; do curl -s "https://recipes.enamelvault.com$p" | grep -o '<title>[^<]*</title>'; done
+```
+
+**All three must print `<title>Family Recipes</title>`.** Before the fix they printed the
+kitchen app, the console and the marketing template, and `/kitchen` is a REAL route in the
+family app, the "My Kitchen" link in its own nav: a cook who reloaded that page or opened it in
+a new tab got the professional kitchen app answering "That page is not here".
+
+**No test in this repo can catch the behaviour**, only the configuration. React-router never
+asks the server, so every click-through and the whole unit suite pass while a full page load is
+broken. That is why this check is a deploy step rather than a test, and why it was found by
+walking the app on a fresh account rather than by CI.
+
 ### A white page with 403s on every asset is the automated browser, not this site (seen once)
 
 Seen 2026-10-26 while walking production in an automated browser: `kitchen.enamelvault.com`

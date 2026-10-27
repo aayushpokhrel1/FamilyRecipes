@@ -49,3 +49,15 @@ test("a filter that matches nothing says so rather than showing an empty gap", a
   await userEvent.type(await screen.findByRole("textbox", { name: /filter tags/i }), "zzz");
   expect(await screen.findByText(/no tag matches/i)).toBeInTheDocument();
 });
+
+// THE FIRST-RUN CASE, which only a fresh account can reach: an account with any tags at all
+// never sees this branch, which is why it shipped saying the wrong thing.
+test("an account with no tags is not told its search failed", async () => {
+  listTags.mockResolvedValue([]);
+  render(<TagPicker familyId="f1" value={[]} onChange={() => {}} />);
+  expect(await screen.findByText(/no tags yet/i)).toBeInTheDocument();
+  // There is no filter box on screen below twelve tags, so a message about a search that
+  // matched nothing is answering a question the cook was never asked.
+  expect(screen.queryByRole("textbox", { name: /filter tags/i })).not.toBeInTheDocument();
+  expect(screen.queryByText(/no tag matches/i)).not.toBeInTheDocument();
+});

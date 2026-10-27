@@ -46,6 +46,28 @@
     // where before they would still have served. That is the trade, and it is the right way
     // round: the Worker is already the only thing that answers for every route except the
     // handful of real files, so almost nothing was independent of it anyway.
+    // NO AUTOMATIC `.html` RESOLUTION, AND THIS IS A BUG FIX RATHER THAN A PREFERENCE.
+    //
+    // The default ("auto-trailing-slash") serves `kitchen.html` for the path `/kitchen`, and
+    // this repo ships three HTML entries at the root: index.html, kitchen.html, admin.html.
+    // So on recipes.enamelvault.com, measured on production 2026-10-26:
+    //
+    //     /kitchen -> <title>Enamel Vault for kitchens</title>
+    //     /admin   -> <title>Enamel Vault console</title>
+    //     /site    -> the marketing TEMPLATE, rack placeholder and all
+    //
+    // `/kitchen` is a real route in the family app, the "My Kitchen" link in its own nav. A
+    // cook who reloaded that page, opened it in a new tab or used a bookmark was handed the
+    // professional kitchen app, which then said "That page is not here". Clicking the link
+    // worked, because react-router never asks the server, which is exactly why this survived:
+    // it is invisible to every click-through test and to the whole unit suite.
+    //
+    // route() already refuses `/kitchen.html` and `/site.html` as paths. That was the right
+    // instinct and it was not enough: it never saw the extensionless form the asset layer
+    // invented. With "none" an unmatched path falls to not_found_handling, which is the SPA
+    // shell for the host the Worker is serving, and the Worker's own internal fetches name
+    // the entries exactly, so they still resolve.
+    "html_handling": "none",
     "run_worker_first": true
   }
 }
